@@ -41,11 +41,18 @@ Minimal `.crofty/config.json`:
 Run inside a crofty project:
 
 ```sh
+crofty validate  # check your Markdown against the crofty spec (v0)
 crofty build     # render the site to ./dist
 crofty deploy    # publish ./dist to your Cloudflare Pages project
 ```
 
-`validate`, `publish`, and `eject` are planned for later milestones.
+`crofty validate [path ...]` (default `./content`) reports, in field order,
+what does not match the spec and how to fix it — in plain language you can act
+on by hand or hand to any assistant. It is side-effect-free; `--json` emits the
+same findings as structured output for tools. It exits non-zero when any
+blocking error is found.
+
+`publish` and `eject` are planned for later milestones.
 
 The bundled theme is static and ships no JavaScript or trackers. The build
 output is a plain Hugo project, so you can take it and run `hugo` yourself

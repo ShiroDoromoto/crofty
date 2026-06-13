@@ -6,11 +6,6 @@ import "fmt"
 // scriptable now, implemented in later milestones. They are deliberately not
 // errors: invoking one prints what it will do and exits cleanly.
 
-func runValidate(args []string) error {
-	return notYet("validate", "M2",
-		"checks your Markdown against the crofty spec and prints neutral, source-agnostic fix guidance")
-}
-
 func runPublish(args []string) error {
 	return notYet("publish", "M3",
 		"syndicates title+description fragments to platforms with a canonical link back to your own site (it never sends the body)")
