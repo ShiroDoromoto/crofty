@@ -1,0 +1,4 @@
+name = "crofty"
+license = "MIT"
+min_version = "0.110.0"
+description = "Default crofty theme — static, no-JS, no trackers."
