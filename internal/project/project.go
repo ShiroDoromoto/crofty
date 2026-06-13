@@ -1,0 +1,91 @@
+// Package project resolves a crofty project on disk: the root, its crofty-
+// specific config, and the working paths used by build and deploy.
+package project
+
+import (
+	"encoding/json"
+	"errors"
+	"fmt"
+	"os"
+	"path/filepath"
+)
+
+// MarkerDir is the per-project crofty working directory. Its presence marks a
+// project root. It holds tool state (and, later, keys) and is never part of the
+// rendered output, so secrets cannot ride along to deploy.
+const MarkerDir = ".crofty"
+
+// ConfigFile holds crofty-specific settings as JSON inside MarkerDir. Hugo's own
+// config (hugo.yaml) stays standard and untouched so the project remains a
+// plain, ejectable Hugo project.
+const ConfigFile = "config.json"
+
+// Config is the crofty-specific project config. Hugo settings (baseURL, title)
+// live in hugo.yaml and are read by Hugo directly, not here.
+type Config struct {
+	Deploy DeployConfig `json:"deploy"`
+}
+
+// DeployConfig describes where a build is published.
+type DeployConfig struct {
+	// Provider is the deploy backend. M1 supports "cloudflare" (Pages).
+	Provider string `json:"provider"`
+	// Project is the Cloudflare Pages project name.
+	Project string `json:"project"`
+}
+
+// Project is a resolved crofty project rooted at Root.
+type Project struct {
+	Root string
+}
+
+// ErrNotFound is returned when no MarkerDir is found walking up from a start dir.
+var ErrNotFound = errors.New("not inside a crofty project (no .crofty/ found in this or any parent directory)")
+
+// Find walks up from start looking for the MarkerDir, so build and deploy work
+// from any subdirectory of a project.
+func Find(start string) (*Project, error) {
+	dir, err := filepath.Abs(start)
+	if err != nil {
+		return nil, err
+	}
+	for {
+		marker := filepath.Join(dir, MarkerDir)
+		if fi, err := os.Stat(marker); err == nil && fi.IsDir() {
+			return &Project{Root: dir}, nil
+		}
+		parent := filepath.Dir(dir)
+		if parent == dir {
+			return nil, ErrNotFound
+		}
+		dir = parent
+	}
+}
+
+// ConfigPath is the absolute path to the crofty config file.
+func (p *Project) ConfigPath() string {
+	return filepath.Join(p.Root, MarkerDir, ConfigFile)
+}
+
+// ThemesDir is where crofty materializes the bundled theme at build time.
+func (p *Project) ThemesDir() string {
+	return filepath.Join(p.Root, MarkerDir, "themes")
+}
+
+// DistDir is the build output directory — the only thing deploy uploads.
+func (p *Project) DistDir() string {
+	return filepath.Join(p.Root, "dist")
+}
+
+// LoadConfig reads and parses .crofty/config.json.
+func (p *Project) LoadConfig() (*Config, error) {
+	b, err := os.ReadFile(p.ConfigPath())
+	if err != nil {
+		return nil, err
+	}
+	var c Config
+	if err := json.Unmarshal(b, &c); err != nil {
+		return nil, fmt.Errorf("parsing %s: %w", p.ConfigPath(), err)
+	}
+	return &c, nil
+}

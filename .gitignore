@@ -1,1 +1,15 @@
+# Non-public design docs and scratch
 /doc/wip/
+/.prompt/
+/.idea/
+
+# Compiled crofty binary
+/crofty
+
+# Dogfood site instance (user content + deploy config; lives here only as a
+# working copy for now, not part of the public product)
+/site/
+
+# Build output and per-project tool state (in case a project lives in-repo)
+/dist/
+/.crofty/

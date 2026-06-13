@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html lang="{{ or site.Language.Locale "en" }}">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{{ if .IsHome }}{{ site.Title }}{{ else }}{{ .Title }} · {{ site.Title }}{{ end }}</title>
+  {{ with or .Description site.Params.description }}<meta name="description" content="{{ . }}">{{ end }}
+  {{ range .AlternativeOutputFormats }}<link rel="{{ .Rel }}" type="{{ .MediaType.Type }}" href="{{ .Permalink }}" title="{{ site.Title }}">
+  {{ end -}}
+  <link rel="stylesheet" href="{{ "css/crofty.css" | relURL }}">
+</head>
+<body>
+  <header class="site-header">
+    <a class="site-title" href="{{ "/" | relURL }}">{{ site.Title }}</a>
+    {{ with site.Menus.main }}
+    <nav>{{ range . }}<a href="{{ .URL | relURL }}">{{ .Name }}</a>{{ end }}</nav>
+    {{ end }}
+  </header>
+  <main class="content">
+    {{ block "main" . }}{{ end }}
+  </main>
+  <footer class="site-footer">
+    <p>{{ with site.Copyright }}{{ . }}{{ else }}{{ site.Title }}{{ end }}</p>
+  </footer>
+</body>
+</html>

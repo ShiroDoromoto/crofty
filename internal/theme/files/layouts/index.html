@@ -1,0 +1,19 @@
+{{ define "main" }}
+<article class="landing">
+  {{ .Content }}
+  {{ $posts := where site.RegularPages "Section" "posts" }}
+  {{ with $posts }}
+  <section class="recent">
+    <h2>Writing</h2>
+    <ul class="post-list">
+      {{ range first 10 . }}
+      <li>
+        <a href="{{ .RelPermalink }}">{{ .Title }}</a>
+        {{ with .Date }}<time datetime="{{ .Format "2006-01-02" }}">{{ .Format "Jan 2, 2006" }}</time>{{ end }}
+      </li>
+      {{ end }}
+    </ul>
+  </section>
+  {{ end }}
+</article>
+{{ end }}
