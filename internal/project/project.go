@@ -23,7 +23,13 @@ const ConfigFile = "config.json"
 // Config is the crofty-specific project config. Hugo settings (baseURL, title)
 // live in hugo.yaml and are read by Hugo directly, not here.
 type Config struct {
-	Deploy DeployConfig `json:"deploy"`
+	// Workspace is a stable id used to namespace keychain entries (A5). It is
+	// assigned once and never contains secrets.
+	Workspace string       `json:"workspace,omitempty"`
+	Deploy    DeployConfig `json:"deploy"`
+	// Targets holds non-secret per-destination settings; credentials live in the
+	// keychain, never here.
+	Targets map[string]TargetConfig `json:"targets,omitempty"`
 }
 
 // DeployConfig describes where a build is published.
@@ -32,6 +38,16 @@ type DeployConfig struct {
 	Provider string `json:"provider"`
 	// Project is the Cloudflare Pages project name.
 	Project string `json:"project"`
+	// Branch is the Cloudflare Pages production branch to deploy to. Empty means
+	// "main". This pins deploys to production regardless of the local git branch.
+	Branch string `json:"branch,omitempty"`
+}
+
+// TargetConfig is the non-secret configuration of a syndication destination.
+type TargetConfig struct {
+	Type   string `json:"type"`             // "bluesky" | "mastodon"
+	Handle string `json:"handle"`           // non-secret account identifier
+	Server string `json:"server,omitempty"` // instance/PDS base URL
 }
 
 // Project is a resolved crofty project rooted at Root.
@@ -77,6 +93,11 @@ func (p *Project) DistDir() string {
 	return filepath.Join(p.Root, "dist")
 }
 
+// StatePath is the publish ledger location; plain, non-secret, deploy-excluded.
+func (p *Project) StatePath() string {
+	return filepath.Join(p.Root, MarkerDir, "state.json")
+}
+
 // LoadConfig reads and parses .crofty/config.json.
 func (p *Project) LoadConfig() (*Config, error) {
 	b, err := os.ReadFile(p.ConfigPath())
@@ -88,4 +109,17 @@ func (p *Project) LoadConfig() (*Config, error) {
 		return nil, fmt.Errorf("parsing %s: %w", p.ConfigPath(), err)
 	}
 	return &c, nil
+}
+
+// SaveConfig writes the config back to .crofty/config.json, creating the marker
+// directory if needed. It never contains secrets (those live in the keychain).
+func (p *Project) SaveConfig(c *Config) error {
+	if err := os.MkdirAll(filepath.Join(p.Root, MarkerDir), 0o755); err != nil {
+		return err
+	}
+	b, err := json.MarshalIndent(c, "", "  ")
+	if err != nil {
+		return err
+	}
+	return os.WriteFile(p.ConfigPath(), append(b, '\n'), 0o644)
 }

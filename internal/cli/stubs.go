@@ -6,11 +6,6 @@ import "fmt"
 // scriptable now, implemented in later milestones. They are deliberately not
 // errors: invoking one prints what it will do and exits cleanly.
 
-func runPublish(args []string) error {
-	return notYet("publish", "M3",
-		"syndicates title+description fragments to platforms with a canonical link back to your own site (it never sends the body)")
-}
-
 func runEject(args []string) error {
 	return notYet("eject", "a later milestone",
 		"writes the bundled theme into ./themes so what remains is a plain Hugo project you fully own")

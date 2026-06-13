@@ -2,6 +2,7 @@ package spec
 
 import (
 	"errors"
+	"os"
 	"strings"
 
 	"gopkg.in/yaml.v3"
@@ -17,38 +18,58 @@ type Frontmatter map[string]any
 // bom is the UTF-8 byte-order mark, stripped before parsing if present.
 const bom = "\ufeff"
 
-// parseFrontmatter splits a leading `---` YAML block from src and parses it.
-// Only YAML front matter (delimited by lines of exactly `---`) is supported in
-// v0; that is what spec v0 mandates.
-func parseFrontmatter(src []byte) (Frontmatter, error) {
+// split separates the YAML front matter block from the body. The block is
+// returned without its `---` delimiters; the body is everything after the
+// closing `---` line. Only YAML front matter is supported in v0.
+func split(src []byte) (block, body string, err error) {
 	s := strings.ReplaceAll(string(src), "\r\n", "\n")
 	s = strings.TrimPrefix(s, bom)
-
-	if !strings.HasPrefix(s, "---\n") && s != "---" {
-		return nil, ErrNoFrontmatter
+	if !strings.HasPrefix(s, "---\n") {
+		return "", "", ErrNoFrontmatter
 	}
-	body := strings.TrimPrefix(s, "---\n")
-
-	// Collect lines until a closing line of exactly `---`.
-	var block []string
-	closed := false
-	for _, ln := range strings.Split(body, "\n") {
+	lines := strings.Split(s[len("---\n"):], "\n")
+	for i, ln := range lines {
 		if strings.TrimRight(ln, " \t") == "---" {
-			closed = true
-			break
+			return strings.Join(lines[:i], "\n"), strings.Join(lines[i+1:], "\n"), nil
 		}
-		block = append(block, ln)
 	}
-	if !closed {
-		return nil, ErrNoFrontmatter
-	}
+	return "", "", ErrNoFrontmatter
+}
 
+// parseFrontmatter parses the leading YAML front matter of src.
+func parseFrontmatter(src []byte) (Frontmatter, error) {
+	block, _, err := split(src)
+	if err != nil {
+		return nil, err
+	}
 	var fm Frontmatter
-	if err := yaml.Unmarshal([]byte(strings.Join(block, "\n")), &fm); err != nil {
+	if err := yaml.Unmarshal([]byte(block), &fm); err != nil {
 		return nil, err
 	}
 	if fm == nil {
 		fm = Frontmatter{}
 	}
 	return fm, nil
+}
+
+// ParseFile reads path and returns its parsed front matter and the body bytes
+// (everything after the closing `---`). The body is read locally — callers that
+// syndicate must still send only fragment fields, never the body (spec §1).
+func ParseFile(path string) (Frontmatter, []byte, error) {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return nil, nil, err
+	}
+	block, body, err := split(data)
+	if err != nil {
+		return nil, nil, err
+	}
+	var fm Frontmatter
+	if err := yaml.Unmarshal([]byte(block), &fm); err != nil {
+		return nil, nil, err
+	}
+	if fm == nil {
+		fm = Frontmatter{}
+	}
+	return fm, []byte(body), nil
 }

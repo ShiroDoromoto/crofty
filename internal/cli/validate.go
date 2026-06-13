@@ -24,11 +24,11 @@ func runValidate(args []string) error {
 		fmt.Println("\nFlags:")
 		fs.PrintDefaults()
 	}
-	if err := fs.Parse(args); err != nil {
+	targets, err := parseArgs(fs, args)
+	if err != nil {
 		return err
 	}
 
-	targets := fs.Args()
 	var contentRoot string
 	if len(targets) == 0 {
 		cwd, err := os.Getwd()

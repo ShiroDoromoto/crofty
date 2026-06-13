@@ -44,6 +44,8 @@ Run inside a crofty project:
 crofty validate  # check your Markdown against the crofty spec (v0)
 crofty build     # render the site to ./dist
 crofty deploy    # publish ./dist to your Cloudflare Pages project
+crofty targets   # add/list/test syndication destinations (your own accounts)
+crofty publish   # syndicate a post's fragment to those destinations
 ```
 
 `crofty validate [path ...]` (default `./content`) reports, in field order,
@@ -52,7 +54,14 @@ on by hand or hand to any assistant. It is side-effect-free; `--json` emits the
 same findings as structured output for tools. It exits non-zero when any
 blocking error is found.
 
-`publish` and `eject` are planned for later milestones.
+`crofty publish <post>` syndicates only a fragment — the title, a summary, and a
+link back to your site — to the destinations in the post's `crofty.targets` (or
+`--to`). The body is never sent. It shows a confirmation preview before posting,
+and records what went where so re-running never double-posts. Destinations are
+configured with `crofty targets add`, which stores credentials in your OS
+keychain (never in the project, never sent anywhere of ours).
+
+`eject` is planned for a later milestone.
 
 The bundled theme is static and ships no JavaScript or trackers. The build
 output is a plain Hugo project, so you can take it and run `hugo` yourself

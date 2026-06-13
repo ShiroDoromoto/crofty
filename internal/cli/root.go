@@ -2,6 +2,7 @@ package cli
 
 import (
 	"errors"
+	"flag"
 	"fmt"
 	"os"
 )
@@ -25,7 +26,8 @@ func commands() []command {
 		{"build", "Render the site to ./dist with Hugo", runBuild},
 		{"deploy", "Publish ./dist to your Cloudflare Pages project", runDeploy},
 		{"validate", "Check content against the crofty spec (v0)", runValidate},
-		{"publish", "Syndicate fragments to platforms (M3)", runPublish},
+		{"targets", "Manage syndication destinations (your own accounts)", runTargets},
+		{"publish", "Syndicate a post's fragment to your destinations", runPublish},
 		{"eject", "Convert to a plain Hugo project (later)", runEject},
 	}
 }
@@ -58,6 +60,23 @@ func Run(args []string) int {
 	fmt.Fprintf(os.Stderr, "crofty: unknown command %q\n\n", args[0])
 	usage()
 	return 2
+}
+
+// parseArgs parses a flag set while allowing flags and positional arguments to
+// be interspersed (stdlib flag stops at the first positional). It returns the
+// positional arguments in order.
+func parseArgs(fs *flag.FlagSet, args []string) ([]string, error) {
+	var positional []string
+	for {
+		if err := fs.Parse(args); err != nil {
+			return nil, err
+		}
+		if fs.NArg() == 0 {
+			return positional, nil
+		}
+		positional = append(positional, fs.Arg(0))
+		args = fs.Args()[1:]
+	}
 }
 
 func usage() {
