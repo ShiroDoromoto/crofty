@@ -61,7 +61,9 @@ func runBuild(args []string) error {
 	fmt.Println()
 	fmt.Println("✓ built →", proj.DistDir())
 	warnFutureDated(filepath.Join(proj.Root, "content"), time.Now())
-	fmt.Println("next: crofty deploy")
+	fmt.Println("next:")
+	fmt.Println("  crofty preview     # look at it locally first (no account)")
+	fmt.Println("  crofty deploy      # put it online (connects a free Cloudflare account)")
 	return nil
 }
 

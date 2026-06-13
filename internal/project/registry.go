@@ -1,0 +1,106 @@
+package project
+
+import (
+	"encoding/json"
+	"os"
+	"path/filepath"
+	"sort"
+)
+
+// DefaultBase is the OS-standard, user-visible folder where crofty creates a
+// project when given a bare name. It deliberately ignores the current working
+// directory: a first-timer (and their agent, started in some arbitrary dir)
+// can't be assumed to know or control where the shell is, so projects go to one
+// predictable, announced place instead (see 07 O2).
+func DefaultBase() (string, error) {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return "", err
+	}
+	// macOS/Linux: ~/Documents/Crofty. On Windows UserHomeDir is %USERPROFILE%,
+	// so this lands in Documents there too; refine per-OS later.
+	return filepath.Join(home, "Documents", "Crofty"), nil
+}
+
+// registryPath is the global, non-secret list of project locations. It lets any
+// agent find projects from any directory, across sessions, without relying on
+// the agent's memory or on the user knowing a path (see 07 O3).
+func registryPath() (string, error) {
+	cfg, err := os.UserConfigDir()
+	if err != nil {
+		return "", err
+	}
+	return filepath.Join(cfg, "crofty", "projects.json"), nil
+}
+
+type registry struct {
+	Projects []string `json:"projects"`
+}
+
+func readRegistry(path string) registry {
+	var reg registry
+	if b, err := os.ReadFile(path); err == nil {
+		_ = json.Unmarshal(b, &reg)
+	}
+	return reg
+}
+
+// RegisterProject records an absolute project path in the global registry so
+// later sessions can discover it. It is idempotent and holds no secrets.
+func RegisterProject(abs string) error {
+	path, err := registryPath()
+	if err != nil {
+		return err
+	}
+	reg := readRegistry(path)
+	for _, p := range reg.Projects {
+		if p == abs {
+			return nil
+		}
+	}
+	reg.Projects = append(reg.Projects, abs)
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		return err
+	}
+	b, err := json.MarshalIndent(reg, "", "  ")
+	if err != nil {
+		return err
+	}
+	return os.WriteFile(path, append(b, '\n'), 0o644)
+}
+
+// KnownProjects returns existing crofty project roots, merging the global
+// registry with a scan of DefaultBase and pruning entries whose .crofty/ marker
+// is gone. The registry covers projects created at custom paths; the scan is a
+// fault-tolerant fallback for the default location if the registry is lost.
+func KnownProjects() []string {
+	seen := map[string]bool{}
+	var out []string
+	add := func(p string) {
+		abs, err := filepath.Abs(p)
+		if err != nil || seen[abs] {
+			return
+		}
+		if fi, err := os.Stat(filepath.Join(abs, MarkerDir)); err != nil || !fi.IsDir() {
+			return
+		}
+		seen[abs] = true
+		out = append(out, abs)
+	}
+	if path, err := registryPath(); err == nil {
+		for _, p := range readRegistry(path).Projects {
+			add(p)
+		}
+	}
+	if base, err := DefaultBase(); err == nil {
+		if entries, err := os.ReadDir(base); err == nil {
+			for _, e := range entries {
+				if e.IsDir() {
+					add(filepath.Join(base, e.Name()))
+				}
+			}
+		}
+	}
+	sort.Strings(out)
+	return out
+}
