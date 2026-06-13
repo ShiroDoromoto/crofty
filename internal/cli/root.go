@@ -28,6 +28,7 @@ func commands() []command {
 		{"validate", "Check content against the crofty spec (v0)", runValidate},
 		{"targets", "Manage syndication destinations (your own accounts)", runTargets},
 		{"publish", "Syndicate a post's fragment to your destinations", runPublish},
+		{"share", "Print a ready-to-post fragment (text + link) for any SNS", runShare},
 		{"eject", "Convert to a plain Hugo project (later)", runEject},
 	}
 }
