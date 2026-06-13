@@ -50,16 +50,25 @@ func runDeploy(args []string) error {
 			"crofty uses Wrangler to deploy to Cloudflare Pages. Install Node.js (which provides npx), then retry.")
 	}
 
+	// The production branch to deploy to. Pinning this makes deploy target the
+	// live site regardless of the local git branch (Wrangler otherwise infers a
+	// preview deployment from the current branch).
+	branch := cfg.Deploy.Branch
+	if branch == "" {
+		branch = "main"
+	}
+
 	// First deploy: make sure the Pages project exists. This is idempotent — on
 	// later deploys it already exists, so we run it quietly and ignore that.
 	_, _ = runner.Capture(proj.Root, bin, append(append([]string{}, base...),
 		"pages", "project", "create", cfg.Deploy.Project,
-		"--production-branch", "main")...)
+		"--production-branch", branch)...)
 
 	// Publish dist/. Nothing else (keys, .crofty/, config) is ever uploaded.
 	err = runner.Run(proj.Root, bin, append(append([]string{}, base...),
 		"pages", "deploy", proj.DistDir(),
 		"--project-name", cfg.Deploy.Project,
+		"--branch", branch,
 		"--commit-dirty=true")...)
 	if err != nil {
 		return fmt.Errorf("deploy failed — your site and Markdown are untouched; fix the issue and retry: %w", err)
