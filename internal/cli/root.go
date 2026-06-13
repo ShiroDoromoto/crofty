@@ -5,10 +5,13 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"path/filepath"
+
+	"github.com/shirodoromoto/crofty/internal/project"
 )
 
 // Version is the crofty CLI version, bumped by hand.
-const Version = "0.0.2-m2"
+const Version = "0.1.0"
 
 // errSilent lets a command signal a non-zero exit when it has already printed
 // its own report (e.g. validate's findings), suppressing the generic wrapper.
@@ -23,6 +26,8 @@ type command struct {
 
 func commands() []command {
 	return []command{
+		{"init", "Create a new project (a website you own)", runInit},
+		{"preview", "See your site in a browser (local, no account)", runPreview},
 		{"build", "Render the site to ./dist with Hugo", runBuild},
 		{"deploy", "Publish ./dist to your Cloudflare Pages project", runDeploy},
 		{"validate", "Check content against the crofty spec (v0)", runValidate},
@@ -36,8 +41,12 @@ func commands() []command {
 // Run dispatches a subcommand and returns a process exit code.
 func Run(args []string) int {
 	if len(args) == 0 {
-		usage()
-		return 2
+		// A bare `crofty` is the cwd-independent entry point: it lists the
+		// author's projects (with absolute paths) so an agent started anywhere,
+		// in any session, can find them and continue — or points a first-timer at
+		// `crofty init` (07 O3).
+		discover()
+		return 0
 	}
 	switch args[0] {
 	case "-h", "--help", "help":
@@ -50,7 +59,17 @@ func Run(args []string) int {
 	for _, c := range commands() {
 		if c.name == args[0] {
 			if err := c.run(args[1:]); err != nil {
-				if !errors.Is(err, errSilent) {
+				switch {
+				case errors.Is(err, errSilent):
+					// command already printed its own report
+				case errors.Is(err, project.ErrNotFound):
+					// Turn the dead end into a doorway. A first-timer can't process
+					// much here, so emphasize one single next step.
+					fmt.Fprintln(os.Stderr, "\nThere's no crofty project here yet.")
+					fmt.Fprintln(os.Stderr, "\nTo start one, type this and press Enter:")
+					fmt.Fprintln(os.Stderr, "\n    crofty init")
+					fmt.Fprintln(os.Stderr, "\n(Already have a folder of Markdown? Run 'crofty init .' inside it.)")
+				default:
 					fmt.Fprintf(os.Stderr, "\ncrofty: %v\n", err)
 				}
 				return 1
@@ -78,6 +97,34 @@ func parseArgs(fs *flag.FlagSet, args []string) ([]string, error) {
 		positional = append(positional, fs.Arg(0))
 		args = fs.Args()[1:]
 	}
+}
+
+// discover prints the author's known crofty projects with absolute paths, or
+// guides a first-timer to `crofty init`. It reads crofty's own global registry,
+// not the current directory, so it works from anywhere across sessions.
+func discover() {
+	fmt.Println("crofty — write Markdown; build and deploy a site you own.")
+	fmt.Println()
+	projects := project.KnownProjects()
+	if len(projects) == 0 {
+		fmt.Println("No crofty projects yet.")
+		fmt.Println()
+		fmt.Println("To start one, type this and press Enter:")
+		fmt.Println()
+		fmt.Println("    crofty init")
+		fmt.Println()
+		fmt.Println("It creates your site under ~/Documents/Crofty/ and prints the exact path.")
+		return
+	}
+	fmt.Println("Your crofty projects:")
+	for _, p := range projects {
+		fmt.Printf("    %-16s %s\n", filepath.Base(p), p)
+	}
+	fmt.Println()
+	fmt.Println("→ To work on one, cd into it and read its AGENTS.md, e.g.:")
+	fmt.Printf("    cd %s\n", projects[0])
+	fmt.Println()
+	fmt.Println("Run 'crofty help' for the full command list.")
 }
 
 func usage() {
