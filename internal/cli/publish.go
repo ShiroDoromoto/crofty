@@ -4,9 +4,11 @@ import (
 	"bufio"
 	"flag"
 	"fmt"
+	"net/http"
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"golang.org/x/term"
 	"gopkg.in/yaml.v3"
@@ -23,9 +25,10 @@ func runPublish(args []string) error {
 	fs := flag.NewFlagSet("publish", flag.ContinueOnError)
 	to := fs.String("to", "", "comma-separated targets (default: the post's crofty.targets)")
 	yes := fs.Bool("yes", false, "skip the confirmation prompt and publish")
+	skipDeployCheck := fs.Bool("skip-deploy-check", false, "publish even if the post is not live on your site yet")
 	fs.Usage = func() {
 		fmt.Println("crofty publish — syndicate a post's fragment to your destinations")
-		fmt.Println("\nUsage:\n  crofty publish <article.md> [--to bluesky] [--yes]")
+		fmt.Println("\nUsage:\n  crofty publish <article.md> [--to bluesky] [--yes] [--skip-deploy-check]")
 		fmt.Println("\nOnly the title, summary and a link back to your site are sent — never the body.")
 	}
 	pos, err := parseArgs(fs, args)
@@ -81,6 +84,16 @@ func runPublish(args []string) error {
 	}
 	canonical := canonicalURL(baseURL, contentDir, article, fm)
 
+	// Deploy guard: a fragment carries only a link back to the post, so if that
+	// post is not live yet, syndicating now points followers to a dead link. We
+	// probe the canonical URL on the user's own site (not phone-home). A network
+	// error is treated as "unknown" so propagation lag right after deploy never
+	// blocks; only a definite 404/4xx counts as "not live".
+	live := liveUnknown
+	if !*skipDeployCheck {
+		live = checkLive(canonical)
+	}
+
 	// Assign a stable id on first publish and write it back to the post.
 	newID, err := id.NewULID()
 	if err != nil {
@@ -125,7 +138,14 @@ func runPublish(args []string) error {
 
 	// Confirmation gate (B-3): show what goes where, and that the body stays put.
 	fmt.Println("Publish plan for", relCwd(article))
-	fmt.Printf("  body → your site: %s  (stays here, not syndicated)\n", canonical)
+	switch live {
+	case liveYes:
+		fmt.Printf("  body → your site: %s  (live ✓, stays here, not syndicated)\n", canonical)
+	case liveNo:
+		fmt.Printf("  body → your site: %s  (⚠ not live yet — stays here, not syndicated)\n", canonical)
+	default:
+		fmt.Printf("  body → your site: %s  (stays here, not syndicated)\n", canonical)
+	}
 	pending := 0
 	for _, it := range items {
 		if it.skip {
@@ -145,6 +165,19 @@ func runPublish(args []string) error {
 		return nil
 	}
 	fmt.Println("\nOnly the text and link above are sent. The body stays on your site.")
+
+	// Deploy guard. A non-interactive run (--yes) is blocked outright so a dead
+	// link is never syndicated unattended; an interactive run is warned and left
+	// to the confirmation prompt below (which already defaults to No).
+	if live == liveNo {
+		fmt.Println()
+		fmt.Printf("⚠ This post is not live yet at\n    %s\n", canonical)
+		fmt.Println("  Syndicating now would point people to a dead link.")
+		fmt.Println("  Run 'crofty deploy' first, or pass --skip-deploy-check to publish anyway.")
+		if *yes {
+			return errSilent
+		}
+	}
 
 	if !*yes {
 		if !term.IsTerminal(int(os.Stdin.Fd())) {
@@ -302,6 +335,41 @@ func canonicalURL(baseURL, contentDir, article string, fm spec.Frontmatter) stri
 	}
 	path += name + "/"
 	return strings.TrimRight(baseURL, "/") + strings.ToLower(path)
+}
+
+// liveness is the result of probing whether a post is reachable on the live site.
+type liveness int
+
+const (
+	liveUnknown liveness = iota // could not tell (network error, timeout)
+	liveYes                     // reachable (2xx/3xx)
+	liveNo                      // definitely absent (404/4xx)
+)
+
+// checkLive probes the canonical URL on the user's own site. It is a package var
+// so tests can stub it without hitting the network.
+var checkLive = func(url string) liveness {
+	client := &http.Client{Timeout: 5 * time.Second}
+	resp, err := client.Head(url)
+	if err != nil {
+		return liveUnknown
+	}
+	// Some hosts reject HEAD; fall back to GET before trusting a 4xx.
+	if resp.StatusCode == http.StatusMethodNotAllowed {
+		resp.Body.Close()
+		if resp, err = client.Get(url); err != nil {
+			return liveUnknown
+		}
+	}
+	defer resp.Body.Close()
+	switch {
+	case resp.StatusCode >= 200 && resp.StatusCode < 400:
+		return liveYes
+	case resp.StatusCode >= 400 && resp.StatusCode < 500:
+		return liveNo
+	default:
+		return liveUnknown
+	}
 }
 
 // siteBaseURL reads baseURL from the project's Hugo config.
