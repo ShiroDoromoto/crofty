@@ -173,18 +173,27 @@ func validateCrofty(cm map[string]any, add func(Issue)) {
 
 // --- helpers -------------------------------------------------------------
 
-func isValidDate(v any) bool {
-	switch t := v.(type) {
+// ParseDate parses a front-matter date value — a YAML timestamp already decoded
+// to time.Time, or a string in date / RFC3339 form — into a time. ok is false
+// when the value is absent or unparseable. A bare date (2006-01-02) parses as
+// UTC midnight, matching how Hugo reads it.
+func ParseDate(v any) (t time.Time, ok bool) {
+	switch d := v.(type) {
 	case time.Time:
-		return !t.IsZero()
+		return d, !d.IsZero()
 	case string:
 		for _, layout := range []string{"2006-01-02", time.RFC3339, "2006-01-02 15:04:05"} {
-			if _, err := time.Parse(layout, t); err == nil {
-				return true
+			if tm, err := time.Parse(layout, d); err == nil {
+				return tm, true
 			}
 		}
 	}
-	return false
+	return time.Time{}, false
+}
+
+func isValidDate(v any) bool {
+	_, ok := ParseDate(v)
+	return ok
 }
 
 func isEmptyString(v any) bool {
