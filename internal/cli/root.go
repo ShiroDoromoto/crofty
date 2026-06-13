@@ -1,12 +1,17 @@
 package cli
 
 import (
+	"errors"
 	"fmt"
 	"os"
 )
 
-// Version is the crofty CLI version, bumped by hand during M1.
-const Version = "0.0.1-m1"
+// Version is the crofty CLI version, bumped by hand.
+const Version = "0.0.2-m2"
+
+// errSilent lets a command signal a non-zero exit when it has already printed
+// its own report (e.g. validate's findings), suppressing the generic wrapper.
+var errSilent = errors.New("")
 
 // command is one subcommand and its handler.
 type command struct {
@@ -19,7 +24,7 @@ func commands() []command {
 	return []command{
 		{"build", "Render the site to ./dist with Hugo", runBuild},
 		{"deploy", "Publish ./dist to your Cloudflare Pages project", runDeploy},
-		{"validate", "Check content against the crofty spec (M2)", runValidate},
+		{"validate", "Check content against the crofty spec (v0)", runValidate},
 		{"publish", "Syndicate fragments to platforms (M3)", runPublish},
 		{"eject", "Convert to a plain Hugo project (later)", runEject},
 	}
@@ -42,7 +47,9 @@ func Run(args []string) int {
 	for _, c := range commands() {
 		if c.name == args[0] {
 			if err := c.run(args[1:]); err != nil {
-				fmt.Fprintf(os.Stderr, "\ncrofty: %v\n", err)
+				if !errors.Is(err, errSilent) {
+					fmt.Fprintf(os.Stderr, "\ncrofty: %v\n", err)
+				}
 				return 1
 			}
 			return 0
