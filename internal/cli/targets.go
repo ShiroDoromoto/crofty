@@ -15,9 +15,8 @@ import (
 	"github.com/shirodoromoto/crofty/internal/secret"
 )
 
-// knownTargetTypes are the syndication destinations crofty can configure. v0
-// ships Bluesky; Mastodon follows on the same path.
-var knownTargetTypes = map[string]bool{"bluesky": true}
+// knownTargetTypes are the syndication destinations crofty can configure.
+var knownTargetTypes = map[string]bool{"bluesky": true, "mastodon": true}
 
 func runTargets(args []string) error {
 	if len(args) == 0 || args[0] == "-h" || args[0] == "--help" {
@@ -41,6 +40,7 @@ func targetsUsage() {
 	fmt.Println()
 	fmt.Println("Usage:")
 	fmt.Println("  crofty targets add bluesky     add a destination (prompts for credentials)")
+	fmt.Println("  crofty targets add mastodon    add a Mastodon account (instance + access token)")
 	fmt.Println("  crofty targets list            list configured destinations")
 	fmt.Println("  crofty targets test [name]     check stored credentials")
 	fmt.Println()
@@ -49,11 +49,11 @@ func targetsUsage() {
 
 func targetsAdd(args []string) error {
 	if len(args) != 1 {
-		return fmt.Errorf("usage: crofty targets add bluesky")
+		return fmt.Errorf("usage: crofty targets add <bluesky|mastodon>")
 	}
 	typ := args[0]
 	if !knownTargetTypes[typ] {
-		return fmt.Errorf("unknown target type %q (v0 supports: bluesky)", typ)
+		return fmt.Errorf("unknown target type %q (supported: bluesky, mastodon)", typ)
 	}
 
 	proj, err := currentProject()
@@ -114,6 +114,44 @@ func targetsAdd(args []string) error {
 
 		fmt.Printf("\n✓ added bluesky (%s). The app password is stored in your keychain, not in the project.\n", handle)
 		fmt.Println("next: crofty targets test bluesky")
+
+	case "mastodon":
+		fmt.Print("Mastodon instance URL (e.g. https://mastodon.social): ")
+		instance, err := readLine()
+		if err != nil {
+			return err
+		}
+		instance = strings.TrimSpace(instance)
+		if instance == "" {
+			return fmt.Errorf("instance URL is required")
+		}
+		token, err := readSecret("Mastodon access token (input hidden): ")
+		if err != nil {
+			return err
+		}
+		if strings.TrimSpace(token) == "" {
+			return fmt.Errorf("access token is required")
+		}
+
+		creds := publish.MastodonCreds{Server: instance, AccessToken: token}
+		fmt.Println("Checking credentials…")
+		if err := publish.VerifyMastodon(creds); err != nil {
+			return fmt.Errorf("could not verify the Mastodon account (nothing was saved): %w", err)
+		}
+
+		if err := secret.New(ws).Set("mastodon", "access_token", token); err != nil {
+			return fmt.Errorf("storing access token in keychain: %w", err)
+		}
+		if cfg.Targets == nil {
+			cfg.Targets = map[string]project.TargetConfig{}
+		}
+		cfg.Targets["mastodon"] = project.TargetConfig{Type: "mastodon", Handle: instance, Server: instance}
+		if err := proj.SaveConfig(cfg); err != nil {
+			return err
+		}
+
+		fmt.Printf("\n✓ added mastodon (%s). The access token is stored in your keychain, not in the project.\n", instance)
+		fmt.Println("next: crofty targets test mastodon")
 	}
 	return nil
 }
@@ -176,6 +214,19 @@ func targetsTest(args []string) error {
 			}
 			if err := publish.VerifyBluesky(publish.BlueskyCreds{Server: t.Server, Handle: t.Handle, AppPassword: pw}); err != nil {
 				fmt.Printf("✗ %s — sign-in failed: %v\n", name, err)
+				anyFail = true
+				continue
+			}
+			fmt.Printf("✓ %s — credentials OK (%s)\n", name, t.Handle)
+		case "mastodon":
+			tok, err := store.Get("mastodon", "access_token")
+			if err != nil {
+				fmt.Printf("✗ %s — no stored credential (%v)\n", name, err)
+				anyFail = true
+				continue
+			}
+			if err := publish.VerifyMastodon(publish.MastodonCreds{Server: t.Server, Handle: t.Handle, AccessToken: tok}); err != nil {
+				fmt.Printf("✗ %s — verification failed: %v\n", name, err)
 				anyFail = true
 				continue
 			}

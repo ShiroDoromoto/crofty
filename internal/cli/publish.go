@@ -234,6 +234,14 @@ func buildPublishers(names []string, cfg *project.Config) ([]publish.Publisher, 
 			pubs = append(pubs, publish.NewBluesky(name, publish.BlueskyCreds{
 				Server: tc.Server, Handle: tc.Handle, AppPassword: pw,
 			}))
+		case "mastodon":
+			tok, err := store.Get("mastodon", "access_token")
+			if err != nil {
+				return nil, fmt.Errorf("no stored credential for %s — run 'crofty targets add mastodon'", name)
+			}
+			pubs = append(pubs, publish.NewMastodon(name, publish.MastodonCreds{
+				Server: tc.Server, Handle: tc.Handle, AccessToken: tok,
+			}))
 		default:
 			return nil, fmt.Errorf("target %q has unsupported type %q", name, tc.Type)
 		}
