@@ -4,8 +4,10 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"regexp"
+	"runtime"
 	"strings"
 	"time"
 
@@ -20,15 +22,26 @@ import (
 // terminal: every message ends by telling them exactly what to type next.
 func runInit(args []string) error {
 	fs := flag.NewFlagSet("init", flag.ContinueOnError)
+	lang := fs.String("lang", "", "site language code (e.g. en, ja); default: detected from your OS")
 	fs.Usage = func() {
 		fmt.Println("crofty init — create a new project (a website you own)")
 		fmt.Println("\nUsage:")
-		fmt.Println("  crofty init [name]     # a bare name lands in ~/Documents/Crofty/<name>")
-		fmt.Println("  crofty init <path>     # an explicit path (or '.') is used as-is")
+		fmt.Println("  crofty init [name]      # a bare name lands in ~/Documents/Crofty/<name>")
+		fmt.Println("  crofty init <path>      # an explicit path (or '.') is used as-is")
+		fmt.Println("  crofty init --lang ja   # set the site language (default: from your OS)")
 	}
 	rest, err := parseArgs(fs, args)
 	if err != nil {
 		return err
+	}
+
+	// Establish the site language once, here — without a prompt. An explicit
+	// --lang wins; otherwise infer it from the OS locale (so a Japanese Mac gets
+	// a Japanese site by default). The agent can pass --lang when it knows
+	// better from the conversation (07 O / language).
+	siteLang := *lang
+	if siteLang == "" {
+		siteLang = detectLang()
 	}
 
 	// Resolve where the project goes. A bare name (the common case) lands in the
@@ -67,7 +80,7 @@ func runInit(args []string) error {
 	now := time.Now().Add(-time.Hour) // safely in the past so Hugo never excludes it
 
 	files := map[string]string{
-		"hugo.yaml":                           hugoConfig(siteName),
+		"hugo.yaml":                           hugoConfig(siteName, siteLang),
 		"AGENTS.md":                           agentsGuide(),
 		filepath.Join("content", "_index.md"): indexContent(siteName),
 		filepath.Join("content", "posts", "welcome", "index.md"): welcomePost(now),
@@ -115,6 +128,8 @@ func runInit(args []string) error {
 	fmt.Println("next — copy these one line at a time:")
 	fmt.Printf("  cd %s\n", abs)
 	fmt.Println("  crofty preview     # see your site in a browser (no account needed)")
+	fmt.Println()
+	fmt.Printf("If an AI assistant is helping you, have it read %s first.\n", filepath.Join(abs, "AGENTS.md"))
 	return nil
 }
 
@@ -153,7 +168,64 @@ func agentsGuide() string {
 		"- The author writes the content. Don't invent posts or rewrite their voice.\n" +
 		"- Never edit `crofty.id` in front matter — the tool manages it.\n" +
 		"- Deploy before sharing links, so the canonical URL is live.\n" +
-		"- Reply to the author in their own language.\n"
+		"- Reply to the author in the site's language (`locale` in hugo.yaml), and\n" +
+		"  switch to match if they write to you in a different one. Don't make them\n" +
+		"  choose a language — an author who can't read English shouldn't be asked\n" +
+		"  in English which language they prefer.\n"
+}
+
+// detectLang picks a default site language without a prompt. This is where the
+// author's language gets established; --lang overrides it. Order matters: in the
+// agent-orchestrated model crofty is usually run by an assistant whose shell has
+// a neutral locale (C.UTF-8), so the user's actual OS UI language is the most
+// reliable signal — fall back to the shell locale, then English.
+func detectLang() string {
+	if l := macPreferredLang(); l != "" {
+		return l
+	}
+	for _, key := range []string{"LC_ALL", "LC_MESSAGES", "LANG"} {
+		v := os.Getenv(key)
+		if v == "" {
+			continue
+		}
+		v = strings.SplitN(v, ".", 2)[0] // drop ".UTF-8" (e.g. "C.UTF-8" → "C")
+		v = strings.SplitN(v, "@", 2)[0] // drop "@modifier"
+		lang := strings.ToLower(strings.TrimSpace(strings.SplitN(v, "_", 2)[0]))
+		// Skip the locale-less "C"/"POSIX" placeholders only after stripping the
+		// encoding, so "C.UTF-8" doesn't get mistaken for a language.
+		if lang == "" || lang == "c" || lang == "posix" {
+			continue
+		}
+		return lang
+	}
+	return "en"
+}
+
+// macPreferredLang reads the user's preferred UI language from macOS
+// (AppleLanguages), which reflects the person's actual language even when an
+// agent runs crofty with a neutral shell locale. Returns "" off macOS or on any
+// error.
+func macPreferredLang() string {
+	if runtime.GOOS != "darwin" {
+		return ""
+	}
+	out, err := exec.Command("defaults", "read", "-g", "AppleLanguages").Output()
+	if err != nil {
+		return ""
+	}
+	// Output is a plist array, e.g. (\n    "ja-JP",\n    "en-US"\n). Take the
+	// first entry's language subtag: "ja-JP" → "ja", "zh-Hans" → "zh".
+	for _, line := range strings.Split(string(out), "\n") {
+		line = strings.Trim(strings.TrimSpace(line), "(),\"")
+		if line == "" {
+			continue
+		}
+		lang := strings.ToLower(strings.SplitN(strings.SplitN(line, "-", 2)[0], "_", 2)[0])
+		if lang != "" {
+			return lang
+		}
+	}
+	return ""
 }
 
 // projectName derives a Hugo/Cloudflare-safe name from the target directory.
@@ -170,18 +242,18 @@ func projectName(abs string) string {
 
 // These templates use double-quoted strings so the Markdown can contain literal
 // backticks (inline code) — a Go raw string literal cannot.
-func hugoConfig(name string) string {
+func hugoConfig(name, lang string) string {
 	return fmt.Sprintf("# Standard Hugo config. crofty reads only its own settings from .crofty/config.json,\n"+
 		"# so this file stays plain Hugo — your project is always yours to keep (eject-safe).\n"+
 		"baseURL: \"https://example.com/\"\n"+
-		"locale: \"en\"\n"+
+		"locale: %q\n"+
 		"title: %q\n"+
 		"enableRobotsTXT: true\n"+
 		"params:\n"+
 		"  description: \"A website I own, built from Markdown.\"\n"+
 		"  # Tool-specific front matter and params nest under `crofty:` (spec v0).\n"+
 		"  crofty:\n"+
-		"    specVersion: \"0\"\n", name)
+		"    specVersion: \"0\"\n", lang, name)
 }
 
 func indexContent(name string) string {
