@@ -1,0 +1,72 @@
+# GoReleaser config for crofty — cross-platform builds + package manifests.
+#
+# STATUS: verification only, NOT for public release yet.
+#   Local check :  goreleaser check
+#   Local build :  goreleaser release --snapshot --clean
+# Snapshot mode never publishes: it just emits binaries, archives, checksums,
+# and the Scoop/Homebrew manifests into dist/ for inspection. Real publishing is
+# gated behind a git tag + plain `goreleaser release`, and both package repos
+# below set skip_upload until we decide to go public.
+version: 2
+
+project_name: crofty
+
+builds:
+  - id: crofty
+    main: .
+    binary: crofty
+    env:
+      - CGO_ENABLED=0
+    # Version stays hand-bumped in internal/cli.Version (a const), so we do not
+    # inject it via ldflags here — only trim paths and strip debug info.
+    flags:
+      - -trimpath
+    ldflags:
+      - -s -w
+    goos:
+      - darwin
+      - windows
+      - linux
+    goarch:
+      - amd64
+      - arm64
+
+archives:
+  - id: crofty
+    # tar.gz everywhere except Windows, which gets a zip (Scoop convention).
+    formats: [tar.gz]
+    format_overrides:
+      - goos: windows
+        formats: [zip]
+    files:
+      - README.md
+      - LICENSE
+
+checksum:
+  name_template: checksums.txt
+
+# Windows distribution — Scoop bucket (the Homebrew analog for Windows).
+# skip_upload keeps this local until we publish the bucket repo.
+scoops:
+  - name: crofty
+    repository:
+      owner: shirodoromoto
+      name: scoop-crofty
+    homepage: https://crofty.blog
+    description: "Own your website: a Markdown-to-published-site pipeline."
+    license: AGPL-3.0
+    skip_upload: "true"
+
+# macOS distribution — Homebrew cask (goreleaser dropped `brews`/formula in
+# favor of casks). Currently hand-maintained in a local tap (nsys/homebrew-crofty,
+# no remote); skip_upload keeps that workflow intact.
+homebrew_casks:
+  - name: crofty
+    repository:
+      owner: shirodoromoto
+      name: homebrew-crofty
+    homepage: https://crofty.blog
+    description: "Own your website: a Markdown-to-published-site pipeline."
+    dependencies:
+      - formula: hugo
+    skip_upload: "true"

@@ -217,7 +217,7 @@ func looksLikePath(arg string) bool {
 // a neutral locale (C.UTF-8), so the user's actual OS UI language is the most
 // reliable signal — fall back to the shell locale, then English.
 func detectLang() string {
-	if l := macPreferredLang(); l != "" {
+	if l := osPreferredLang(); l != "" {
 		return l
 	}
 	for _, key := range []string{"LC_ALL", "LC_MESSAGES", "LANG"} {
@@ -238,31 +238,44 @@ func detectLang() string {
 	return "en"
 }
 
-// macPreferredLang reads the user's preferred UI language from macOS
-// (AppleLanguages), which reflects the person's actual language even when an
-// agent runs crofty with a neutral shell locale. Returns "" off macOS or on any
-// error.
-func macPreferredLang() string {
-	if runtime.GOOS != "darwin" {
-		return ""
-	}
-	out, err := exec.Command("defaults", "read", "-g", "AppleLanguages").Output()
-	if err != nil {
-		return ""
-	}
-	// Output is a plist array, e.g. (\n    "ja-JP",\n    "en-US"\n). Take the
-	// first entry's language subtag: "ja-JP" → "ja", "zh-Hans" → "zh".
-	for _, line := range strings.Split(string(out), "\n") {
-		line = strings.Trim(strings.TrimSpace(line), "(),\"")
-		if line == "" {
-			continue
+// osPreferredLang reads the user's preferred UI language from the operating
+// system, which reflects the person's actual language even when an agent runs
+// crofty with a neutral shell locale. macOS uses AppleLanguages; Windows uses
+// the UI culture. Returns "" on other platforms or on any error.
+func osPreferredLang() string {
+	switch runtime.GOOS {
+	case "darwin":
+		// AppleLanguages is a plist array, e.g. (\n  "ja-JP",\n  "en-US"\n).
+		out, err := exec.Command("defaults", "read", "-g", "AppleLanguages").Output()
+		if err != nil {
+			return ""
 		}
-		lang := strings.ToLower(strings.SplitN(strings.SplitN(line, "-", 2)[0], "_", 2)[0])
-		if lang != "" {
-			return lang
+		for _, line := range strings.Split(string(out), "\n") {
+			line = strings.Trim(strings.TrimSpace(line), "(),\"")
+			if lang := langSubtag(line); lang != "" {
+				return lang
+			}
 		}
+	case "windows":
+		// Get-UICulture.Name is the display language, e.g. "ja-JP" or "en-US".
+		out, err := exec.Command("powershell", "-NoProfile", "-Command",
+			"(Get-UICulture).Name").Output()
+		if err != nil {
+			return ""
+		}
+		return langSubtag(strings.TrimSpace(string(out)))
 	}
 	return ""
+}
+
+// langSubtag extracts a lowercase language subtag from a locale tag:
+// "ja-JP" → "ja", "zh-Hans" → "zh", "en_US" → "en". Returns "" if empty.
+func langSubtag(tag string) string {
+	tag = strings.TrimSpace(tag)
+	if tag == "" {
+		return ""
+	}
+	return strings.ToLower(strings.SplitN(strings.SplitN(tag, "-", 2)[0], "_", 2)[0])
 }
 
 // projectName derives a Hugo/Cloudflare-safe name from the target directory.
