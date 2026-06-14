@@ -33,6 +33,7 @@ func commands() []command {
 		{"deploy", "Publish ./dist to your Cloudflare Pages project", runDeploy},
 		{"reset", "Remove saved credentials (keychain) and state", runReset},
 		{"validate", "Check content against the crofty spec (v0)", runValidate},
+		{"doctor", "Check the built site against the output contract", runDoctor},
 		{"targets", "Manage syndication destinations (your own accounts)", runTargets},
 		{"publish", "Syndicate a post's fragment to your destinations", runPublish},
 		{"share", "Print a ready-to-post fragment (text + link) for any SNS", runShare},

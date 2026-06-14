@@ -56,6 +56,13 @@ func runDeploy(args []string) error {
 		return fmt.Errorf("no build output at %s — run 'crofty build' first", proj.DistDir())
 	}
 
+	// Gate on the output contract before touching credentials or the network: a
+	// build that dropped canonical links / the feed / etc. is blocked here, so a
+	// broken site never goes live (08 §6). Warnings are shown but don't block.
+	if err := contractGate(proj.DistDir()); err != nil {
+		return err
+	}
+
 	// Authenticate with crofty's OWN Cloudflare token (kept in the keychain). On
 	// the first deploy this asks the user for a token; crofty then talks to the
 	// Cloudflare API directly (no wrangler, no Node) using that single credential.
