@@ -2,8 +2,14 @@
 <article class="post">
   <header class="post-header">
     <h1>{{ .Title }}</h1>
-    {{ with .Date }}<time datetime="{{ .Format "2006-01-02" }}">{{ .Format "Jan 2, 2006" }}</time>{{ end }}
+    {{ with .Date }}<p class="post-meta"><time datetime="{{ .Format "2006-01-02" }}">{{ .Format "January 2, 2006" }}</time></p>{{ end }}
   </header>
   {{ .Content }}
+  {{ with .GetTerms "tags" }}
+  <footer class="post-tags">
+    <span>tags</span>
+    {{ range . }}<a href="{{ .RelPermalink }}">{{ .LinkTitle }}</a>{{ end }}
+  </footer>
+  {{ end }}
 </article>
 {{ end }}
