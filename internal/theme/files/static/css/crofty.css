@@ -1,23 +1,36 @@
-/* crofty default theme — static, no-JS, no trackers. Restrained by design. */
+/* crofty default theme — static, no-JS, no trackers. Editorial and restrained:
+   a serif reading column for a site you own, not a SaaS dashboard. Light/dark
+   follow the reader's system setting, in pure CSS. */
 
 :root {
-  --ink: #1a1a1a;
-  --muted: #6b6b6b;
-  --line: #e6e6e6;
-  --bg: #fdfdfc;
-  --link: #1a1a1a;
-  --measure: 38rem;
+  --ink: #211e1a;
+  --muted: #6f6a61;
+  --line: #e4e0d8;
+  --bg: #fcfbf7;
+  --accent: #5c4b37; /* warm earth — links on hover, rules */
+  --code-bg: #f2efe7;
+  --measure: 34rem;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --ink: #e9e5dc;
+    --muted: #9a9488;
+    --line: #322e27;
+    --bg: #17150f;
+    --accent: #c9b79a;
+    --code-bg: #221f18;
+  }
 }
 
 * { box-sizing: border-box; }
-
 html { -webkit-text-size-adjust: 100%; }
 
 body {
   margin: 0;
   color: var(--ink);
   background: var(--bg);
-  font: 17px/1.65 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  font: 1.125rem/1.7 Charter, "Iowan Old Style", "Palatino Linotype", Palatino, "Book Antiqua", Georgia, serif;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
 }
@@ -27,89 +40,173 @@ body {
 .site-footer {
   max-width: var(--measure);
   margin-inline: auto;
-  padding-inline: 1.25rem;
+  padding-inline: 1.5rem;
 }
 
+/* Header and footer chrome use a sans face, so they sit quietly apart from the
+   serif reading column. */
 .site-header {
   display: flex;
   align-items: baseline;
   justify-content: space-between;
   gap: 1rem;
   padding-top: 2.5rem;
-  padding-bottom: 1rem;
+  padding-bottom: 1.25rem;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
 }
 
 .site-title {
+  font-size: 1rem;
   font-weight: 600;
-  letter-spacing: -0.01em;
+  letter-spacing: 0.02em;
   text-decoration: none;
   color: var(--ink);
 }
 
-.site-header nav a { margin-left: 1rem; color: var(--muted); }
+.site-header nav a {
+  margin-left: 1rem;
+  font-size: 0.9rem;
+  color: var(--muted);
+  text-decoration: none;
+}
+.site-header nav a:hover { color: var(--ink); }
 
-.content { padding-top: 1rem; padding-bottom: 4rem; }
+.content { padding-top: 1.5rem; padding-bottom: 4rem; }
 
-a { color: var(--link); text-underline-offset: 2px; }
+a {
+  color: var(--ink);
+  text-decoration-color: var(--line);
+  text-underline-offset: 2px;
+}
+a:hover { color: var(--accent); text-decoration-color: var(--accent); }
 
-h1, h2, h3 { line-height: 1.25; letter-spacing: -0.015em; }
-h1 { font-size: 1.9rem; margin: 1.5rem 0 0.75rem; }
-h2 { font-size: 1.3rem; margin: 2.25rem 0 0.5rem; }
+h1, h2, h3 { line-height: 1.25; font-weight: 600; letter-spacing: -0.01em; }
+h2 { font-size: 1.35rem; margin: 2.25rem 0 0.5rem; }
+h3 { font-size: 1.1rem; margin: 1.75rem 0 0.4rem; }
 
-p, ul, ol, blockquote { margin: 0 0 1.1rem; }
+p, ul, ol, blockquote { margin: 0 0 1.2rem; }
 
 blockquote {
   margin-inline: 0;
-  padding-left: 1rem;
+  padding-left: 1.1rem;
   border-left: 2px solid var(--line);
   color: var(--muted);
+  font-style: italic;
 }
 
-code, pre {
+code {
   font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-  font-size: 0.9em;
+  font-size: 0.85em;
+  background: var(--code-bg);
+  padding: 0.1em 0.3em;
+  border-radius: 3px;
 }
-
 pre {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.85em;
   padding: 1rem;
   overflow-x: auto;
-  background: #f4f4f2;
+  background: var(--code-bg);
   border-radius: 6px;
 }
+pre code { background: none; padding: 0; }
 
-time { color: var(--muted); font-size: 0.85rem; }
+/* A single post: centered title, small-caps date, tags as a quiet footer. */
+.post-header { text-align: center; margin: 2rem 0 2.5rem; }
+.post-header h1 { font-size: 2rem; margin: 0 0 0.5rem; }
+.post-meta {
+  margin: 0;
+  color: var(--muted);
+  font-variant: small-caps;
+  letter-spacing: 0.06em;
+  font-size: 0.95rem;
+}
 
-.post-list { list-style: none; padding: 0; }
+.post-tags {
+  margin-top: 2.5rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--line);
+  font-family: -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+.post-tags span {
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  font-size: 0.72rem;
+}
+.post-tags a { margin-left: 0.6rem; color: var(--muted); text-decoration: none; }
+.post-tags a:hover { color: var(--accent); }
+
+/* Lists and the landing page. */
+.page-header h1 { text-align: center; margin: 2rem 0 0.5rem; }
+.page-intro { color: var(--muted); }
+
+.post-list { list-style: none; padding: 0; margin: 1.5rem 0; }
 .post-list li {
   display: flex;
   flex-wrap: wrap;
   align-items: baseline;
   justify-content: space-between;
-  gap: 0.5rem 1rem;
-  padding: 0.4rem 0;
+  gap: 0.3rem 1rem;
+  padding: 0.55rem 0;
   border-bottom: 1px solid var(--line);
 }
-
-.post-header time { display: block; margin-top: 0.25rem; }
-
-.recent { margin-top: 3rem; }
-
-.site-footer {
-  padding-top: 1.5rem;
-  padding-bottom: 3rem;
-  border-top: 1px solid var(--line);
+.post-list a { text-decoration: none; }
+.post-list a:hover { color: var(--accent); }
+.post-list time {
   color: var(--muted);
-  font-size: 0.85rem;
+  font-variant: small-caps;
+  letter-spacing: 0.04em;
+  font-size: 0.9rem;
 }
 
-.crofty-support { margin-bottom: 1rem; }
-.crofty-support-message { margin-bottom: 0.4rem; }
-.crofty-support-links { display: flex; flex-wrap: wrap; gap: 0.75rem; margin: 0; }
+.recent { margin-top: 3rem; }
+.recent h2 {
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--muted);
+  font-weight: 600;
+}
+
+time { color: var(--muted); }
+
+/* Footer: patronage above a quiet meta line (RSS + copyright). */
+.site-footer {
+  margin-top: 3rem;
+  padding-top: 2rem;
+  padding-bottom: 3.5rem;
+  border-top: 1px solid var(--line);
+  text-align: center;
+  font-family: -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+.site-footer-meta { margin: 0; }
+.site-footer-meta a { color: var(--muted); text-decoration: none; }
+.site-footer-meta a:hover { color: var(--accent); }
+
+.crofty-support {
+  max-width: 28rem;
+  margin: 0 auto 1.5rem;
+  padding-bottom: 1.5rem;
+  border-bottom: 1px solid var(--line);
+}
+.crofty-support-message { margin: 0 0 0.6rem; color: var(--ink); font-style: italic; }
+.crofty-support-links {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0.6rem;
+  margin: 0;
+}
 .crofty-support-link {
   color: var(--ink);
   text-decoration: none;
   border: 1px solid var(--line);
-  border-radius: 6px;
-  padding: 0.2rem 0.7rem;
+  border-radius: 999px;
+  padding: 0.25rem 0.9rem;
+  font-size: 0.9rem;
 }
-.crofty-support-link:hover { border-color: var(--muted); }
+.crofty-support-link:hover { border-color: var(--accent); color: var(--accent); }

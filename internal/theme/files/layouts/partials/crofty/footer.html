@@ -1,9 +1,13 @@
 {{- /*
-  Site footer. Carries the patronage block (08 §4.2) above the copyright line.
-  This partial is "free" — not contract-critical — so override it freely; the
-  output contract (08 §2) doesn't require anything here.
+  Site footer. Carries the patronage block (08 §4.2) above a quiet meta line
+  with a visible feed link (RSS is first-class on a small-web site) and the
+  copyright. This partial is "free" — not contract-critical — so override it
+  freely; the output contract (08 §2) doesn't require anything here.
 */ -}}
 <footer class="site-footer">
   {{ partial "crofty/patronage.html" . }}
-  <p>{{ with site.Copyright }}{{ . }}{{ else }}{{ site.Title }}{{ end }}</p>
+  <p class="site-footer-meta">
+    {{ with site.Home.OutputFormats.Get "rss" }}<a href="{{ .RelPermalink }}">Follow by RSS</a> · {{ end }}
+    {{ with site.Copyright }}{{ . }}{{ else }}© {{ site.Title }}{{ end }}
+  </p>
 </footer>
