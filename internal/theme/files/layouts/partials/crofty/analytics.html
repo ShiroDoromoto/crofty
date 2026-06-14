@@ -1,0 +1,25 @@
+{{- /*
+  Analytics (08 §4.1). Named keys for the common providers plus a raw slot;
+  all opt-in, so an unconfigured site stays clean (no third-party JS). Treated
+  neutrally — none is a default or "recommended". Values come from the owner's
+  own config (hugo.yaml params.crofty.analytics / .adsense) and are public
+  client ids. To restyle/extend, override this partial; for anything not named
+  here, use params.crofty.head_raw / body_end_raw.
+*/ -}}
+{{- with site.Params.crofty }}
+{{- with .analytics }}
+{{- with .cloudflare }}
+<script defer src="https://static.cloudflareinsights.com/beacon.min.js" data-cf-beacon='{"token": "{{ . }}"}'></script>
+{{- end }}
+{{- with .google_tag }}
+<script async src="https://www.googletagmanager.com/gtag/js?id={{ . }}"></script>
+<script>window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments);}gtag('js',new Date());gtag('config','{{ . }}');</script>
+{{- end }}
+{{- with .gtm }}
+<script>(function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src='https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);})(window,document,'script','dataLayer','{{ . }}');</script>
+{{- end }}
+{{- end }}
+{{- with .adsense }}{{ with .client }}
+<script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client={{ . }}" crossorigin="anonymous"></script>
+{{- end }}{{ end }}
+{{- end }}

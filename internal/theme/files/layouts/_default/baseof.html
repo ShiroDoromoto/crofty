@@ -4,9 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>{{ if .IsHome }}{{ site.Title }}{{ else }}{{ .Title }} · {{ site.Title }}{{ end }}</title>
-  {{ with or .Description site.Params.description }}<meta name="description" content="{{ . }}">{{ end }}
-  {{ range .AlternativeOutputFormats }}<link rel="{{ .Rel }}" type="{{ .MediaType.Type }}" href="{{ .Permalink }}" title="{{ site.Title }}">
-  {{ end -}}
+  {{ partial "crofty/head.html" . }}
   <link rel="stylesheet" href="{{ "css/crofty.css" | relURL }}">
 </head>
 <body>
@@ -19,8 +17,9 @@
   <main class="content">
     {{ block "main" . }}{{ end }}
   </main>
-  <footer class="site-footer">
-    <p>{{ with site.Copyright }}{{ . }}{{ else }}{{ site.Title }}{{ end }}</p>
-  </footer>
+  {{ partial "crofty/footer.html" . }}
+  {{- with site.Params.crofty }}{{ with .body_end_raw }}
+  {{ . | safeHTML }}
+  {{- end }}{{ end }}
 </body>
 </html>

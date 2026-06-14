@@ -101,3 +101,15 @@ time { color: var(--muted); font-size: 0.85rem; }
   color: var(--muted);
   font-size: 0.85rem;
 }
+
+.crofty-support { margin-bottom: 1rem; }
+.crofty-support-message { margin-bottom: 0.4rem; }
+.crofty-support-links { display: flex; flex-wrap: wrap; gap: 0.75rem; margin: 0; }
+.crofty-support-link {
+  color: var(--ink);
+  text-decoration: none;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 0.2rem 0.7rem;
+}
+.crofty-support-link:hover { border-color: var(--muted); }
