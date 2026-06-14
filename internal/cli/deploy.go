@@ -1,28 +1,32 @@
 package cli
 
 import (
+	"bufio"
 	"flag"
 	"fmt"
 	"os"
 	"regexp"
 	"strings"
 
+	"golang.org/x/term"
+
 	"github.com/shirodoromoto/crofty/internal/project"
 	"github.com/shirodoromoto/crofty/internal/runner"
+	"github.com/shirodoromoto/crofty/internal/secret"
 )
 
 func runDeploy(args []string) error {
 	fs := flag.NewFlagSet("deploy", flag.ContinueOnError)
-	var yes bool
 	var account string
-	fs.BoolVar(&yes, "yes", false, "confirm the Cloudflare account and deploy")
-	fs.StringVar(&account, "account", "", "Cloudflare account id to deploy to (pins it to this project)")
+	var reauth bool
+	fs.StringVar(&account, "account", "", "Cloudflare account id to deploy to (when a token reaches several)")
+	fs.BoolVar(&reauth, "reauth", false, "enter a new Cloudflare API token (replace the saved one)")
 	fs.Usage = func() {
-		fmt.Println("crofty deploy — publish ./dist to your Cloudflare Pages project")
+		fmt.Println("crofty deploy — publish your site to Cloudflare Pages")
 		fmt.Println("\nUsage:")
-		fmt.Println("  crofty deploy                 # first run shows the account and asks to confirm")
-		fmt.Println("  crofty deploy --yes           # confirm the shown account and deploy")
-		fmt.Println("  crofty deploy --account <id>  # deploy to a specific account (pins it)")
+		fmt.Println("  crofty deploy                 # first run asks for a Cloudflare API token (kept in your keychain)")
+		fmt.Println("  crofty deploy --reauth        # replace the saved token")
+		fmt.Println("  crofty deploy --account <id>  # pick the account when a token reaches several")
 	}
 	if _, err := parseArgs(fs, args); err != nil {
 		return err
@@ -59,24 +63,24 @@ func runDeploy(args []string) error {
 			"crofty uses Wrangler to deploy to Cloudflare Pages. Install Node.js (which provides npx), then retry.")
 	}
 
-	// Resolve which Cloudflare account this deploys to. On the first deploy this
-	// surfaces the account and waits for confirmation rather than silently using
-	// whatever wrangler happens to be logged into.
-	acct, err := chooseAccount(proj, cfg, bin, base, yes, account)
+	// Authenticate with crofty's OWN Cloudflare token (kept in the keychain), not
+	// whatever wrangler happens to be logged into. On the first deploy this asks
+	// the user for a token; a pre-existing wrangler login is never touched, so a
+	// deploy can't silently ride on someone else's account.
+	token, acct, proceed, err := connectCloudflare(proj, cfg, account, reauth)
 	if err != nil {
 		return err
 	}
-	if acct == nil {
-		return nil // a plan was shown; nothing is deployed until the user confirms
+	if !proceed {
+		return nil // choices were shown; nothing is deployed until the user picks
 	}
 	fmt.Println()
 	if acct.name != "" {
-		fmt.Printf("Deploying to Cloudflare account: %s (%s)\n", acct.email, acct.name)
+		fmt.Printf("Deploying to Cloudflare account: %s (%s)\n", acct.name, acct.id)
 	} else {
-		fmt.Printf("Deploying to Cloudflare account: %s\n", acct.email)
+		fmt.Printf("Deploying to Cloudflare account: %s\n", acct.id)
 	}
-	fmt.Printf("  account id: %s\n", acct.id)
-	fmt.Printf("  project:    %s\n", cfg.Deploy.Project)
+	fmt.Printf("  project: %s\n", cfg.Deploy.Project)
 
 	// The production branch to deploy to. Pinning this makes deploy target the
 	// live site regardless of the local git branch (Wrangler otherwise infers a
@@ -86,9 +90,12 @@ func runDeploy(args []string) error {
 		branch = "main"
 	}
 
-	// Pin the account explicitly for every wrangler call rather than relying on
-	// ambient auth, so a multi-account token can't deploy to the wrong place.
-	env := []string{"CLOUDFLARE_ACCOUNT_ID=" + acct.id}
+	// Feed wrangler crofty's token + account explicitly via the environment, so
+	// it uploads with our credential and never falls back to its own login.
+	env := []string{
+		"CLOUDFLARE_API_TOKEN=" + token,
+		"CLOUDFLARE_ACCOUNT_ID=" + acct.id,
+	}
 
 	// First deploy: make sure the Pages project exists. This is idempotent — on
 	// later deploys it already exists, so we run it quietly and ignore that.
@@ -114,144 +121,156 @@ func runDeploy(args []string) error {
 	return nil
 }
 
-// cfAccount is a Cloudflare account wrangler is authenticated for.
+// cfAccount is a Cloudflare account crofty can deploy to.
 type cfAccount struct {
-	email, name, id string
+	name, id string
 }
 
 // cfSignupURL is where a user with no Cloudflare account can make a free one.
 const cfSignupURL = "https://dash.cloudflare.com/sign-up"
 
-// chooseAccount decides which Cloudflare account a deploy targets, surfacing the
-// choice instead of silently inheriting whatever wrangler is logged into.
-//   - returns (&acct, nil) to proceed (a pinned account, or one just confirmed);
-//   - returns (nil, nil) after printing a plan, when the first deploy needs the
-//     user to confirm the account (nothing is deployed);
-//   - returns (nil, err) when it can't proceed (not connected, unreachable, …).
-func chooseAccount(proj *project.Project, cfg *project.Config, bin string, base []string, yes bool, accountFlag string) (*cfAccount, error) {
-	out, err := runner.Capture(proj.Root, bin, append(append([]string{}, base...), "whoami")...)
-	low := strings.ToLower(out)
-	if err != nil || strings.Contains(low, "not authenticated") || strings.Contains(low, "not logged in") {
-		return nil, fmt.Errorf("not connected to Cloudflare yet.\n"+
-			"  Connect an account:     wrangler login\n"+
-			"  No account yet? Free:   %s\n"+
-			"  Then run 'crofty deploy' again.", cfSignupURL)
-	}
+// cfTokenStore keeps Cloudflare API tokens in the OS keychain, keyed by account
+// id so projects sharing an account share one token. These are crofty's own
+// tokens — wrangler's login is never used.
+func cfTokenStore() *secret.Store { return secret.New("cloudflare") }
 
-	email := accountEmail(out)
-	accounts := parseAccounts(out)
-	if len(accounts) == 0 {
-		return nil, fmt.Errorf("could not read your Cloudflare account from 'wrangler whoami'.\n" +
-			"  Try 'wrangler login' again, then retry.")
-	}
-
-	// Explicit --account: deploy to that one (and pin it), if the login reaches it.
-	if accountFlag != "" {
-		for _, a := range accounts {
-			if a.id == accountFlag {
-				a.email = email
-				return pinAccount(proj, cfg, a)
-			}
-		}
-		return nil, fmt.Errorf("the current wrangler login (%s) can't reach account %q.\n"+
-			"  Log in to it with 'wrangler login', or pick one it can reach.", email, accountFlag)
-	}
-
-	// Already pinned: just confirm the login can still reach it, then deploy.
-	if cfg.Deploy.AccountID != "" {
-		for _, a := range accounts {
-			if a.id == cfg.Deploy.AccountID {
-				a.email = email
-				return &a, nil
-			}
-		}
-		return nil, fmt.Errorf("this project is pinned to Cloudflare account %s, but the current wrangler login (%s) can't reach it.\n"+
-			"  Log in to the right account with 'wrangler login', or run 'crofty deploy --account <id>' to retarget on purpose.",
-			cfg.Deploy.AccountID, email)
-	}
-
-	// First deploy, confirmed, and the account is unambiguous → pin and proceed.
-	if yes && len(accounts) == 1 {
-		a := accounts[0]
-		a.email = email
-		return pinAccount(proj, cfg, a)
-	}
-
-	// Otherwise surface the account(s) and the choices, and stop without deploying.
-	printDeployPlan(email, accounts)
-	return nil, nil
+func savedCFToken(accountID string) (string, error) {
+	return cfTokenStore().Get(accountID, "api_token")
 }
 
-// pinAccount records the chosen account on the project and returns it.
-func pinAccount(proj *project.Project, cfg *project.Config, a cfAccount) (*cfAccount, error) {
-	cfg.Deploy.AccountID = a.id
+func saveCFToken(accountID, token string) error {
+	return cfTokenStore().Set(accountID, "api_token", token)
+}
+
+// connectCloudflare returns the token + account a deploy should use. It reuses
+// the saved token for a pinned account, or runs the token flow (TTY, verified,
+// stored) on the first deploy or when --reauth is set. proceed is false when it
+// printed account choices and is waiting for the user to pick one with --account.
+func connectCloudflare(proj *project.Project, cfg *project.Config, accountFlag string, reauth bool) (token string, acct cfAccount, proceed bool, err error) {
+	// Fast path: a pinned account with a saved, still-valid token.
+	if cfg.Deploy.AccountID != "" && accountFlag == "" && !reauth {
+		if tok, e := savedCFToken(cfg.Deploy.AccountID); e == nil {
+			if cfVerifyPagesAccess(tok, cfg.Deploy.AccountID) == nil {
+				return tok, cfAccount{id: cfg.Deploy.AccountID}, true, nil
+			}
+			fmt.Println("Your saved Cloudflare token no longer works — let's set it again.")
+			fmt.Println()
+		}
+	}
+
+	// Get a token (interactive, TTY-only — a secret never comes through an agent).
+	tok, e := promptCFToken()
+	if e != nil {
+		return "", cfAccount{}, false, e
+	}
+
+	chosen, ok, e := pickAccount(tok, cfg, accountFlag)
+	if e != nil || !ok {
+		return "", cfAccount{}, false, e
+	}
+
+	if err := saveCFToken(chosen.id, tok); err != nil {
+		return "", cfAccount{}, false, err
+	}
+	cfg.Deploy.AccountID = chosen.id
 	if err := proj.SaveConfig(cfg); err != nil {
-		return nil, err
+		return "", cfAccount{}, false, err
 	}
-	return &a, nil
+	return tok, chosen, true, nil
 }
 
-// printDeployPlan shows which account a first deploy would use and how to
-// confirm, switch, or create one — so the account is always a deliberate choice.
-func printDeployPlan(email string, accounts []cfAccount) {
-	fmt.Println()
-	if len(accounts) == 1 {
-		a := accounts[0]
-		fmt.Println("crofty would deploy to this Cloudflare account:")
-		line := "    " + a.id
-		if a.name != "" {
-			line += "  (" + a.name + ")"
+// pickAccount resolves the account a token deploys to: an explicit --account or
+// the pinned one (verified reachable), the sole account the token lists, or — when
+// several or none are listed — a prompt for the account id. ok is false when it
+// printed a choice and is waiting for --account.
+func pickAccount(token string, cfg *project.Config, accountFlag string) (cfAccount, bool, error) {
+	if want := accountFlag; want != "" {
+		if err := cfVerifyPagesAccess(token, want); err != nil {
+			return cfAccount{}, false, err
 		}
-		if email != "" {
-			line += "  [" + email + "]"
+		return cfAccount{id: want}, true, nil
+	}
+	if cfg.Deploy.AccountID != "" {
+		if err := cfVerifyPagesAccess(token, cfg.Deploy.AccountID); err != nil {
+			return cfAccount{}, false, err
 		}
-		fmt.Println(line)
+		return cfAccount{id: cfg.Deploy.AccountID}, true, nil
+	}
+
+	accts, err := cfListAccounts(token)
+	switch {
+	case err == nil && len(accts) == 1:
+		return accts[0], true, nil
+	case err == nil && len(accts) > 1:
 		fmt.Println()
-		fmt.Println("Is this the right account?")
-		fmt.Println("  confirm    → crofty deploy --yes")
-		fmt.Println("  different  → wrangler login   (switch accounts), then retry")
-		fmt.Printf("  no account → create a free one: %s\n", cfSignupURL)
-		return
+		fmt.Println("That token reaches several Cloudflare accounts:")
+		for _, a := range accts {
+			fmt.Printf("    %s  (%s)\n", a.id, a.name)
+		}
+		fmt.Println()
+		fmt.Println("Pick one:  crofty deploy --account <id>")
+		return cfAccount{}, false, nil
 	}
-	fmt.Println("wrangler is logged into multiple Cloudflare accounts:")
-	for _, a := range accounts {
-		fmt.Printf("    %s  (%s)\n", a.id, a.name)
+
+	// The token can't list accounts (a Pages-only token often can't) — ask for
+	// the account id and verify the token can manage Pages there.
+	id, perr := promptAccountID()
+	if perr != nil {
+		return cfAccount{}, false, perr
 	}
+	if verr := cfVerifyPagesAccess(token, id); verr != nil {
+		return cfAccount{}, false, verr
+	}
+	return cfAccount{id: id}, true, nil
+}
+
+// promptCFToken guides the user to a Pages: Edit token and reads it from a hidden
+// TTY prompt — never via a flag or stdin pipe, so the secret never passes through
+// an assistant's context (same rule as `targets add`).
+func promptCFToken() (string, error) {
+	if !term.IsTerminal(int(os.Stdin.Fd())) {
+		return "", fmt.Errorf("crofty needs a Cloudflare API token to publish, and a token must be typed in a terminal — never through an assistant.\n"+
+			"  Run 'crofty deploy' yourself and paste the token when asked.\n"+
+			"  Create one: https://dash.cloudflare.com/profile/api-tokens  (permission: Cloudflare Pages → Edit)\n"+
+			"  No Cloudflare account yet? Free sign-up: %s", cfSignupURL)
+	}
+	fmt.Println("To publish, crofty needs a Cloudflare API token. It's kept in your keychain")
+	fmt.Println("and used only to deploy your site — crofty has no server of its own.")
 	fmt.Println()
-	fmt.Println("Pick the one to deploy to:  crofty deploy --account <id>")
+	fmt.Println("  Create one:  https://dash.cloudflare.com/profile/api-tokens")
+	fmt.Println(`               → Create Token → "Cloudflare Pages" → Edit → your account`)
+	fmt.Printf("  No account?  Free sign-up: %s\n", cfSignupURL)
+	fmt.Println()
+	for attempt := 0; attempt < 3; attempt++ {
+		fmt.Print("Paste your Cloudflare API token: ")
+		b, err := term.ReadPassword(int(os.Stdin.Fd()))
+		fmt.Println()
+		if err != nil {
+			return "", err
+		}
+		if tok := strings.TrimSpace(string(b)); tok != "" {
+			return tok, nil
+		}
+		fmt.Println("  (nothing entered — try again)")
+	}
+	return "", fmt.Errorf("no token entered — run 'crofty deploy' again when you have one")
 }
 
-// accountEmail pulls the logged-in email out of `wrangler whoami` (blank when
-// authenticated by API token, which has no associated email).
-func accountEmail(out string) string {
-	if m := regexp.MustCompile(`email\s+(\S+)`).FindStringSubmatch(out); len(m) == 2 {
-		return strings.TrimRight(m[1], ".")
+// promptAccountID reads a (non-secret) Cloudflare account id from the terminal,
+// used when the token itself can't tell crofty which account it belongs to.
+func promptAccountID() (string, error) {
+	fmt.Println()
+	fmt.Println("crofty couldn't read the account from that token. Paste your Cloudflare")
+	fmt.Println("account id (Dashboard → your account → it's in the page URL):")
+	fmt.Print("  Account id: ")
+	line, err := bufio.NewReader(os.Stdin).ReadString('\n')
+	if id := strings.TrimSpace(line); id != "" {
+		return id, nil
 	}
-	return ""
-}
-
-// parseAccounts pulls (id, name) pairs out of a `wrangler whoami` table.
-func parseAccounts(out string) []cfAccount {
-	idRe := regexp.MustCompile(`[0-9a-f]{32}`)
-	seen := map[string]bool{}
-	var accounts []cfAccount
-	for _, line := range strings.Split(out, "\n") {
-		id := idRe.FindString(line)
-		if id == "" || seen[id] {
-			continue
-		}
-		seen[id] = true
-		name := ""
-		for _, cell := range strings.Split(line, "│") {
-			cell = strings.TrimSpace(cell)
-			if cell != "" && cell != id {
-				name = cell
-				break
-			}
-		}
-		accounts = append(accounts, cfAccount{name: name, id: id})
+	if err != nil {
+		return "", err
 	}
-	return accounts
+	return "", fmt.Errorf("no account id entered")
 }
 
 // canonicalPagesURL extracts the project's production *.pages.dev URL from
