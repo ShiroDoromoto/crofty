@@ -13,11 +13,18 @@ import (
 
 func runDeploy(args []string) error {
 	fs := flag.NewFlagSet("deploy", flag.ContinueOnError)
+	var yes bool
+	var account string
+	fs.BoolVar(&yes, "yes", false, "confirm the Cloudflare account and deploy")
+	fs.StringVar(&account, "account", "", "Cloudflare account id to deploy to (pins it to this project)")
 	fs.Usage = func() {
 		fmt.Println("crofty deploy — publish ./dist to your Cloudflare Pages project")
-		fmt.Println("\nUsage: crofty deploy")
+		fmt.Println("\nUsage:")
+		fmt.Println("  crofty deploy                 # first run shows the account and asks to confirm")
+		fmt.Println("  crofty deploy --yes           # confirm the shown account and deploy")
+		fmt.Println("  crofty deploy --account <id>  # deploy to a specific account (pins it)")
 	}
-	if err := fs.Parse(args); err != nil {
+	if _, err := parseArgs(fs, args); err != nil {
 		return err
 	}
 
@@ -52,12 +59,15 @@ func runDeploy(args []string) error {
 			"crofty uses Wrangler to deploy to Cloudflare Pages. Install Node.js (which provides npx), then retry.")
 	}
 
-	// Resolve and surface which Cloudflare account this deploys to, so a deploy
-	// is never silently sent to whatever account wrangler happens to be logged
-	// into. The chosen account is pinned to config on the first deploy.
-	acct, err := resolveAccount(proj, cfg, bin, base)
+	// Resolve which Cloudflare account this deploys to. On the first deploy this
+	// surfaces the account and waits for confirmation rather than silently using
+	// whatever wrangler happens to be logged into.
+	acct, err := chooseAccount(proj, cfg, bin, base, yes, account)
 	if err != nil {
 		return err
+	}
+	if acct == nil {
+		return nil // a plan was shown; nothing is deployed until the user confirms
 	}
 	fmt.Println()
 	if acct.name != "" {
@@ -109,63 +119,115 @@ type cfAccount struct {
 	email, name, id string
 }
 
-// resolveAccount reads the logged-in Cloudflare account(s) from wrangler and
-// picks the one to deploy to: the config-pinned account if set (erroring on a
-// drift), otherwise the sole logged-in account (which it pins). It guides the
-// user to log in if wrangler isn't authenticated, and refuses to guess when a
-// token spans multiple accounts.
-func resolveAccount(proj *project.Project, cfg *project.Config, bin string, base []string) (cfAccount, error) {
+// cfSignupURL is where a user with no Cloudflare account can make a free one.
+const cfSignupURL = "https://dash.cloudflare.com/sign-up"
+
+// chooseAccount decides which Cloudflare account a deploy targets, surfacing the
+// choice instead of silently inheriting whatever wrangler is logged into.
+//   - returns (&acct, nil) to proceed (a pinned account, or one just confirmed);
+//   - returns (nil, nil) after printing a plan, when the first deploy needs the
+//     user to confirm the account (nothing is deployed);
+//   - returns (nil, err) when it can't proceed (not connected, unreachable, …).
+func chooseAccount(proj *project.Project, cfg *project.Config, bin string, base []string, yes bool, accountFlag string) (*cfAccount, error) {
 	out, err := runner.Capture(proj.Root, bin, append(append([]string{}, base...), "whoami")...)
 	low := strings.ToLower(out)
 	if err != nil || strings.Contains(low, "not authenticated") || strings.Contains(low, "not logged in") {
-		return cfAccount{}, fmt.Errorf("not connected to Cloudflare yet.\n" +
-			"  Connect your (free) account first:  wrangler login\n" +
-			"  Then run 'crofty deploy' again.")
+		return nil, fmt.Errorf("not connected to Cloudflare yet.\n"+
+			"  Connect an account:     wrangler login\n"+
+			"  No account yet? Free:   %s\n"+
+			"  Then run 'crofty deploy' again.", cfSignupURL)
 	}
 
-	email := ""
-	if m := regexp.MustCompile(`email\s+(\S+)`).FindStringSubmatch(out); len(m) == 2 {
-		email = strings.TrimRight(m[1], ".") // the line ends "…@host.tld." — drop the period
-	}
-	// Each account row carries a 32-hex id; the cell beside it is the name.
+	email := accountEmail(out)
 	accounts := parseAccounts(out)
 	if len(accounts) == 0 {
-		return cfAccount{}, fmt.Errorf("could not read your Cloudflare account from 'wrangler whoami'.\n" +
+		return nil, fmt.Errorf("could not read your Cloudflare account from 'wrangler whoami'.\n" +
 			"  Try 'wrangler login' again, then retry.")
 	}
 
-	// Pinned: must still be reachable by the current login.
+	// Explicit --account: deploy to that one (and pin it), if the login reaches it.
+	if accountFlag != "" {
+		for _, a := range accounts {
+			if a.id == accountFlag {
+				a.email = email
+				return pinAccount(proj, cfg, a)
+			}
+		}
+		return nil, fmt.Errorf("the current wrangler login (%s) can't reach account %q.\n"+
+			"  Log in to it with 'wrangler login', or pick one it can reach.", email, accountFlag)
+	}
+
+	// Already pinned: just confirm the login can still reach it, then deploy.
 	if cfg.Deploy.AccountID != "" {
 		for _, a := range accounts {
 			if a.id == cfg.Deploy.AccountID {
 				a.email = email
-				return a, nil
+				return &a, nil
 			}
 		}
-		return cfAccount{}, fmt.Errorf("this project is pinned to Cloudflare account %s, but the current wrangler login (%s) can't reach it.\n"+
-			"  Log in to the right account with 'wrangler login', or change deploy.accountId in %s to retarget on purpose.",
-			cfg.Deploy.AccountID, email, proj.ConfigPath())
+		return nil, fmt.Errorf("this project is pinned to Cloudflare account %s, but the current wrangler login (%s) can't reach it.\n"+
+			"  Log in to the right account with 'wrangler login', or run 'crofty deploy --account <id>' to retarget on purpose.",
+			cfg.Deploy.AccountID, email)
 	}
 
-	// Not pinned yet: only proceed when the choice is unambiguous.
-	if len(accounts) > 1 {
-		var ids []string
-		for _, a := range accounts {
-			ids = append(ids, fmt.Sprintf("%s (%s)", a.id, a.name))
-		}
-		return cfAccount{}, fmt.Errorf("wrangler is logged into multiple Cloudflare accounts:\n  %s\n"+
-			"  Pick one by setting deploy.accountId in %s, then run 'crofty deploy'.",
-			strings.Join(ids, "\n  "), proj.ConfigPath())
+	// First deploy, confirmed, and the account is unambiguous → pin and proceed.
+	if yes && len(accounts) == 1 {
+		a := accounts[0]
+		a.email = email
+		return pinAccount(proj, cfg, a)
 	}
-	acct := accounts[0]
-	acct.email = email
 
-	// First deploy: pin the account so a later re-login can't silently retarget.
-	cfg.Deploy.AccountID = acct.id
+	// Otherwise surface the account(s) and the choices, and stop without deploying.
+	printDeployPlan(email, accounts)
+	return nil, nil
+}
+
+// pinAccount records the chosen account on the project and returns it.
+func pinAccount(proj *project.Project, cfg *project.Config, a cfAccount) (*cfAccount, error) {
+	cfg.Deploy.AccountID = a.id
 	if err := proj.SaveConfig(cfg); err != nil {
-		return cfAccount{}, err
+		return nil, err
 	}
-	return acct, nil
+	return &a, nil
+}
+
+// printDeployPlan shows which account a first deploy would use and how to
+// confirm, switch, or create one — so the account is always a deliberate choice.
+func printDeployPlan(email string, accounts []cfAccount) {
+	fmt.Println()
+	if len(accounts) == 1 {
+		a := accounts[0]
+		fmt.Println("crofty would deploy to this Cloudflare account:")
+		line := "    " + a.id
+		if a.name != "" {
+			line += "  (" + a.name + ")"
+		}
+		if email != "" {
+			line += "  [" + email + "]"
+		}
+		fmt.Println(line)
+		fmt.Println()
+		fmt.Println("Is this the right account?")
+		fmt.Println("  confirm    → crofty deploy --yes")
+		fmt.Println("  different  → wrangler login   (switch accounts), then retry")
+		fmt.Printf("  no account → create a free one: %s\n", cfSignupURL)
+		return
+	}
+	fmt.Println("wrangler is logged into multiple Cloudflare accounts:")
+	for _, a := range accounts {
+		fmt.Printf("    %s  (%s)\n", a.id, a.name)
+	}
+	fmt.Println()
+	fmt.Println("Pick the one to deploy to:  crofty deploy --account <id>")
+}
+
+// accountEmail pulls the logged-in email out of `wrangler whoami` (blank when
+// authenticated by API token, which has no associated email).
+func accountEmail(out string) string {
+	if m := regexp.MustCompile(`email\s+(\S+)`).FindStringSubmatch(out); len(m) == 2 {
+		return strings.TrimRight(m[1], ".")
+	}
+	return ""
 }
 
 // parseAccounts pulls (id, name) pairs out of a `wrangler whoami` table.
