@@ -48,7 +48,23 @@ func runInit(args []string) error {
 		siteLang = detectLang()
 	}
 
-	// Resolve where the project goes. With an explicit name/path, or a
+	// Re-running init on a project that already exists isn't an error — it's how
+	// you reach the optional settings (support link, analytics) you'd otherwise
+	// never discover (08 §4.3). With no name, "here" means the current directory;
+	// an explicit name/path that already exists configures that one.
+	cwd, err := os.Getwd()
+	if err != nil {
+		return err
+	}
+	if len(rest) == 0 {
+		if proj, ferr := project.Find(cwd); ferr == nil {
+			return runConfigure(proj)
+		}
+	} else if target, rerr := resolveInitTarget(rest[0]); rerr == nil && isExistingProject(target) {
+		return runConfigure(&project.Project{Root: target})
+	}
+
+	// Resolve where a NEW project goes. With an explicit name/path, or a
 	// non-interactive (agent) run, resolve directly. In a terminal with no name,
 	// ask for one (default my-site), re-asking if it already exists so a second
 	// `crofty init` doesn't dead-end on the default. A bare name lands in the
@@ -140,9 +156,29 @@ func runInit(args []string) error {
 	fmt.Println("    content/posts/     your posts (a sample 'welcome' is here to edit or delete)")
 	fmt.Println("    .crofty/           crofty's own settings (never your content, no secrets)")
 	fmt.Println()
+
+	// One optional, skippable question at the human moment: a support link is a
+	// personal decision an agent can't invent and otherwise goes undiscovered
+	// (08 §4.3 B). Analytics is only hinted — its ids live in a dashboard, too
+	// much friction to prompt for here.
+	if term.IsTerminal(int(os.Stdin.Fd())) {
+		if link, ok := promptSupportLink(); ok {
+			if isHTTPURL(link) {
+				if err := setProfileSupport(abs, "stripe", link); err == nil {
+					fmt.Println("  ✓ saved — it shows in your site footer after you build.")
+				}
+			} else {
+				fmt.Println("  (that doesn't look like a URL — skipped; add it later with 'crofty init')")
+			}
+		}
+		fmt.Println()
+	}
+
 	fmt.Println("next — copy these one line at a time:")
 	fmt.Printf("  cd %s\n", abs)
 	fmt.Println("  crofty preview     # see your site in a browser (no account needed)")
+	fmt.Println()
+	fmt.Println("Optional later: run 'crofty init' here again to add a support link or analytics.")
 	return nil
 }
 
