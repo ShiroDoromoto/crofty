@@ -50,8 +50,10 @@ figure figcaption {
   border: 0;
   border-radius: 6px;
 }
-/* Hugo's youtube/vimeo shortcodes wrap a 16:9 iframe in a positioned box. */
-.content video { display: block; margin: 2rem auto; }
+/* Hugo's youtube/vimeo shortcodes wrap a 16:9 iframe in a positioned box. Let a
+   self-hosted <video> fill the reading column instead of sitting at its (often
+   small) native resolution, the way the embedded players already do. */
+.content video { display: block; width: 100%; height: auto; margin: 2rem auto; }
 
 /* Mermaid diagrams ---------------------------------------------------------- */
 pre.mermaid {
