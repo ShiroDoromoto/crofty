@@ -1,0 +1,81 @@
+/* Demo-only styles for rich content (images, figures, tables, embeds, Mermaid,
+   abc.js). Loaded via params.crofty.head_raw so the crofty theme stays frozen.
+   Reuses the theme's CSS variables (--ink, --line, --muted, --code-bg) so light
+   and dark mode follow along for free. */
+
+/* Images and figures -------------------------------------------------------- */
+.content img {
+  max-width: 100%;
+  height: auto;
+  border-radius: 6px;
+}
+figure {
+  margin: 2rem 0;
+  text-align: center;
+}
+figure img { display: block; margin-inline: auto; }
+figure figcaption {
+  margin-top: 0.5rem;
+  color: var(--muted);
+  font-size: 0.9rem;
+  font-style: italic;
+}
+
+/* Tables -------------------------------------------------------------------- */
+.content table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 1.5rem 0;
+  font-size: 0.95rem;
+}
+.content th,
+.content td {
+  padding: 0.5rem 0.7rem;
+  border-bottom: 1px solid var(--line);
+  text-align: left;
+}
+.content th {
+  font-family: -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+  font-size: 0.78rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--muted);
+}
+.content tbody tr:hover { background: var(--code-bg); }
+
+/* Embedded media: video, iframes, the YouTube shortcode wrapper -------------- */
+.content video,
+.content iframe {
+  max-width: 100%;
+  border: 0;
+  border-radius: 6px;
+}
+/* Hugo's youtube/vimeo shortcodes wrap a 16:9 iframe in a positioned box. */
+.content video { display: block; margin: 2rem auto; }
+
+/* Mermaid diagrams ---------------------------------------------------------- */
+pre.mermaid {
+  background: none;
+  padding: 0;
+  margin: 2rem 0;
+  text-align: center;
+  /* Hide the source text until Mermaid swaps in the rendered SVG. */
+  color: transparent;
+}
+pre.mermaid svg { max-width: 100%; height: auto; }
+
+/* abc.js sheet music + player ----------------------------------------------- */
+.abc-block {
+  margin: 2rem 0;
+  padding: 1rem;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+}
+.abc-paper svg { max-width: 100%; height: auto; }
+/* abcjs colours its notation with inline fills; nudge the audio control to fit
+   the editorial palette. */
+.abc-audio { margin-top: 0.75rem; }
+.abc-audio .abcjs-inline-audio {
+  background: var(--code-bg);
+  border-radius: 6px;
+}

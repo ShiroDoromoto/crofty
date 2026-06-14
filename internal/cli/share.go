@@ -187,7 +187,7 @@ func runShare(args []string) error {
 // resolveShareChannels uses --to, else the post's crofty.targets, else every
 // known channel as a discovery menu.
 func resolveShareChannels(to string, fm spec.Frontmatter) ([]string, error) {
-	names, err := resolvePublishTargets(to, fm)
+	names, err := frontmatterChannels(to, fm)
 	if err != nil {
 		return nil, err
 	}

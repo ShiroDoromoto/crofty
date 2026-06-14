@@ -27,9 +27,6 @@ type Config struct {
 	// assigned once and never contains secrets.
 	Workspace string       `json:"workspace,omitempty"`
 	Deploy    DeployConfig `json:"deploy"`
-	// Targets holds non-secret per-destination settings; credentials live in the
-	// keychain, never here.
-	Targets map[string]TargetConfig `json:"targets,omitempty"`
 }
 
 // DeployConfig describes where a build is published.
@@ -46,13 +43,6 @@ type DeployConfig struct {
 	// the site can't be silently retargeted to another account. Non-secret (an
 	// account id is not a key).
 	AccountID string `json:"accountId,omitempty"`
-}
-
-// TargetConfig is the non-secret configuration of a syndication destination.
-type TargetConfig struct {
-	Type   string `json:"type"`             // "bluesky" | "mastodon"
-	Handle string `json:"handle"`           // non-secret account identifier
-	Server string `json:"server,omitempty"` // instance/PDS base URL
 }
 
 // Project is a resolved crofty project rooted at Root.
@@ -96,11 +86,6 @@ func (p *Project) ThemesDir() string {
 // DistDir is the build output directory — the only thing deploy uploads.
 func (p *Project) DistDir() string {
 	return filepath.Join(p.Root, "dist")
-}
-
-// StatePath is the publish ledger location; plain, non-secret, deploy-excluded.
-func (p *Project) StatePath() string {
-	return filepath.Join(p.Root, MarkerDir, "state.json")
 }
 
 // LoadConfig reads and parses .crofty/config.json.

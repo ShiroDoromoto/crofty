@@ -1,9 +1,9 @@
 {{- /*
-  Contract-critical <head> elements (08 §2.1: C-E1 canonical, C-E2 feed link,
-  C-E3 crofty.id) plus the analytics partial and the head_raw injection slot.
+  Contract-critical <head> elements (08 §2.1: C-E1 canonical, C-E2 feed link)
+  plus the analytics partial and the head_raw injection slot.
   You may override this partial to restyle or extend the <head> — but the built
-  output must still carry the canonical link, a feed link, and (where present)
-  the post id, or `crofty doctor`/build will flag it (08 §2, §3.2).
+  output must still carry the canonical link and a feed link, or
+  `crofty doctor`/build will flag it (08 §2, §3.2).
 */ -}}
 <link rel="canonical" href="{{ .Permalink }}">
 {{ with or .Description site.Params.description }}<meta name="description" content="{{ . }}">
@@ -14,8 +14,6 @@
 {{- with .AllTranslations }}{{ if gt (len .) 1 -}}
 {{ range . }}<link rel="alternate" hreflang="{{ .Language.LanguageCode }}" href="{{ .Permalink }}">
 {{ end -}}
-{{ end }}{{ end -}}
-{{ with .Params.crofty }}{{ with .id }}<meta name="crofty:id" content="{{ . }}">
 {{ end }}{{ end -}}
 {{ partial "crofty/analytics.html" . }}
 {{- with site.Params.crofty }}{{ with .head_raw }}

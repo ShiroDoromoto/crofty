@@ -15,10 +15,35 @@ defaultContentLanguageInSubdir: false
 pagination:
   pagerSize: 6
 
+# Markdown rendering. This is plain Hugo (crofty injects no markup config), so
+# what you set here is what you get. The demo turns on a few things so it can
+# show the full range of what a post can contain:
+#   - goldmark.renderer.unsafe: pass raw HTML in Markdown through untouched, so
+#     "paste this on your site" snippets (gists, CodePen, embeds, <video>) work.
+#     It is off by default in Hugo; a single-author site you own is exactly the
+#     case where trusting your own HTML is fine.
+#   - highlight: class-based syntax highlighting, so code colours follow the
+#     reader's light/dark setting via css/extra.css instead of a baked-in theme.
+markup:
+  goldmark:
+    renderer:
+      unsafe: true
+  highlight:
+    noClasses: false
+    lineNos: false
+    tabWidth: 2
+
 params:
   # Tool-specific front matter and params nest under `crofty:` (spec v0).
   crofty:
     specVersion: "0"
+    # head_raw is the sanctioned slot for extra <head> markup (08 §2): the
+    # crofty theme stays frozen, the demo adds its own stylesheet for the rich
+    # content below (images, tables, Mermaid, abc.js). Project layouts under
+    # layouts/_default/_markup/ supply the Mermaid/abc render hooks.
+    head_raw: |
+      <link rel="stylesheet" href="/css/extra.css">
+      <link rel="stylesheet" href="/css/chroma.css">
 
 languages:
   en:

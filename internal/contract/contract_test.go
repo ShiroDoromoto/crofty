@@ -128,27 +128,6 @@ func TestMissingLangAndTitleAreErrors(t *testing.T) {
 	}
 }
 
-func TestMalformedIDIsError(t *testing.T) {
-	page := `<!DOCTYPE html><html lang="en"><head><meta name="viewport" content="x"><title>T</title>
-<link rel="canonical" href="https://e.com/p/"><meta name="crofty:id" content="not-a-ulid"></head><body>x</body></html>`
-	dir := writeDist(t, map[string]string{"posts/p/index.html": page, "index.html": goodPage, "index.xml": "<rss/>"})
-	r, _ := Check(dir)
-	got := findingsFor(r, "C-E3")
-	if len(got) != 1 || got[0].Severity != SeverityError {
-		t.Fatalf("expected one C-E3 error for a malformed id, got %+v", got)
-	}
-}
-
-func TestValidIDPasses(t *testing.T) {
-	page := `<!DOCTYPE html><html lang="en"><head><meta name="viewport" content="x"><title>T</title>
-<link rel="canonical" href="https://e.com/p/"><meta name="crofty:id" content="01J9Z3M8XK7Q2N4P6R8T0V2W4Y"></head><body>x</body></html>`
-	dir := writeDist(t, map[string]string{"posts/p/index.html": page, "index.html": goodPage, "index.xml": "<rss/>"})
-	r, _ := Check(dir)
-	if len(findingsFor(r, "C-E3")) != 0 {
-		t.Fatalf("a valid ULID should not produce a C-E3 finding: %+v", findingsFor(r, "C-E3"))
-	}
-}
-
 func Test404IsExemptFromCanonical(t *testing.T) {
 	page := `<!DOCTYPE html><html lang="en"><head><meta name="viewport" content="x"><title>Not found</title></head><body>x</body></html>`
 	dir := writeDist(t, map[string]string{"404.html": page, "index.html": goodPage, "index.xml": "<rss/>"})
