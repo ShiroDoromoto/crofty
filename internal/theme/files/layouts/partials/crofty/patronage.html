@@ -11,7 +11,7 @@
 {{- with .Params.crofty }}{{ if eq .support false }}{{ $hide = true }}{{ end }}{{ end -}}
 {{- if not $hide }}{{ with hugo.Data.profile }}{{ with .support }}
 <aside class="crofty-support">
-  {{ with .message }}<p class="crofty-support-message">{{ . }}</p>{{ end }}
+  {{ with .message }}<p class="crofty-support-message">{{ partial "crofty/tr.html" . }}</p>{{ end }}
   <p class="crofty-support-links">
     {{- with .stripe }}<a class="crofty-support-link" href="{{ . }}" rel="nofollow">{{ i18n "support" }}</a>{{ end }}
     {{- with .github_sponsors }}<a class="crofty-support-link" href="https://github.com/sponsors/{{ . }}" rel="nofollow">GitHub Sponsors</a>{{ end }}

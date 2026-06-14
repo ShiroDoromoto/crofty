@@ -6,12 +6,12 @@
   data/profile.yml. Social links use rel="me" for small-web identity.
 */ -}}
 {{- with hugo.Data.profile }}
-{{- $name := .name }}
+{{- $name := partial "crofty/tr.html" .name }}
 <aside class="profile">
   {{- with .avatar }}<img class="profile-avatar" src="{{ . | relURL }}" alt="{{ $name }}" width="72" height="72">{{ end }}
   <div class="profile-text">
-    {{- with .name }}<p class="profile-name">{{ . }}</p>{{ end }}
-    {{- with .tagline }}<p class="profile-tagline">{{ . }}</p>{{ end }}
+    {{- with $name }}<p class="profile-name">{{ . }}</p>{{ end }}
+    {{- with .tagline }}<p class="profile-tagline">{{ partial "crofty/tr.html" . }}</p>{{ end }}
     {{- with .socials }}
     <p class="profile-socials">
       {{- range . }}<a href="{{ .url }}" rel="me">{{ .name }}</a>{{ end }}
