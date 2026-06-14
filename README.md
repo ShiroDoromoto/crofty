@@ -2,49 +2,59 @@
 
 Write Markdown; crofty builds it with Hugo and deploys it to a website you own
 on your own domain and accounts. It never talks to a server of ours — there
-isn't one.
+isn't one. Deploys go straight to your Cloudflare account over its API, with no
+Node or Wrangler in the loop.
 
-## Build from source
-
-Requires Go 1.25+, [Hugo](https://gohugo.io), and Node.js (for Wrangler).
+## Install
 
 ```sh
-go build -o crofty .
+brew install shirodoromoto/tap/crofty
 ```
 
-## Create a project
+crofty wraps [Hugo](https://gohugo.io) at runtime for `build` and `preview`;
+Homebrew installs it as a dependency.
 
-A crofty project is a directory with a standard Hugo config, a `.crofty/`
-folder, and your Markdown:
+## Quick start
+
+```sh
+crofty init        # create a project (a website you own)
+cd <the path it prints>
+crofty preview     # see it in a browser — no account needed
+crofty connect     # save your Cloudflare API token (to your keychain)
+crofty deploy      # publish ./dist to your own Cloudflare Pages
+```
+
+`crofty init` scaffolds a standard Hugo project plus a `.crofty/` folder:
 
 ```
 your-site/
 ├── hugo.yaml            # standard Hugo config (baseURL, title, …)
 ├── .crofty/
-│   └── config.json      # crofty settings (deploy target)
+│   └── config.json      # crofty settings (deploy target) — never your content, no secrets
 └── content/
-    └── _index.md        # your home page, in Markdown
+    ├── _index.md        # your home page, in Markdown
+    └── posts/
+        └── welcome/
+            └── index.md # a sample post to edit or delete
 ```
 
-Minimal `.crofty/config.json`:
+Run `crofty init` again inside a project to add optional settings (a support
+link, analytics). The build output is a plain Hugo project, so you can take it
+and run `hugo` yourself without this tool.
 
-```json
-{
-  "deploy": { "provider": "cloudflare", "project": "your-pages-project" }
-}
-```
-
-(A `crofty init` that scaffolds this for you is planned.)
-
-## Usage
-
-Run inside a crofty project:
+## Commands
 
 ```sh
-crofty validate  # check your Markdown against the crofty spec (v0)
-crofty build     # render the site to ./dist
-crofty deploy    # publish ./dist to your Cloudflare Pages project
-crofty share     # print a ready-to-post fragment (text + link) for any SNS
+crofty init       # create a new project (or re-run to configure an existing one)
+crofty preview    # see your site in a browser (local, no account)
+crofty build      # render the site to ./dist with Hugo
+crofty connect    # save the Cloudflare API token used to deploy
+crofty deploy     # publish ./dist to your Cloudflare Pages project
+crofty validate   # check content against the crofty spec (v0)
+crofty doctor     # check the built site against the output contract
+crofty share      # print a ready-to-post fragment (text + link) for any SNS
+crofty theme      # bring the theme onto disk to customize (eject tokens or full)
+crofty reset      # remove saved credentials (keychain) and state
 ```
 
 `crofty validate [path ...]` (default `./content`) reports, in field order,
@@ -61,11 +71,22 @@ posts nothing — it prints the text (and, where a platform has one, a pre-fille
 compose link) for you or your agent to paste or open. `--json` emits the same
 fragments as structured output; `--plain` prints just the text and link.
 
-`eject` is planned for a later milestone.
+A draft stays off your published site: add `draft: true` to a post's
+frontmatter, or give it a future `date` to schedule it ahead. `crofty build`
+lists any posts it leaves out, so nothing disappears silently.
 
-The bundled theme is static and ships no JavaScript or trackers. The build
-output is a plain Hugo project, so you can take it and run `hugo` yourself
-without this tool.
+`crofty eject` (convert to a plain Hugo project) is planned for a later
+milestone.
+
+The bundled theme is static and ships no JavaScript or trackers.
+
+## Build from source
+
+Requires Go 1.25+ (and [Hugo](https://gohugo.io) to run it).
+
+```sh
+go build -o crofty .
+```
 
 ## License
 

@@ -1,6 +1,6 @@
-// Package runner shells out to external tools (Hugo, Wrangler). Output is
-// streamed straight to the user's terminal rather than captured, so crofty never
-// buffers tokens or secrets that pass through those tools.
+// Package runner shells out to external tools (Hugo). Output is streamed
+// straight to the user's terminal rather than captured, so crofty never buffers
+// tokens or secrets that pass through those tools.
 package runner
 
 import (
