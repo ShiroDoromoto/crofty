@@ -7,12 +7,22 @@ Node or Wrangler in the loop.
 
 ## Install
 
+**macOS** ([Homebrew](https://brew.sh)):
+
 ```sh
 brew install shirodoromoto/tap/crofty
 ```
 
-crofty wraps [Hugo](https://gohugo.io) at runtime for `build` and `preview`;
-Homebrew installs it as a dependency.
+**Windows** ([Scoop](https://scoop.sh)):
+
+```sh
+scoop bucket add crofty https://github.com/shirodoromoto/scoop-crofty
+scoop install crofty
+```
+
+crofty wraps [Hugo](https://gohugo.io) at runtime for `build` and `preview`.
+Homebrew installs it as a dependency; on Windows, install it alongside crofty
+with `scoop install hugo-extended`.
 
 ## Quick start
 
