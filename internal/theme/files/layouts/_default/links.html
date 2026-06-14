@@ -14,7 +14,7 @@
   <li class="blogroll-item">
     <a class="blogroll-name" href="{{ .url }}" rel="noopener">{{ .name }}</a>
     {{- with .feed }} <a class="blogroll-feed" href="{{ . }}">RSS</a>{{ end }}
-    {{- with .note }}<span class="blogroll-note">{{ . }}</span>{{ end }}
+    {{- with .note }}<span class="blogroll-note">{{ partial "crofty/tr.html" . }}</span>{{ end }}
   </li>
   {{- end }}
 </ul>

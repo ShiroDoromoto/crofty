@@ -1,7 +1,11 @@
-# Structured profile (03 §A-4). Public fields, reused across the site — today the
-# landing card, later meta/OGP. No private contact details belong here.
+# Structured profile (03 §A-4). Public fields, reused across the site. Prose
+# fields can be per-language: make a field a {en: …, ja: …} map to translate it,
+# or leave it a plain string to share it across every language (08 i18n). Neutral
+# fields (a name, a URL) stay plain. No private contact details belong here.
 name: "Wren Maddox"
-tagline: "Writing in a quiet corner of the web."
+tagline:
+  en: "Writing in a quiet corner of the web."
+  ja: "web の静かな片隅で、文章を書いています。"
 avatar: "/avatar.svg"
 socials:
   - name: "Mastodon"
@@ -12,7 +16,9 @@ socials:
 # Patronage (08 §4.2). crofty only places the link; the payment happens on the
 # owner's own hosted page and the money never touches crofty. Stripe Payment
 # Links are the suggested first option. The link below is a placeholder for this
-# demo.
+# demo. The message is translatable; the link is shared.
 support:
-  message: "If something here was worth your time, you can leave a tip."
+  message:
+    en: "If something here was worth your time, you can leave a tip."
+    ja: "ここに時間に見合うものがあったなら、投げ銭をどうぞ。"
   stripe: "https://buy.stripe.com/test_00gexample"

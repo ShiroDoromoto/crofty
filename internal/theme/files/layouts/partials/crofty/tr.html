@@ -1,0 +1,17 @@
+{{- /*
+  Resolve a maybe-translated data value to the current language (08 i18n).
+  Pass any value read from data/ (a profile tagline, a support message, a
+  blogroll note): a plain string passes through unchanged — the single-language
+  case is untouched — while a map keyed by language code resolves to the current
+  language, falling back to whichever translation is present. This is what lets
+  data fields be translated one at a time: make a field a {en: …, ja: …} map to
+  translate it, leave it a string to share it across every language.
+
+  Usage: {{ partial "crofty/tr.html" .tagline }}
+*/ -}}
+{{- $v := . -}}
+{{- if reflect.IsMap . -}}
+  {{- $v = index . site.Language.Lang -}}
+  {{- if not $v -}}{{- range . -}}{{- if not $v -}}{{- $v = . -}}{{- end -}}{{- end -}}{{- end -}}
+{{- end -}}
+{{- return $v -}}
