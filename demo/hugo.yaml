@@ -4,6 +4,16 @@ baseURL: "https://demo.crofty.blog/"
 locale: "en"
 title: "An example built with crofty"
 enableRobotsTXT: true
+pagination:
+  pagerSize: 6
+menu:
+  main:
+    - name: About
+      url: /about/
+      weight: 10
+    - name: Links
+      url: /links/
+      weight: 20
 params:
   description: "A live example built with crofty — plain Markdown on a domain its author owns."
   # Tool-specific front matter and params nest under `crofty:` (spec v0).

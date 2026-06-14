@@ -1,0 +1,22 @@
+{{ define "main" }}
+{{- /*
+  Blogroll / links page (03 §A-5). A one-directional, honest frame — "links" or
+  "reading", not "friends": linking to a public site needs no permission, but
+  claiming friendship would assert a mutuality crofty can't verify. Rendered from
+  data/links.yml (public URLs only, no PII). Use this layout with
+  `layout: links` on a content page (e.g. content/links.md).
+*/ -}}
+<header class="page-header"><h1>{{ .Title }}</h1></header>
+{{ with .Content }}<div class="page-intro">{{ . }}</div>{{ end }}
+{{- with hugo.Data.links }}
+<ul class="blogroll">
+  {{- range . }}
+  <li class="blogroll-item">
+    <a class="blogroll-name" href="{{ .url }}" rel="noopener">{{ .name }}</a>
+    {{- with .feed }} <a class="blogroll-feed" href="{{ . }}">RSS</a>{{ end }}
+    {{- with .note }}<span class="blogroll-note">{{ . }}</span>{{ end }}
+  </li>
+  {{- end }}
+</ul>
+{{- end }}
+{{ end }}

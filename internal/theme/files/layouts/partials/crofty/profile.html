@@ -1,0 +1,22 @@
+{{- /*
+  Structured profile (03 §A-4). Renders name / tagline / avatar / social links
+  from data/profile.yml so a reader can see whose site this is and where to
+  follow them. Hidden when there is no profile data. This partial is "free" —
+  not contract-critical — so override it freely to restyle; the data stays in
+  data/profile.yml. Social links use rel="me" for small-web identity.
+*/ -}}
+{{- with hugo.Data.profile }}
+{{- $name := .name }}
+<aside class="profile">
+  {{- with .avatar }}<img class="profile-avatar" src="{{ . | relURL }}" alt="{{ $name }}" width="72" height="72">{{ end }}
+  <div class="profile-text">
+    {{- with .name }}<p class="profile-name">{{ . }}</p>{{ end }}
+    {{- with .tagline }}<p class="profile-tagline">{{ . }}</p>{{ end }}
+    {{- with .socials }}
+    <p class="profile-socials">
+      {{- range . }}<a href="{{ .url }}" rel="me">{{ .name }}</a>{{ end }}
+    </p>
+    {{- end }}
+  </div>
+</aside>
+{{- end }}

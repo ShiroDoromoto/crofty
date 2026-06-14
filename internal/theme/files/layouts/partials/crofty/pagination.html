@@ -1,0 +1,15 @@
+{{- /*
+  Pagination (03 §A-1). Newer/older links plus position; the caller decides what
+  to paginate (`.Paginate`), this renders the controls from `.Paginator`. Renders
+  nothing on a single-page list. Override to restyle — the paging logic is the
+  engine's, the look is the theme's.
+*/ -}}
+{{- with .Paginator }}{{ if gt .TotalPages 1 }}
+<nav class="pagination" aria-label="Pagination">
+  {{- if .HasPrev }}<a class="pagination-link pagination-prev" href="{{ .Prev.URL }}">← Newer</a>
+  {{- else }}<span class="pagination-link is-disabled">← Newer</span>{{ end }}
+  <span class="pagination-status">Page {{ .PageNumber }} of {{ .TotalPages }}</span>
+  {{- if .HasNext }}<a class="pagination-link pagination-next" href="{{ .Next.URL }}">Older →</a>
+  {{- else }}<span class="pagination-link is-disabled">Older →</span>{{ end }}
+</nav>
+{{ end }}{{ end -}}

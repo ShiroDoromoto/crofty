@@ -210,3 +210,76 @@ time { color: var(--muted); }
   font-size: 0.9rem;
 }
 .crofty-support-link:hover { border-color: var(--accent); color: var(--accent); }
+
+/* Profile card on the landing page: avatar, name, a line about the author, and
+   where to follow them. Sans face, so it sits apart from the reading column. */
+.profile {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  margin: 0 0 2.5rem;
+  padding-bottom: 1.75rem;
+  border-bottom: 1px solid var(--line);
+  font-family: -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+}
+.profile-avatar {
+  flex: none;
+  width: 72px;
+  height: 72px;
+  border-radius: 50%;
+  border: 1px solid var(--line);
+  background: var(--code-bg);
+}
+.profile-text { min-width: 0; }
+.profile-name { margin: 0; font-size: 1.05rem; font-weight: 600; color: var(--ink); }
+.profile-tagline { margin: 0.15rem 0 0; color: var(--muted); font-size: 0.95rem; }
+.profile-socials { margin: 0.45rem 0 0; font-size: 0.85rem; }
+.profile-socials a { margin-right: 0.9rem; color: var(--muted); text-decoration: none; }
+.profile-socials a:hover { color: var(--accent); }
+
+/* Pagination on lists and the landing page. Quiet, sans, centered. */
+.pagination {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 1rem;
+  margin: 2.5rem 0 0;
+  padding-top: 1.25rem;
+  border-top: 1px solid var(--line);
+  font-family: -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+  font-size: 0.9rem;
+}
+.pagination-link { color: var(--ink); text-decoration: none; }
+.pagination-link:hover { color: var(--accent); }
+.pagination-link.is-disabled { color: var(--line); }
+.pagination-status {
+  color: var(--muted);
+  font-variant: small-caps;
+  letter-spacing: 0.05em;
+  font-size: 0.85rem;
+}
+
+/* Blogroll / links page: a one-directional list of sites worth reading. */
+.blogroll { list-style: none; padding: 0; margin: 1.5rem 0; }
+.blogroll-item {
+  padding: 0.7rem 0;
+  border-bottom: 1px solid var(--line);
+}
+.blogroll-name { text-decoration: none; }
+.blogroll-name:hover { color: var(--accent); }
+.blogroll-feed {
+  margin-left: 0.6rem;
+  font-family: -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--muted);
+  text-decoration: none;
+}
+.blogroll-feed:hover { color: var(--accent); }
+.blogroll-note {
+  display: block;
+  margin-top: 0.2rem;
+  color: var(--muted);
+  font-size: 0.95rem;
+}
