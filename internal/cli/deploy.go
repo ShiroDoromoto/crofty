@@ -231,14 +231,17 @@ func promptCFToken() (string, error) {
 	if !term.IsTerminal(int(os.Stdin.Fd())) {
 		return "", fmt.Errorf("crofty needs a Cloudflare API token to publish, and a token must be typed in a terminal — never through an assistant.\n"+
 			"  Run 'crofty deploy' yourself and paste the token when asked.\n"+
-			"  Create one: https://dash.cloudflare.com/profile/api-tokens  (permission: Cloudflare Pages → Edit)\n"+
+			"  Create one: https://dash.cloudflare.com/profile/api-tokens\n"+
+			"    → Create Token → Custom token → Permissions: Account · Cloudflare Pages · Edit\n"+
 			"  No Cloudflare account yet? Free sign-up: %s", cfSignupURL)
 	}
 	fmt.Println("To publish, crofty needs a Cloudflare API token. It's kept in your keychain")
 	fmt.Println("and used only to deploy your site — crofty has no server of its own.")
 	fmt.Println()
 	fmt.Println("  Create one:  https://dash.cloudflare.com/profile/api-tokens")
-	fmt.Println(`               → Create Token → "Cloudflare Pages" → Edit → your account`)
+	fmt.Println("               → Create Token → Custom token → Get started")
+	fmt.Println("               → Permissions: Account · Cloudflare Pages · Edit")
+	fmt.Println("               → Continue to summary → Create Token")
 	fmt.Printf("  No account?  Free sign-up: %s\n", cfSignupURL)
 	fmt.Println()
 	for attempt := 0; attempt < 3; attempt++ {
