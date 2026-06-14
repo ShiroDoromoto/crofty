@@ -81,7 +81,6 @@ func runInit(args []string) error {
 
 	files := map[string]string{
 		"hugo.yaml":                           hugoConfig(siteName, siteLang),
-		"AGENTS.md":                           agentsGuide(),
 		filepath.Join("content", "_index.md"): indexContent(siteName),
 		filepath.Join("content", "posts", "welcome", "index.md"): welcomePost(now),
 	}
@@ -121,15 +120,12 @@ func runInit(args []string) error {
 	fmt.Println()
 	fmt.Println("Everything for this site lives in that one folder — your writing,")
 	fmt.Println("the settings, the built pages. Back up that folder and you have it all.")
-	fmt.Println("    AGENTS.md          how an AI assistant should work with this project")
 	fmt.Println("    content/posts/     your posts (a sample 'welcome' is here to edit or delete)")
 	fmt.Println("    .crofty/           crofty's own settings (never your content, no secrets)")
 	fmt.Println()
 	fmt.Println("next — copy these one line at a time:")
 	fmt.Printf("  cd %s\n", abs)
 	fmt.Println("  crofty preview     # see your site in a browser (no account needed)")
-	fmt.Println()
-	fmt.Printf("If an AI assistant is helping you, have it read %s first.\n", filepath.Join(abs, "AGENTS.md"))
 	return nil
 }
 
@@ -140,38 +136,6 @@ func looksLikePath(arg string) bool {
 		filepath.IsAbs(arg) ||
 		strings.ContainsRune(arg, '/') ||
 		strings.ContainsRune(arg, os.PathSeparator)
-}
-
-// agentsGuide is the neutral, agent-agnostic playbook written to AGENTS.md at
-// the project root. Any assistant opened in (or pointed at) this folder reads it
-// and learns how to drive crofty — no specific AI is assumed (07 O4).
-func agentsGuide() string {
-	return "# crofty project\n\n" +
-		"This folder is a website its author owns, built from Markdown with `crofty`\n" +
-		"(a CLI that wraps Hugo and deploys to the author's own hosting and social\n" +
-		"accounts). You are working in it on the author's behalf.\n\n" +
-		"## Commands (run from this folder)\n\n" +
-		"Each command prints the current state and the next step — read its output\n" +
-		"before the next move.\n\n" +
-		"- `crofty validate`        check posts against the spec\n" +
-		"- `crofty preview`         serve locally at http://localhost:1313 (no account)\n" +
-		"- `crofty build`           render the site into ./dist\n" +
-		"- `crofty deploy`          publish ./dist to the author's site\n" +
-		"- `crofty publish <post>`  syndicate a post's fragment to the author's accounts\n" +
-		"- `crofty share <post>`    print a ready-to-post fragment for any network\n\n" +
-		"To find this or other crofty projects from another directory, run `crofty`.\n\n" +
-		"## Posts\n\n" +
-		"Posts live in `content/posts/<slug>/index.md`. Front matter: `title` and\n" +
-		"`date` are required; `description` is recommended. Dates in the future are\n" +
-		"silently excluded from the build, so keep them at now or earlier.\n\n" +
-		"## House rules\n\n" +
-		"- The author writes the content. Don't invent posts or rewrite their voice.\n" +
-		"- Never edit `crofty.id` in front matter — the tool manages it.\n" +
-		"- Deploy before sharing links, so the canonical URL is live.\n" +
-		"- Reply to the author in the site's language (`locale` in hugo.yaml), and\n" +
-		"  switch to match if they write to you in a different one. Don't make them\n" +
-		"  choose a language — an author who can't read English shouldn't be asked\n" +
-		"  in English which language they prefer.\n"
 }
 
 // detectLang picks a default site language without a prompt. This is where the

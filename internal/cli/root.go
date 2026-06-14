@@ -121,10 +121,10 @@ func discover() {
 		fmt.Printf("    %-16s %s\n", filepath.Base(p), p)
 	}
 	fmt.Println()
-	fmt.Println("→ To work on one, cd into it and read its AGENTS.md, e.g.:")
+	fmt.Println("→ To work on one, cd into it, e.g.:")
 	fmt.Printf("    cd %s\n", projects[0])
 	fmt.Println()
-	fmt.Println("Run 'crofty help' for the full command list.")
+	fmt.Println("Then run 'crofty help' to see what you can do there.")
 }
 
 func usage() {

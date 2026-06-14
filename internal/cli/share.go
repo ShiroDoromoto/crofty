@@ -67,6 +67,7 @@ func runShare(args []string) error {
 	to := fs.String("to", "", "comma-separated channels (default: the post's crofty.targets, else all known)")
 	asJSON := fs.Bool("json", false, "emit machine-readable JSON (for your agent)")
 	plain := fs.Bool("plain", false, "emit only the plain text + link (handy for | pbcopy)")
+	skipDeployCheck := fs.Bool("skip-deploy-check", false, "print even if the post isn't live on your site yet")
 	fs.Usage = func() {
 		fmt.Println("crofty share — print a ready-to-post fragment (text + link) for any SNS")
 		fmt.Println("\nUsage:\n  crofty share <article.md> [--to x,bluesky] [--json] [--plain]")
@@ -111,6 +112,14 @@ func runShare(args []string) error {
 		return nil
 	}
 
+	// Passive deploy note: share only prints (it posts nothing), so a not-live
+	// link is a warning, not a block. We probe the canonical URL on the user's
+	// own site — the same liveness mechanism publish uses, not phone-home.
+	liveNote := ""
+	if !*skipDeployCheck && checkLive(canonical) == liveNo {
+		liveNote = "not live yet — run 'crofty deploy' first, or this link will 404 for readers"
+	}
+
 	names, err := resolveShareChannels(*to, fm)
 	if err != nil {
 		return err
@@ -138,9 +147,10 @@ func runShare(args []string) error {
 			Post     string         `json:"post"`
 			Title    string         `json:"title"`
 			Link     string         `json:"link"`
+			Warning  string         `json:"warning,omitempty"`
 			Channels []shareSnippet `json:"channels"`
 			Plain    string         `json:"plain"`
-		}{relCwd(article), title, canonical, snippets, plainText}
+		}{relCwd(article), title, canonical, liveNote, snippets, plainText}
 		// Disable HTML-escaping so the & in intent URLs stays readable (&
 		// is valid JSON but ugly when a human reads or pipes the output).
 		enc := json.NewEncoder(os.Stdout)
@@ -150,7 +160,11 @@ func runShare(args []string) error {
 	}
 
 	fmt.Printf("Share %q\n", title)
-	fmt.Printf("  link: %s\n\n", canonical)
+	fmt.Printf("  link: %s\n", canonical)
+	if liveNote != "" {
+		fmt.Printf("  ⚠ %s\n", liveNote)
+	}
+	fmt.Println()
 	for _, s := range snippets {
 		label := s.Channel
 		if s.Limit > 0 {
