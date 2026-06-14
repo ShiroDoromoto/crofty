@@ -1,6 +1,6 @@
 {{ define "main" }}
 <section class="notfound">
-  <h1>Not found</h1>
-  <p>That page isn’t here. <a href="{{ "/" | relURL }}">Back to {{ site.Title }}</a>.</p>
+  <h1>{{ i18n "not_found" }}</h1>
+  <p>{{ i18n "not_found_detail" }} <a href="{{ "/" | relURL }}">{{ i18n "back_home" }}</a>.</p>
 </section>
 {{ end }}

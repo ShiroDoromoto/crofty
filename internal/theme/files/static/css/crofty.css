@@ -63,13 +63,26 @@ body {
   color: var(--ink);
 }
 
+.site-header-end {
+  display: flex;
+  align-items: baseline;
+  gap: 1.25rem;
+}
 .site-header nav a {
   margin-left: 1rem;
   font-size: 0.9rem;
   color: var(--muted);
   text-decoration: none;
 }
+.site-header nav:first-child a:first-child { margin-left: 0; }
 .site-header nav a:hover { color: var(--ink); }
+
+/* Language switcher: only present on a multilingual site. Quiet, like the nav. */
+.lang-switch { font-size: 0.85rem; white-space: nowrap; }
+.lang-switch a, .lang-switch .lang-current { margin-left: 0.6rem; }
+.lang-switch a { color: var(--muted); text-decoration: none; }
+.lang-switch a:hover { color: var(--ink); }
+.lang-switch .lang-current { color: var(--ink); }
 
 .content { padding-top: 1.5rem; padding-bottom: 4rem; }
 

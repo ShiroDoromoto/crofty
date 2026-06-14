@@ -1,0 +1,25 @@
+{{- /*
+  Language switcher (03 common chrome). Shown only on a multilingual site (more
+  than one configured language); renders nothing for the common single-language
+  case. Each link points at the current page's translation when one exists, else
+  that language's home. The current language is plain text. A click records the
+  choice in a `lang` cookie (the one small script in baseof) so an edge worker —
+  if you add one (08 i18n) — can honour a manual choice over the browser guess.
+  Override to restyle; the languages come from hugo.yaml.
+*/ -}}
+{{- $sites := hugo.Sites }}
+{{- if gt (len $sites) 1 }}
+{{- $cur := . }}
+<nav class="lang-switch" aria-label="Language">
+  {{- range $sites }}
+  {{- $label := or .Language.Label .Language.Lang }}
+  {{- $target := .Home.RelPermalink }}
+  {{- with index (where $cur.AllTranslations "Language.Lang" .Language.Lang) 0 }}{{ $target = .RelPermalink }}{{ end }}
+  {{- if eq .Language.Lang $cur.Language.Lang }}
+  <span class="lang-current" aria-current="true">{{ $label }}</span>
+  {{- else }}
+  <a href="{{ $target }}" data-lang="{{ .Language.Lang }}">{{ $label }}</a>
+  {{- end }}
+  {{- end }}
+</nav>
+{{- end }}

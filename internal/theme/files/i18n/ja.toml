@@ -1,0 +1,33 @@
+# 日本語のコア UI 文言（08 §3）。著者が書く本文ではなく、crofty 自身の chrome（見出し・
+# ページネーション・フィードリンク・404）の訳。locale: ja のサイトは追加作業なしで日本語の
+# chrome になる。未定義キーは en.toml にフォールバックする。
+
+[writing]
+other = "記事"
+
+[newer]
+other = "新しい"
+
+[older]
+other = "古い"
+
+[page_of]
+other = "{{ .total }} ページ中 {{ .n }} ページ目"
+
+[follow_rss]
+other = "RSS で購読"
+
+[tags]
+other = "タグ"
+
+[support]
+other = "サポートする"
+
+[not_found]
+other = "ページが見つかりません"
+
+[not_found_detail]
+other = "そのページはありません。"
+
+[back_home]
+other = "ホームへ戻る"

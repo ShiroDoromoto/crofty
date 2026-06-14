@@ -10,14 +10,31 @@
 <body>
   <header class="site-header">
     <a class="site-title" href="{{ "/" | relURL }}">{{ site.Title }}</a>
-    {{ with site.Menus.main }}
-    <nav>{{ range . }}<a href="{{ .URL | relURL }}">{{ .Name }}</a>{{ end }}</nav>
-    {{ end }}
+    <div class="site-header-end">
+      {{ with site.Menus.main }}
+      <nav>{{ range . }}<a href="{{ .URL | relURL }}">{{ .Name }}</a>{{ end }}</nav>
+      {{ end }}
+      {{ partial "crofty/langswitch.html" . }}
+    </div>
   </header>
   <main class="content">
     {{ block "main" . }}{{ end }}
   </main>
   {{ partial "crofty/footer.html" . }}
+  {{- if gt (len hugo.Sites) 1 }}
+  <script>
+    // Remember an explicit language choice so an edge worker (if you add one)
+    // can honour it over the browser guess. The link still navigates as usual;
+    // with no worker this is simply harmless. No tracking, no network.
+    document.addEventListener("click", function (e) {
+      var el = e.target.closest("[data-lang]");
+      if (el) {
+        document.cookie = "lang=" + el.getAttribute("data-lang") +
+          "; path=/; max-age=31536000; samesite=Lax";
+      }
+    });
+  </script>
+  {{- end }}
   {{- with site.Params.crofty }}{{ with .body_end_raw }}
   {{ . | safeHTML }}
   {{- end }}{{ end }}
