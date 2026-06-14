@@ -1,0 +1,42 @@
+{{- /*
+  Demo project-layout override (the crofty theme stays frozen — see site roles). This
+  replaces the theme's home-only language redirect with a PER-PAGE one: it runs on every
+  page, so a shared deep link (e.g. /posts/images-and-figures/) lands a visitor in their
+  language, not just the home.
+
+  Existence is never guessed. The candidate languages come from THIS page's own
+  .AllTranslations, which Hugo populates only with translations that actually exist — so a
+  visitor is never bounced to a missing page, and an untranslated page simply stays as it is.
+
+  Order of preference: an explicit `lang` cookie (set by the switcher in baseof.html) wins;
+  otherwise the browser's primary language. Symmetric (en↔ja) and loop-free, because the
+  current page's own language is never a redirect target. Degrades cleanly with JS off —
+  the visitor gets this page's language plus the manual switcher. Emitted in <head> before
+  the stylesheet so the redirect fires before paint. Shown only when a translation exists.
+*/ -}}
+{{- if gt (len .AllTranslations) 1 }}
+{{- $cur := .Language.Lang }}
+{{- $langs := slice }}
+{{- range .AllTranslations }}{{ if ne .Language.Lang $cur }}{{ $langs = $langs | append (dict "p" .Language.Lang "url" .RelPermalink) }}{{ end }}{{ end }}
+<script>
+(function () {
+  var CUR = {{ .Language.Lang }}, LANGS = {{ $langs }};
+  function cookie(n) {
+    var m = document.cookie.match(new RegExp("(?:^|; )" + n + "=([^;]+)"));
+    return m ? decodeURIComponent(m[1]) : null;
+  }
+  function go(p) {
+    for (var i = 0; i < LANGS.length; i++) if (LANGS[i].p === p) { location.replace(LANGS[i].url); return true; }
+    return false;
+  }
+  var chosen = cookie("lang");
+  if (chosen) { if (chosen === CUR) return; go(chosen); return; }
+  var first = ((navigator.languages && navigator.languages[0]) || navigator.language || "").toLowerCase();
+  if (first === CUR || first.indexOf(CUR + "-") === 0) return;
+  for (var i = 0; i < LANGS.length; i++) {
+    var p = LANGS[i].p;
+    if (first === p || first.indexOf(p + "-") === 0) { location.replace(LANGS[i].url); return; }
+  }
+})();
+</script>
+{{- end }}
