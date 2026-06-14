@@ -10,7 +10,6 @@ import (
 	"golang.org/x/term"
 
 	"github.com/shirodoromoto/crofty/internal/project"
-	"github.com/shirodoromoto/crofty/internal/secret"
 )
 
 // runConnect saves (or replaces) the Cloudflare API token crofty uses to publish
@@ -55,7 +54,7 @@ func runConnect(args []string) error {
 }
 
 // runReset removes the credentials and state crofty has saved (the Cloudflare
-// token, any syndication tokens) from the OS keychain. With --all it does this
+// token) from the OS keychain. With --all it does this
 // for every known project and removes the global registry too, for a clean
 // uninstall. It never touches your writing under ~/Documents/Crofty.
 func runReset(args []string) error {
@@ -153,9 +152,6 @@ func projectSecretDescriptions(c *project.Config) []string {
 	if c.Deploy.AccountID != "" {
 		out = append(out, "Cloudflare token (account "+c.Deploy.AccountID+")")
 	}
-	for _, t := range c.Targets {
-		out = append(out, t.Type+" credential")
-	}
 	return out
 }
 
@@ -165,24 +161,4 @@ func forgetProjectSecrets(c *project.Config) {
 	if c.Deploy.AccountID != "" {
 		_ = cfTokenStore().Delete(c.Deploy.AccountID, "api_token")
 	}
-	if c.Workspace != "" {
-		store := secret.New(c.Workspace)
-		for name, t := range c.Targets {
-			if f := targetSecretField(t.Type); f != "" {
-				_ = store.Delete(name, f)
-			}
-		}
-	}
-}
-
-// targetSecretField maps a syndication target type to the keychain field its
-// credential is stored under (mirrors targets.go).
-func targetSecretField(targetType string) string {
-	switch targetType {
-	case "bluesky":
-		return "app_password"
-	case "mastodon":
-		return "access_token"
-	}
-	return ""
 }

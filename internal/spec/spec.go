@@ -47,11 +47,10 @@ const (
 // v0 vocabularies (spec §3-2 / §7-3).
 var (
 	allowedTiers    = []string{"full", "summary-only"}
-	allowedTargets  = []string{"bluesky", "mastodon"}
+	allowedTargets  = []string{"bluesky", "mastodon", "x", "threads", "linkedin", "facebook"}
 	allowedExposure = []string{"open", "reserved"}
 
 	slugRe = regexp.MustCompile(`^[a-z0-9]+(?:-[a-z0-9]+)*$`)
-	ulidRe = regexp.MustCompile(`^[0-9A-HJKMNP-TV-Z]{26}$`) // Crockford base32, 26 chars
 )
 
 // Validate checks parsed front matter of a file of the given kind against spec
@@ -140,8 +139,8 @@ func validateCrofty(cm map[string]any, add func(Issue)) {
 			add(issue("crofty.targets", "type", SeverityError, v, "a list of channel names",
 				`Write targets as a list, e.g. targets: [bluesky].`))
 		} else if len(bad) > 0 {
-			add(issue("crofty.targets", "enum", SeverityError, bad, "only: bluesky, mastodon",
-				`Remove unknown channels; v0 supports bluesky and mastodon.`))
+			add(issue("crofty.targets", "enum", SeverityError, bad, "a known share channel",
+				`Remove unknown channels; share knows: bluesky, mastodon, x, threads, linkedin, facebook.`))
 		}
 	}
 
@@ -163,12 +162,6 @@ func validateCrofty(cm map[string]any, add func(Issue)) {
 		}
 	}
 
-	if v, ok := cm["id"]; ok && v != nil {
-		if s, isStr := v.(string); !isStr || !ulidRe.MatchString(strings.ToUpper(s)) {
-			add(issue("crofty.id", "format", SeverityError, v, "a ULID (26 characters)",
-				`Leave crofty.id out — crofty assigns it on first publish — or restore the original value.`))
-		}
-	}
 }
 
 // --- helpers -------------------------------------------------------------

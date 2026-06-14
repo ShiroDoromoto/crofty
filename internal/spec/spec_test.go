@@ -26,7 +26,6 @@ func TestValidate_ValidPost(t *testing.T) {
 			"tier":        "full",
 			"targets":     []any{"bluesky", "mastodon"},
 			"ai_exposure": "open",
-			"id":          "01J9X8Z7Q2H4M5N6P7R8S9T0AB",
 		},
 	}
 	if got := Validate(fm, KindPost); len(got) != 0 {
@@ -71,7 +70,6 @@ func TestValidate_EnumsAndFormats(t *testing.T) {
 		{"unknown target", Frontmatter{"title": "t", "date": "2026-06-14", "description": "d", "crofty": map[string]any{"targets": []any{"twitter"}}}, "crofty.targets"},
 		{"bad exposure", Frontmatter{"title": "t", "date": "2026-06-14", "description": "d", "crofty": map[string]any{"ai_exposure": "maybe"}}, "crofty.ai_exposure"},
 		{"members visibility", Frontmatter{"title": "t", "date": "2026-06-14", "description": "d", "crofty": map[string]any{"visibility": "members"}}, "crofty.visibility"},
-		{"bad ulid", Frontmatter{"title": "t", "date": "2026-06-14", "description": "d", "crofty": map[string]any{"id": "not-a-ulid"}}, "crofty.id"},
 		{"bad date", Frontmatter{"title": "t", "date": "yesterday", "description": "d"}, "date"},
 	}
 	for _, c := range cases {

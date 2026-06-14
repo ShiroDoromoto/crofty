@@ -15,7 +15,6 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
-	"regexp"
 	"strings"
 
 	"golang.org/x/net/html"
@@ -54,8 +53,6 @@ func (r Report) HasError() bool {
 	}
 	return false
 }
-
-var ulidRe = regexp.MustCompile(`^[0-9A-HJKMNP-TV-Z]{26}$`) // Crockford base32, 26 chars
 
 // croftyManagedDomains are hosts crofty itself would phone home to. crofty runs
 // no servers and sends no telemetry (A7); this list is the guard that keeps it
@@ -132,8 +129,6 @@ type pageFacts struct {
 	canonical     string
 	feedLink      bool
 	viewport      bool
-	croftyID      string
-	haveID        bool
 	resourceHosts []string
 	redirect      bool
 }
@@ -169,13 +164,6 @@ func checkPage(rel string, f pageFacts) []Finding {
 	if rel == "index.html" && !f.feedLink {
 		add("C-E2", SeverityWarn, "home page does not link the feed",
 			`Add <link rel="alternate" type="application/rss+xml" href="/index.xml">.`)
-	}
-
-	// C-E3: a crofty:id that is present must be a valid ULID. (Presence isn't
-	// required — ids are assigned at publish time; see doctor's deferred note.)
-	if f.haveID && !ulidRe.MatchString(strings.ToUpper(strings.TrimSpace(f.croftyID))) {
-		add("C-E3", SeverityError, "crofty:id is not a valid ULID",
-			"Remove the meta or restore the original id (crofty assigns it on first publish).")
 	}
 
 	// C-E4: no resource may load from a crofty-controlled host (no phone-home).
@@ -232,8 +220,6 @@ func parsePage(path string) (pageFacts, error) {
 				switch strings.ToLower(attr(n, "name")) {
 				case "viewport":
 					pf.viewport = true
-				case "crofty:id":
-					pf.croftyID, pf.haveID = attr(n, "content"), true
 				}
 			case "script", "img", "iframe", "source":
 				if h := host(attr(n, "src")); h != "" {

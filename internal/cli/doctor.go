@@ -63,9 +63,8 @@ func renderContract(r contract.Report) {
 		fmt.Printf("%s, %s\n", countLabel(errs, "error"), countLabel(warns, "warning"))
 	}
 	fmt.Println()
-	fmt.Println("Checks: canonical link, feed, <html lang>/<title>/viewport, crofty:id format,")
-	fmt.Println("        no phone-home. Not yet enforced: every post carrying an id, and deep")
-	fmt.Println("        static-body checks.")
+	fmt.Println("Checks: canonical link, feed, <html lang>/<title>/viewport, no phone-home.")
+	fmt.Println("        Not yet enforced: deep static-body checks.")
 }
 
 // renderContractFindings prints the findings list and returns the error/warn
