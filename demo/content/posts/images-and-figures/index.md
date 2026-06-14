@@ -34,8 +34,10 @@ on Hugo's `unsafe` Markdown so your own HTML passes through):
 
 ## Inline, in a sentence
 
-You can drop a small image ![a dot](/avatar.svg) mid-sentence as well, though a
-block image usually reads better.
+An image can also sit inline, at the size of the surrounding text — handy for a
+small icon <img src="/avatar.svg" alt="the site icon" style="height:1.1em;vertical-align:-0.15em;border-radius:3px"> dropped mid-sentence. (That uses a
+little raw HTML to set the height; a plain `![]()` image always renders at its
+full size as its own block, which usually reads better for real pictures.)
 
 That is the whole toolkit for pictures: a file in the folder and a line of
 Markdown pointing at it.
