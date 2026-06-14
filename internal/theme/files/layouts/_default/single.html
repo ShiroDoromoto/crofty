@@ -11,5 +11,6 @@
     {{ range . }}<a href="{{ .RelPermalink }}">{{ .LinkTitle }}</a>{{ end }}
   </footer>
   {{ end }}
+  {{ partial "crofty/share.html" . }}
 </article>
 {{ end }}

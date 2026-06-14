@@ -26,6 +26,12 @@ other = "tags"
 [support]
 other = "Support"
 
+[share]
+other = "Share"
+
+[share_copied]
+other = "Link copied"
+
 [not_found]
 other = "Not found"
 

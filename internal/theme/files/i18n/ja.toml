@@ -23,6 +23,12 @@ other = "タグ"
 [support]
 other = "サポートする"
 
+[share]
+other = "シェア"
+
+[share_copied]
+other = "コピーしました"
+
 [not_found]
 other = "ページが見つかりません"
 
