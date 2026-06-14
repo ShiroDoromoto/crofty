@@ -41,6 +41,27 @@ func TestCustomCSSMatchesThemeTokens(t *testing.T) {
 	if themeTokens != customTokens {
 		t.Errorf("token drift between crofty.css and CustomCSS:\n  theme:  %s\n  custom: %s", themeTokens, customTokens)
 	}
+	// Every preset must declare the same token set, or `theme set` would write a
+	// custom.css that misses (or invents) variables relative to the theme.
+	for _, p := range Presets() {
+		if got := strings.Join(declaredTokens(p.CSS), " "); got != themeTokens {
+			t.Errorf("token drift in preset %q:\n  theme:  %s\n  preset: %s", p.Name, themeTokens, got)
+		}
+	}
+}
+
+func TestIsShippedCSS(t *testing.T) {
+	if !IsShippedCSS(CustomCSS) {
+		t.Error("CustomCSS should count as shipped")
+	}
+	for _, p := range Presets() {
+		if !IsShippedCSS(p.CSS) {
+			t.Errorf("preset %q should count as shipped", p.Name)
+		}
+	}
+	if IsShippedCSS(":root{ --bg: #000; }") {
+		t.Error("a hand-edited file should not count as shipped")
+	}
 }
 
 func TestEjectFullWritesAndSkips(t *testing.T) {
