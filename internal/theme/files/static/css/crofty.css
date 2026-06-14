@@ -151,6 +151,30 @@ pre code { background: none; padding: 0; }
 .post-tags a { margin-left: 0.6rem; color: var(--muted); text-decoration: none; }
 .post-tags a:hover { color: var(--accent); }
 
+/* Reader-facing share (partials/crofty/share.html). Pill button matching the
+   support links; the confirmation sits quietly beside it. */
+.crofty-share {
+  margin-top: 2.5rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--line);
+  display: flex;
+  align-items: center;
+  gap: 0.8rem;
+  font-family: -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+  font-size: 0.85rem;
+}
+.crofty-share-btn {
+  color: var(--ink);
+  background: none;
+  cursor: pointer;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 0.25rem 0.9rem;
+  font: inherit;
+}
+.crofty-share-btn:hover { border-color: var(--accent); color: var(--accent); }
+.crofty-share-done { color: var(--muted); }
+
 /* Lists and the landing page. */
 .page-header h1 { text-align: center; margin: 2rem 0 0.5rem; }
 .page-intro { color: var(--muted); }

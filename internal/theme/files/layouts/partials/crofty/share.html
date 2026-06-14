@@ -1,0 +1,51 @@
+{{- /*
+  Reader-facing share — the dist-side companion to the `crofty share` command.
+  A one-tap control that hands the reader the post's summary and canonical link
+  (never the body), so they can pass it on and bring people back to your site.
+  On mobile it opens the OS share sheet (navigator.share); elsewhere it copies
+  "summary link" to the clipboard, mirroring what `crofty share` prints. No
+  network, no third-party buttons, no tracking — the no-phone-home contract
+  (08 §2) holds. Progressive enhancement: the button stays hidden until JS
+  confirms a share/clipboard API exists, so a no-JS reader sees nothing broken.
+  Shown on posts only (the `posts` section, as elsewhere in the theme); hidden
+  per-post with `crofty.share: false`. Override to restyle.
+*/ -}}
+{{- $hide := ne .Section "posts" -}}
+{{- with .Params.crofty }}{{ if eq .share false }}{{ $hide = true }}{{ end }}{{ end -}}
+{{- if not $hide -}}
+{{- $summary := .Description -}}
+{{- if not $summary }}{{ $summary = .Summary | plainify }}{{ end -}}
+{{- $summary = $summary | strings.TrimSpace -}}
+<div class="crofty-share" data-share-url="{{ .Permalink }}" data-share-title="{{ .Title }}" data-share-text="{{ $summary }}">
+  <button type="button" class="crofty-share-btn" hidden>{{ i18n "share" }}</button>
+  <span class="crofty-share-done" role="status" hidden>{{ i18n "share_copied" }}</span>
+</div>
+<script>
+(function () {
+  if (!navigator.share && !(navigator.clipboard && navigator.clipboard.writeText)) return;
+  var boxes = document.querySelectorAll(".crofty-share");
+  for (var i = 0; i < boxes.length; i++) (function (el) {
+    if (el.dataset.shareReady) return;
+    el.dataset.shareReady = "1";
+    var btn = el.querySelector(".crofty-share-btn");
+    var done = el.querySelector(".crofty-share-done");
+    if (!btn) return;
+    var url = el.getAttribute("data-share-url");
+    var title = el.getAttribute("data-share-title");
+    var text = el.getAttribute("data-share-text");
+    btn.hidden = false;
+    btn.addEventListener("click", function () {
+      if (navigator.share) {
+        navigator.share({ title: title, text: text, url: url }).catch(function () {});
+        return;
+      }
+      navigator.clipboard.writeText((text ? text + " " : "") + url).then(function () {
+        if (!done) return;
+        done.hidden = false;
+        setTimeout(function () { done.hidden = true; }, 2000);
+      }).catch(function () {});
+    });
+  })(boxes[i]);
+})();
+</script>
+{{- end -}}
