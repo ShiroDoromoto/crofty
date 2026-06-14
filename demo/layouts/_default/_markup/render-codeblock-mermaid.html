@@ -1,0 +1,20 @@
+{{- /*
+  Render ```mermaid fenced blocks as live diagrams.
+
+  This is a project-level layout: it overrides nothing in the crofty theme
+  (which stays frozen for distribution), it only adds a code-block render hook
+  Hugo looks up by language. The theme never has to know about Mermaid.
+
+  Mermaid reads the diagram source from the element's text, so we escape it and
+  drop the highlighter. The loader is emitted once per page (guarded by
+  Page.Store) and follows the reader's light/dark setting.
+*/ -}}
+<pre class="mermaid" aria-label="diagram">{{ .Inner | htmlEscape | safeHTML }}</pre>
+{{- if not (.Page.Store.Get "hasMermaid") }}
+{{- .Page.Store.Set "hasMermaid" true }}
+<script type="module">
+  import mermaid from "https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs";
+  const dark = window.matchMedia("(prefers-color-scheme: dark)").matches;
+  mermaid.initialize({ startOnLoad: true, theme: dark ? "dark" : "neutral" });
+</script>
+{{- end }}

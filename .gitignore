@@ -21,6 +21,7 @@
 # AGENTS.md), ignore build output and per-deploy tool state (.crofty holds the
 # pinned account id, which is deployment-specific, not part of the example).
 /demo/dist/
+/demo/public/
 /demo/.crofty/
 /demo/.wrangler/
 /demo/.hugo_build.lock

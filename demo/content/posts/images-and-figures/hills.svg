@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 400" role="img" aria-label="Layered hills at dusk">
+  <defs>
+    <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#f6c9a3"/>
+      <stop offset="1" stop-color="#e89b6c"/>
+    </linearGradient>
+  </defs>
+  <rect width="800" height="400" fill="url(#sky)"/>
+  <circle cx="600" cy="120" r="46" fill="#fff3e6" opacity="0.9"/>
+  <path d="M0 300 C160 250 300 280 420 250 C560 215 680 245 800 220 L800 400 L0 400 Z" fill="#c97a4f" opacity="0.85"/>
+  <path d="M0 330 C150 300 320 320 460 295 C600 270 700 300 800 285 L800 400 L0 400 Z" fill="#a85d3a" opacity="0.9"/>
+  <path d="M0 360 C180 340 340 355 500 335 C640 318 720 340 800 332 L800 400 L0 400 Z" fill="#7a3f28"/>
+</svg>

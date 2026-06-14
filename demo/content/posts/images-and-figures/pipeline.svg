@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 760 160" role="img" aria-label="Markdown to deploy pipeline">
+  <style>
+    .box { fill:#f2efe7; stroke:#a85d3a; stroke-width:2; rx:8; }
+    .lbl { font:600 16px -apple-system, system-ui, sans-serif; fill:#211e1a; }
+    .arrow { stroke:#a85d3a; stroke-width:2; marker-end:url(#a); }
+  </style>
+  <defs>
+    <marker id="a" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
+      <path d="M0 0 L6 3 L0 6 Z" fill="#a85d3a"/>
+    </marker>
+  </defs>
+  <rect class="box" x="20"  y="55" width="150" height="50" rx="8"/>
+  <text class="lbl" x="95"  y="86" text-anchor="middle">Markdown</text>
+  <line class="arrow" x1="175" y1="80" x2="225" y2="80"/>
+  <rect class="box" x="230" y="55" width="150" height="50" rx="8"/>
+  <text class="lbl" x="305" y="86" text-anchor="middle">crofty build</text>
+  <line class="arrow" x1="385" y1="80" x2="435" y2="80"/>
+  <rect class="box" x="440" y="55" width="150" height="50" rx="8"/>
+  <text class="lbl" x="515" y="86" text-anchor="middle">static site</text>
+  <line class="arrow" x1="595" y1="80" x2="645" y2="80"/>
+  <rect class="box" x="650" y="55" width="90" height="50" rx="8"/>
+  <text class="lbl" x="695" y="86" text-anchor="middle">deploy</text>
+</svg>
