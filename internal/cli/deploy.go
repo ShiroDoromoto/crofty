@@ -11,7 +11,6 @@ import (
 	"golang.org/x/term"
 
 	"github.com/shirodoromoto/crofty/internal/project"
-	"github.com/shirodoromoto/crofty/internal/runner"
 	"github.com/shirodoromoto/crofty/internal/secret"
 )
 
@@ -57,16 +56,9 @@ func runDeploy(args []string) error {
 		return fmt.Errorf("no build output at %s — run 'crofty build' first", proj.DistDir())
 	}
 
-	bin, base := wranglerCmd()
-	if bin == "" {
-		return fmt.Errorf("wrangler not found.\n" +
-			"crofty uses Wrangler to deploy to Cloudflare Pages. Install Node.js (which provides npx), then retry.")
-	}
-
-	// Authenticate with crofty's OWN Cloudflare token (kept in the keychain), not
-	// whatever wrangler happens to be logged into. On the first deploy this asks
-	// the user for a token; a pre-existing wrangler login is never touched, so a
-	// deploy can't silently ride on someone else's account.
+	// Authenticate with crofty's OWN Cloudflare token (kept in the keychain). On
+	// the first deploy this asks the user for a token; crofty then talks to the
+	// Cloudflare API directly (no wrangler, no Node) using that single credential.
 	token, acct, proceed, err := connectCloudflare(proj, cfg, account, reauth)
 	if err != nil {
 		return err
@@ -83,39 +75,25 @@ func runDeploy(args []string) error {
 	fmt.Printf("  project: %s\n", cfg.Deploy.Project)
 
 	// The production branch to deploy to. Pinning this makes deploy target the
-	// live site regardless of the local git branch (Wrangler otherwise infers a
-	// preview deployment from the current branch).
+	// live site: the deployment's branch matches the project's production branch,
+	// so Cloudflare treats it as production rather than a preview.
 	branch := cfg.Deploy.Branch
 	if branch == "" {
 		branch = "main"
 	}
 
-	// Feed wrangler crofty's token + account explicitly via the environment, so
-	// it uploads with our credential and never falls back to its own login.
-	env := []string{
-		"CLOUDFLARE_API_TOKEN=" + token,
-		"CLOUDFLARE_ACCOUNT_ID=" + acct.id,
-	}
-
-	// First deploy: make sure the Pages project exists. This is idempotent — on
-	// later deploys it already exists, so we run it quietly and ignore that.
-	_, _ = runner.CaptureEnv(proj.Root, env, bin, append(append([]string{}, base...),
-		"pages", "project", "create", cfg.Deploy.Project,
-		"--production-branch", branch)...)
-
-	// Publish dist/. Nothing else (keys, .crofty/, config) is ever uploaded.
-	out, err := runner.RunTee(proj.Root, env, bin, append(append([]string{}, base...),
-		"pages", "deploy", proj.DistDir(),
-		"--project-name", cfg.Deploy.Project,
-		"--branch", branch,
-		"--commit-dirty=true")...)
+	// Upload dist/ straight to the Pages API (no wrangler, no Node). Nothing else
+	// — keys, .crofty/, config — is ever uploaded.
+	url, err := cfDeployDir(token, acct.id, cfg.Deploy.Project, branch, proj.DistDir(), func(line string) {
+		fmt.Println("  " + line)
+	})
 	if err != nil {
 		return fmt.Errorf("deploy failed — your site and Markdown are untouched; fix the issue and retry: %w", err)
 	}
 
 	fmt.Println()
 	fmt.Println("✓ deployed", cfg.Deploy.Project, "to Cloudflare Pages")
-	if url := canonicalPagesURL(out); url != "" {
+	if url != "" {
 		fmt.Println("  live at →", url)
 	}
 	return nil
@@ -281,11 +259,10 @@ func promptAccountID() (string, error) {
 	return "", fmt.Errorf("that didn't contain a 32-character account id — copy it from the dashboard URL")
 }
 
-// canonicalPagesURL extracts the project's production *.pages.dev URL from
-// wrangler's deploy output. Wrangler prints the per-deploy alias
-// (https://<hash>.<sub>.pages.dev), whose wildcard cert isn't valid until
-// Cloudflare provisions it; dropping the hash label yields the canonical
-// https://<sub>.pages.dev, which is valid immediately.
+// canonicalPagesURL turns a per-deploy alias (https://<hash>.<sub>.pages.dev),
+// whose wildcard cert isn't valid until Cloudflare provisions it, into the
+// canonical https://<sub>.pages.dev, which is valid immediately. Used as a
+// fallback when the deployment response carries no stable *.pages.dev alias.
 func canonicalPagesURL(out string) string {
 	m := regexp.MustCompile(`https://[a-z0-9.-]+\.pages\.dev`).FindString(out)
 	if m == "" {
@@ -296,16 +273,4 @@ func canonicalPagesURL(out string) string {
 		labels = labels[1:]
 	}
 	return "https://" + strings.Join(labels, ".")
-}
-
-// wranglerCmd resolves how to invoke Wrangler: a global binary if present,
-// otherwise via npx. Returns ("", nil) if neither is available.
-func wranglerCmd() (bin string, base []string) {
-	if runner.Look("wrangler") {
-		return "wrangler", nil
-	}
-	if runner.Look("npx") {
-		return "npx", []string{"--yes", "wrangler"}
-	}
-	return "", nil
 }
