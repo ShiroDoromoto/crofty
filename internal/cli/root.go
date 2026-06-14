@@ -35,6 +35,7 @@ func commands() []command {
 		{"validate", "Check content against the crofty spec (v0)", runValidate},
 		{"doctor", "Check the built site against the output contract", runDoctor},
 		{"share", "Print a ready-to-post fragment (text + link) for any SNS", runShare},
+		{"theme", "Bring the theme onto disk to customize (eject tokens or full)", runTheme},
 		{"eject", "Convert to a plain Hugo project (later)", runEject},
 	}
 }
