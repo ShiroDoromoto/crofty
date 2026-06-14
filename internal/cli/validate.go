@@ -157,6 +157,8 @@ func renderHuman(reports []spec.FileReport) {
 	fmt.Println()
 	if totErr == 0 && totWarn == 0 {
 		fmt.Printf("✓ all good — %s\n", countLabel(len(reports), "file"))
+		fmt.Println("\ntip: a post with 'draft: true' or a future 'date' stays off your published site;")
+		fmt.Println("     'crofty build' lists any it leaves out.")
 		return
 	}
 	fmt.Printf("%s, %s across %s\n",

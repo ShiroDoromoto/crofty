@@ -315,6 +315,13 @@ func welcomePost(now time.Time) string {
 		"It lives at `content/posts/welcome/index.md`. Change the title and the\n"+
 		"words above, save the file, and run `crofty preview` to watch it update.\n\n"+
 		"When you're happy, `crofty build` renders the whole site into `dist/`,\n"+
-		"and `crofty deploy` puts it online (you'll connect a free account first).\n",
+		"and `crofty deploy` puts it online (you'll connect a free account first).\n\n"+
+		"## Keeping a post off your site\n\n"+
+		"Two frontmatter fields control what gets published:\n\n"+
+		"- Add `draft: true` to keep a post out of the built site — perfect while\n"+
+		"  it's still a work in progress. Remove it (or set `false`) when it's ready.\n"+
+		"- Give a post a future `date` and it stays unpublished until that day\n"+
+		"  arrives — that's how you schedule ahead. `crofty build` tells you which\n"+
+		"  posts it left out as drafts or future-dated, so nothing vanishes silently.\n",
 		now.Format(time.RFC3339))
 }

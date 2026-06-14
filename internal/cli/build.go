@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/shirodoromoto/crofty/internal/project"
@@ -60,13 +61,74 @@ func runBuild(args []string) error {
 
 	fmt.Println()
 	fmt.Println("✓ built →", proj.DistDir())
-	warnFutureDated(filepath.Join(proj.Root, "content"), time.Now())
+	contentDir := filepath.Join(proj.Root, "content")
+	warnDrafts(contentDir)
+	warnFutureDated(contentDir, time.Now())
 	contractNotice(proj.DistDir())
 	optionalSetupHint(proj.Root)
 	fmt.Println("next:")
 	fmt.Println("  crofty preview     # look at it locally first (no account)")
 	fmt.Println("  crofty deploy      # put it online (connects a free Cloudflare account)")
 	return nil
+}
+
+// draftPosts returns content files marked `draft: true`. Hugo silently excludes
+// these from the build (buildDrafts is off by default) — the same "deploy
+// succeeds while the post 404s" trap as a future date, just from a different
+// field. crofty never gates on draft; this only surfaces the omission so it's
+// never a surprise.
+func draftPosts(contentDir string) []string {
+	if fi, err := os.Stat(contentDir); err != nil || !fi.IsDir() {
+		return nil
+	}
+	files, err := collectMarkdown([]string{contentDir})
+	if err != nil {
+		return nil
+	}
+	var out []string
+	for _, f := range files {
+		fm, _, err := spec.ParseFile(f)
+		if err != nil {
+			continue
+		}
+		if isDraft(fm["draft"]) {
+			out = append(out, f)
+		}
+	}
+	return out
+}
+
+// isDraft reports whether a front-matter draft value means "draft" — a YAML
+// bool true, or the string "true" (some authors quote it).
+func isDraft(v any) bool {
+	switch d := v.(type) {
+	case bool:
+		return d
+	case string:
+		return strings.EqualFold(strings.TrimSpace(d), "true")
+	}
+	return false
+}
+
+// warnDrafts prints an advisory (never an error) when posts were left out of the
+// build for being drafts.
+func warnDrafts(contentDir string) {
+	drafts := draftPosts(contentDir)
+	if len(drafts) == 0 {
+		return
+	}
+	noun := "post is a draft"
+	if len(drafts) > 1 {
+		noun = "posts are drafts"
+	}
+	fmt.Println()
+	fmt.Printf("⚠ %d %s, left out of this build:\n", len(drafts), noun)
+	for _, f := range drafts {
+		fmt.Printf("    %s\n", relCwd(f))
+	}
+	fmt.Println("  Hugo excludes drafts. To publish one, remove 'draft: true' from its")
+	fmt.Println("  frontmatter (or set it to false) and rebuild.")
+	fmt.Println()
 }
 
 // futurePost is a content file Hugo will omit because its date is still ahead.
