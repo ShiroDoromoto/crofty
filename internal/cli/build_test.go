@@ -52,3 +52,61 @@ func TestFutureDatedPosts_MissingContentDir(t *testing.T) {
 		t.Errorf("expected nil for a missing content dir, got %+v", got)
 	}
 }
+
+func TestDraftPosts(t *testing.T) {
+	root := t.TempDir()
+	content := filepath.Join(root, "content")
+
+	// A published post (included) and a draft one (excluded by Hugo).
+	pubDir := filepath.Join(content, "posts", "pub")
+	mkdir(t, pubDir)
+	write(t, filepath.Join(pubDir, "index.md"),
+		"---\ntitle: \"Pub\"\ndate: 2026-06-14T01:00:00+09:00\n---\nbody\n")
+
+	draftDir := filepath.Join(content, "posts", "wip")
+	mkdir(t, draftDir)
+	write(t, filepath.Join(draftDir, "index.md"),
+		"---\ntitle: \"WIP\"\ndate: 2026-06-14T01:00:00+09:00\ndraft: true\n---\nbody\n")
+
+	got := draftPosts(content)
+	if len(got) != 1 {
+		t.Fatalf("want 1 draft post, got %d: %+v", len(got), got)
+	}
+	if filepath.Base(filepath.Dir(got[0])) != "wip" {
+		t.Errorf("flagged the wrong post: %s", got[0])
+	}
+}
+
+func TestDraftPosts_NoneWhenAllPublished(t *testing.T) {
+	root := t.TempDir()
+	content := filepath.Join(root, "content")
+	dir := filepath.Join(content, "posts", "p")
+	mkdir(t, dir)
+	write(t, filepath.Join(dir, "index.md"),
+		"---\ntitle: \"P\"\ndate: 2026-06-14T01:00:00+09:00\ndraft: false\n---\nbody\n")
+
+	if got := draftPosts(content); len(got) != 0 {
+		t.Errorf("expected none, got %+v", got)
+	}
+}
+
+func TestIsDraft(t *testing.T) {
+	cases := []struct {
+		v    any
+		want bool
+	}{
+		{true, true},
+		{false, false},
+		{"true", true},
+		{"True", true},
+		{" true ", true},
+		{"false", false},
+		{nil, false},
+		{1, false},
+	}
+	for _, c := range cases {
+		if got := isDraft(c.v); got != c.want {
+			t.Errorf("isDraft(%#v) = %v, want %v", c.v, got, c.want)
+		}
+	}
+}
