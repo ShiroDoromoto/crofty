@@ -41,6 +41,10 @@ type DeployConfig struct {
 	// Branch is the Cloudflare Pages production branch to deploy to. Empty means
 	// "main". This pins deploys to production regardless of the local git branch.
 	Branch string `json:"branch,omitempty"`
+	// AccountID pins the Cloudflare account a project deploys to. It is recorded
+	// on the first deploy so a later wrangler re-login to a different account
+	// can't silently retarget the site. Non-secret (an account id is not a key).
+	AccountID string `json:"accountId,omitempty"`
 }
 
 // TargetConfig is the non-secret configuration of a syndication destination.
