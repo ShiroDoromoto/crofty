@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"bufio"
 	"flag"
 	"fmt"
 	"os"
@@ -10,6 +11,8 @@ import (
 	"runtime"
 	"strings"
 	"time"
+
+	"golang.org/x/term"
 
 	"github.com/shirodoromoto/crofty/internal/id"
 	"github.com/shirodoromoto/crofty/internal/project"
@@ -26,6 +29,7 @@ func runInit(args []string) error {
 	fs.Usage = func() {
 		fmt.Println("crofty init — create a new project (a website you own)")
 		fmt.Println("\nUsage:")
+		fmt.Println("  crofty init             # asks for a name (default my-site)")
 		fmt.Println("  crofty init [name]      # a bare name lands in ~/Documents/Crofty/<name>")
 		fmt.Println("  crofty init <path>      # an explicit path (or '.') is used as-is")
 		fmt.Println("  crofty init --lang ja   # set the site language (default: from your OS)")
@@ -44,32 +48,45 @@ func runInit(args []string) error {
 		siteLang = detectLang()
 	}
 
-	// Resolve where the project goes. A bare name (the common case) lands in the
-	// OS-standard, user-visible base — ignoring cwd, which the user likely can't
-	// perceive. An explicit path (slash, '.', or absolute) is honored as-is, for
-	// when an agent translates "put it on my Desktop" into a real path (07 O2).
-	arg := "my-site"
-	if len(rest) > 0 {
-		arg = rest[0]
-	}
+	// Resolve where the project goes. With an explicit name/path, or a
+	// non-interactive (agent) run, resolve directly. In a terminal with no name,
+	// ask for one (default my-site), re-asking if it already exists so a second
+	// `crofty init` doesn't dead-end on the default. A bare name lands in the
+	// OS-standard base (~/Documents/Crofty/<name>), ignoring cwd; a path (slash,
+	// '.', absolute) is honored as-is, e.g. when an agent passes a real path.
 	var abs string
-	if looksLikePath(arg) {
-		abs, err = filepath.Abs(arg)
+	if len(rest) > 0 || !term.IsTerminal(int(os.Stdin.Fd())) {
+		name := "my-site"
+		if len(rest) > 0 {
+			name = rest[0]
+		}
+		abs, err = resolveInitTarget(name)
 		if err != nil {
 			return err
+		}
+		if isExistingProject(abs) {
+			return fmt.Errorf("%s is already a crofty project.\n"+
+				"  To build it:     cd %s && crofty build\n"+
+				"  Or make another: crofty init <name>", abs, abs)
 		}
 	} else {
-		base, err := project.DefaultBase()
-		if err != nil {
-			return err
+		in := bufio.NewReader(os.Stdin)
+		for {
+			fmt.Print("Site name [my-site]: ")
+			line, _ := in.ReadString('\n')
+			name := strings.TrimSpace(line)
+			if name == "" {
+				name = "my-site"
+			}
+			abs, err = resolveInitTarget(name)
+			if err != nil {
+				return err
+			}
+			if !isExistingProject(abs) {
+				break
+			}
+			fmt.Printf("  '%s' already exists — pick another name.\n", name)
 		}
-		abs = filepath.Join(base, arg)
-	}
-
-	// Refuse to scaffold over an existing project rather than clobber a config.
-	if fi, err := os.Stat(filepath.Join(abs, project.MarkerDir)); err == nil && fi.IsDir() {
-		return fmt.Errorf("%s is already a crofty project.\n"+
-			"  To build it:    cd %s && crofty build", abs, abs)
 	}
 
 	if err := os.MkdirAll(filepath.Join(abs, "content", "posts", "welcome"), 0o755); err != nil {
@@ -127,6 +144,26 @@ func runInit(args []string) error {
 	fmt.Printf("  cd %s\n", abs)
 	fmt.Println("  crofty preview     # see your site in a browser (no account needed)")
 	return nil
+}
+
+// resolveInitTarget turns an init argument into an absolute project directory: a
+// bare name lands under the OS-standard base; a path (slash, '.', absolute) is
+// used as-is.
+func resolveInitTarget(arg string) (string, error) {
+	if looksLikePath(arg) {
+		return filepath.Abs(arg)
+	}
+	base, err := project.DefaultBase()
+	if err != nil {
+		return "", err
+	}
+	return filepath.Join(base, arg), nil
+}
+
+// isExistingProject reports whether abs already holds a crofty project.
+func isExistingProject(abs string) bool {
+	fi, err := os.Stat(filepath.Join(abs, project.MarkerDir))
+	return err == nil && fi.IsDir()
 }
 
 // looksLikePath reports whether arg should be treated as a filesystem path
