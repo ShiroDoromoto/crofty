@@ -1,0 +1,9 @@
+{{- /*
+  Site footer. Carries the patronage block (08 §4.2) above the copyright line.
+  This partial is "free" — not contract-critical — so override it freely; the
+  output contract (08 §2) doesn't require anything here.
+*/ -}}
+<footer class="site-footer">
+  {{ partial "crofty/patronage.html" . }}
+  <p>{{ with site.Copyright }}{{ . }}{{ else }}{{ site.Title }}{{ end }}</p>
+</footer>
