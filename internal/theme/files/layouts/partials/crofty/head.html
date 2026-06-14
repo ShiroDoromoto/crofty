@@ -11,6 +11,10 @@
 {{ range .AlternativeOutputFormats -}}
 <link rel="{{ .Rel }}" type="{{ .MediaType.Type }}" href="{{ .Permalink }}" title="{{ site.Title }}">
 {{ end -}}
+{{- with .AllTranslations }}{{ if gt (len .) 1 -}}
+{{ range . }}<link rel="alternate" hreflang="{{ .Language.LanguageCode }}" href="{{ .Permalink }}">
+{{ end -}}
+{{ end }}{{ end -}}
 {{ with .Params.crofty }}{{ with .id }}<meta name="crofty:id" content="{{ . }}">
 {{ end }}{{ end -}}
 {{ partial "crofty/analytics.html" . }}

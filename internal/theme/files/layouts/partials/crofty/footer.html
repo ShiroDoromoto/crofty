@@ -7,7 +7,7 @@
 <footer class="site-footer">
   {{ partial "crofty/patronage.html" . }}
   <p class="site-footer-meta">
-    {{ with site.Home.OutputFormats.Get "rss" }}<a href="{{ .RelPermalink }}">Follow by RSS</a> · {{ end }}
+    {{ with site.Home.OutputFormats.Get "rss" }}<a href="{{ .RelPermalink }}">{{ i18n "follow_rss" }}</a> · {{ end }}
     {{ with site.Copyright }}{{ . }}{{ else }}© {{ site.Title }}{{ end }}
   </p>
 </footer>

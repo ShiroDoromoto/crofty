@@ -1,0 +1,36 @@
+# Theme UI strings the core HTML renders (08 §3). These are crofty's own chrome —
+# section headings, pagination, the feed link, the 404 — not anything the author
+# writes. Hugo picks the table matching the page's language, so a Japanese site
+# (locale: ja) gets Japanese chrome with no extra work. Add i18n/<lang>.toml in
+# your override layer to support another language; missing keys fall back here
+# (the default content language).
+
+[writing]
+other = "Writing"
+
+[newer]
+other = "Newer"
+
+[older]
+other = "Older"
+
+[page_of]
+other = "Page {{ .n }} of {{ .total }}"
+
+[follow_rss]
+other = "Follow by RSS"
+
+[tags]
+other = "tags"
+
+[support]
+other = "Support"
+
+[not_found]
+other = "Not found"
+
+[not_found_detail]
+other = "That page isn’t here."
+
+[back_home]
+other = "Back home"

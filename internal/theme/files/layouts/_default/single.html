@@ -7,7 +7,7 @@
   {{ .Content }}
   {{ with .GetTerms "tags" }}
   <footer class="post-tags">
-    <span>tags</span>
+    <span>{{ i18n "tags" }}</span>
     {{ range . }}<a href="{{ .RelPermalink }}">{{ .LinkTitle }}</a>{{ end }}
   </footer>
   {{ end }}

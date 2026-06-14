@@ -6,7 +6,7 @@
   {{ with $posts }}
   {{ $paginator := $.Paginate . }}
   <section class="recent">
-    <h2>Writing</h2>
+    <h2>{{ i18n "writing" }}</h2>
     <ul class="post-list">
       {{ range $paginator.Pages }}
       <li>

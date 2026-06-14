@@ -6,10 +6,10 @@
 */ -}}
 {{- with .Paginator }}{{ if gt .TotalPages 1 }}
 <nav class="pagination" aria-label="Pagination">
-  {{- if .HasPrev }}<a class="pagination-link pagination-prev" href="{{ .Prev.URL }}">← Newer</a>
-  {{- else }}<span class="pagination-link is-disabled">← Newer</span>{{ end }}
-  <span class="pagination-status">Page {{ .PageNumber }} of {{ .TotalPages }}</span>
-  {{- if .HasNext }}<a class="pagination-link pagination-next" href="{{ .Next.URL }}">Older →</a>
-  {{- else }}<span class="pagination-link is-disabled">Older →</span>{{ end }}
+  {{- if .HasPrev }}<a class="pagination-link pagination-prev" href="{{ .Prev.URL }}">← {{ i18n "newer" }}</a>
+  {{- else }}<span class="pagination-link is-disabled">← {{ i18n "newer" }}</span>{{ end }}
+  <span class="pagination-status">{{ i18n "page_of" (dict "n" .PageNumber "total" .TotalPages) }}</span>
+  {{- if .HasNext }}<a class="pagination-link pagination-next" href="{{ .Next.URL }}">{{ i18n "older" }} →</a>
+  {{- else }}<span class="pagination-link is-disabled">{{ i18n "older" }} →</span>{{ end }}
 </nav>
 {{ end }}{{ end -}}

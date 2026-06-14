@@ -1,21 +1,55 @@
 # Standard Hugo config. crofty reads only its own settings from .crofty/config.json,
 # so this file stays plain Hugo — your project is always yours to keep (eject-safe).
 baseURL: "https://demo.crofty.blog/"
-locale: "en"
-title: "An example built with crofty"
 enableRobotsTXT: true
+
+# Multilingual is opt-in: with a single language this whole block is absent and
+# the site behaves exactly as before. Here we add Japanese (English stays at /,
+# Japanese at /ja/). Per-site strings a person sets — title, description, menu
+# labels — live per language; only what you fill in is shown, the rest falls
+# back to the default language. Post text is translated by filename
+# (index.md + index.ja.md in the same bundle).
+defaultContentLanguage: "en"
+defaultContentLanguageInSubdir: false
+
 pagination:
   pagerSize: 6
-menu:
-  main:
-    - name: About
-      url: /about/
-      weight: 10
-    - name: Links
-      url: /links/
-      weight: 20
+
 params:
-  description: "A live example built with crofty — plain Markdown on a domain its author owns."
   # Tool-specific front matter and params nest under `crofty:` (spec v0).
   crofty:
     specVersion: "0"
+
+languages:
+  en:
+    languageCode: "en"
+    locale: "en"
+    label: "EN"
+    weight: 1
+    title: "An example built with crofty"
+    params:
+      description: "A live example built with crofty — plain Markdown on a domain its author owns."
+    menu:
+      main:
+        - name: About
+          url: /about/
+          weight: 10
+        - name: Links
+          url: /links/
+          weight: 20
+  ja:
+    languageCode: "ja"
+    locale: "ja"
+    label: "日本語"
+    weight: 2
+    title: "crofty で作った実例"
+    params:
+      description: "crofty で作った小さな実例 — 著者が所有するドメインに、素の Markdown を。"
+    menu:
+      main:
+        - name: このサイトについて
+          url: /ja/about/
+          weight: 10
+        - name: リンク集
+          url: /ja/links/
+          weight: 20
