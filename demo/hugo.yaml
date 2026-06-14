@@ -1,0 +1,11 @@
+# Standard Hugo config. crofty reads only its own settings from .crofty/config.json,
+# so this file stays plain Hugo — your project is always yours to keep (eject-safe).
+baseURL: "https://demo.crofty.blog/"
+locale: "en"
+title: "An example built with crofty"
+enableRobotsTXT: true
+params:
+  description: "A live example built with crofty — plain Markdown on a domain its author owns."
+  # Tool-specific front matter and params nest under `crofty:` (spec v0).
+  crofty:
+    specVersion: "0"

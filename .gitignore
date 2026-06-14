@@ -16,3 +16,9 @@
 
 # Wrangler local cache (created when deploy shells out)
 /.wrangler/
+
+# demo/ is a tracked example crofty project — keep its source, ignore build output
+/demo/dist/
+/demo/.crofty/themes/
+/demo/.wrangler/
+/demo/.hugo_build.lock
