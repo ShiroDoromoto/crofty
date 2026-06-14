@@ -260,20 +260,25 @@ func promptCFToken() (string, error) {
 }
 
 // promptAccountID reads a (non-secret) Cloudflare account id from the terminal,
-// used when the token itself can't tell crofty which account it belongs to.
+// used when the token itself can't tell crofty which account it belongs to (a
+// Pages-only token can't list accounts). The user may paste the bare id or the
+// whole dashboard URL — crofty pulls the 32-hex id out of either.
 func promptAccountID() (string, error) {
 	fmt.Println()
-	fmt.Println("crofty couldn't read the account from that token. Paste your Cloudflare")
-	fmt.Println("account id (Dashboard → your account → it's in the page URL):")
-	fmt.Print("  Account id: ")
+	fmt.Println("crofty couldn't read the account from that token — normal for a Pages-only")
+	fmt.Println("token. Open https://dash.cloudflare.com; the address bar shows your account id:")
+	fmt.Println("    https://dash.cloudflare.com/<account-id>/...")
+	fmt.Println("Paste that id — or just paste the whole URL and crofty will find it:")
+	fmt.Println()
+	fmt.Print("  Account id (or dashboard URL): ")
 	line, err := bufio.NewReader(os.Stdin).ReadString('\n')
-	if id := strings.TrimSpace(line); id != "" {
-		return id, nil
+	if m := regexp.MustCompile(`[0-9a-fA-F]{32}`).FindString(line); m != "" {
+		return strings.ToLower(m), nil
 	}
 	if err != nil {
 		return "", err
 	}
-	return "", fmt.Errorf("no account id entered")
+	return "", fmt.Errorf("that didn't contain a 32-character account id — copy it from the dashboard URL")
 }
 
 // canonicalPagesURL extracts the project's production *.pages.dev URL from
