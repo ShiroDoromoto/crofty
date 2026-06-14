@@ -13,23 +13,23 @@ yourself, or embed a player from somewhere else. Both work here.
 ## A self-hosted video
 
 If you keep the file, you keep control. The HTML `<video>` element needs no
-third party and no JavaScript:
+third party and no JavaScript. The clip below ships in this post's folder, so
+turn your sound on — it has audio:
 
-<video controls preload="metadata" poster="">
-  <source src="https://interactive-examples.mdn.mozilla.net/media/cc0-videos/flower.mp4" type="video/mp4">
+<video controls preload="metadata">
+  <source src="bunny.mp4" type="video/mp4">
   Your browser does not support the video tag.
 </video>
 
 Drop the `.mp4` in the post's folder and point `src` at it the same way you
-would an image. (The example above streams a public-domain clip so the demo
-stays small.)
+would an image. (The clip is *Big Buck Bunny*, © Blender Foundation, CC-BY 3.0.)
 
 ## A YouTube embed
 
 When the video already lives on a platform, use Hugo's built-in shortcode —
 no raw HTML, just the video id:
 
-{{< youtube 7e90gvfFa78 >}}
+{{< youtube aqz-KE-bpKQ >}}
 
 The shortcode renders a responsive, privacy-aware iframe. `{{</* vimeo id */>}}`
 works the same way for Vimeo. Reach for an embed when you want the platform's

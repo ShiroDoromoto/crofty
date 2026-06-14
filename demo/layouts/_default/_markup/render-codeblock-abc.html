@@ -34,6 +34,7 @@
 </figure>
 {{- if not (.Page.Store.Get "hasAbc") }}
 {{- .Page.Store.Set "hasAbc" true }}
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/abcjs@6/abcjs-audio.css">
 <script
   src="https://cdn.jsdelivr.net/npm/abcjs@6/dist/abcjs-basic-min.js"
   onload="(window.__abcQueue || []).forEach(function (f) { f(); });"></script>
