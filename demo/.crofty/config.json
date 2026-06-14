@@ -1,7 +1,0 @@
-{
-  "workspace": "01KV1XEQ26RCK07BFWGZW743K1",
-  "deploy": {
-    "provider": "cloudflare",
-    "project": "crofty-demo"
-  }
-}
