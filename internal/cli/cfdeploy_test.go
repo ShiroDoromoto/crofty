@@ -1,0 +1,230 @@
+package cli
+
+import (
+	"encoding/base64"
+	"encoding/json"
+	"fmt"
+	"io"
+	"net/http"
+	"os"
+	"path/filepath"
+	"strings"
+	"sync"
+	"testing"
+	"time"
+)
+
+// TestCFHashFile locks the asset hashing to wrangler's algorithm:
+// hex(blake3(base64(bytes) + extWithoutDot))[:32]. The golden value must not
+// drift — a mismatch means deploys would silently upload broken sites.
+func TestCFHashFile(t *testing.T) {
+	dir := t.TempDir()
+	p := filepath.Join(dir, "index.html")
+	if err := os.WriteFile(p, []byte("hello"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	got, err := cfHashFile(p)
+	if err != nil {
+		t.Fatal(err)
+	}
+	const want = "a2b82584e50075886b08927390f2f573" // blake3(base64("hello")+"html")[:32]
+	if got != want {
+		t.Fatalf("hash = %q, want %q", got, want)
+	}
+	if len(got) != 32 {
+		t.Fatalf("hash length = %d, want 32", len(got))
+	}
+}
+
+func TestCFContentType(t *testing.T) {
+	cases := map[string]string{
+		"index.html":     "text/html; charset=utf-8",
+		"a/b/style.css":  "text/css; charset=utf-8",
+		"app.js":         "text/javascript; charset=utf-8",
+		"data.json":      "application/json",
+		"logo.svg":       "image/svg+xml",
+		"font.woff2":     "font/woff2",
+		"unknownext.zzz": "application/octet-stream",
+	}
+	for name, want := range cases {
+		if got := cfContentType(name); got != want {
+			t.Errorf("cfContentType(%q) = %q, want %q", name, got, want)
+		}
+	}
+}
+
+func TestCFScanDir(t *testing.T) {
+	dir := t.TempDir()
+	mustWrite(t, dir, "index.html", "<h1>hi</h1>")
+	mustWrite(t, dir, "css/style.css", "body{}")
+	mustWrite(t, dir, "_redirects", "/old /new 301")
+	mustWrite(t, dir, "_headers", "/*\n  X-Test: 1")
+	mustWrite(t, dir, "_worker.js", "export default {}")
+
+	scan, err := cfScanDir(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(scan.assets) != 2 {
+		t.Fatalf("assets = %d, want 2 (special files excluded): %+v", len(scan.assets), scan.assets)
+	}
+	if scan.redirects == "" || scan.headers == "" {
+		t.Fatalf("_headers/_redirects not set aside: %+v", scan)
+	}
+	if !scan.functions {
+		t.Fatal("_worker.js should mark the scan as a Functions build")
+	}
+	for _, a := range scan.assets {
+		if a.hash == "" || a.contentType == "" {
+			t.Fatalf("asset missing hash/contentType: %+v", a)
+		}
+		if strings.HasPrefix(a.name, "/") {
+			t.Fatalf("asset name should not have a leading slash: %q", a.name)
+		}
+	}
+}
+
+func TestCFScanDirRejectsOversizeFile(t *testing.T) {
+	dir := t.TempDir()
+	big := make([]byte, cfMaxAssetSize+1)
+	if err := os.WriteFile(filepath.Join(dir, "huge.bin"), big, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := cfScanDir(dir); err == nil {
+		t.Fatal("expected an error for a file over the per-file limit")
+	}
+}
+
+func TestCFJWTExpired(t *testing.T) {
+	if !cfJWTExpired("") {
+		t.Error("empty token should count as expired")
+	}
+	if !cfJWTExpired("not-a-jwt") {
+		t.Error("a malformed (single-segment) token should count as expired")
+	}
+	if cfJWTExpired(makeJWT(t, time.Now().Add(time.Hour).Unix())) {
+		t.Error("a token expiring in an hour should be valid")
+	}
+	if !cfJWTExpired(makeJWT(t, time.Now().Add(-time.Hour).Unix())) {
+		t.Error("a token that expired an hour ago should be expired")
+	}
+}
+
+func TestCFPickURL(t *testing.T) {
+	got := cfPickURL("https://abc123.proj.pages.dev", []string{"https://proj.pages.dev"})
+	if got != "https://proj.pages.dev" {
+		t.Errorf("expected the stable alias, got %q", got)
+	}
+	// No alias → strip the hash label from the deploy URL.
+	got = cfPickURL("https://abc123.proj.pages.dev", nil)
+	if got != "https://proj.pages.dev" {
+		t.Errorf("expected hash-stripped URL, got %q", got)
+	}
+}
+
+// TestCFDeployDir drives the whole Direct Upload sequence against a fake CF API,
+// asserting the dual-auth split, the upload payload, and the returned URL.
+func TestCFDeployDir(t *testing.T) {
+	dir := t.TempDir()
+	mustWrite(t, dir, "index.html", "<h1>hi</h1>")
+	mustWrite(t, dir, "css/style.css", "body{color:red}")
+
+	jwt := makeJWT(t, time.Now().Add(time.Hour).Unix())
+
+	var mu sync.Mutex
+	var uploadedKeys []string
+	var gotManifest map[string]string
+	authByPath := map[string]string{}
+
+	defer withCFServer(t, func(w http.ResponseWriter, r *http.Request) {
+		mu.Lock()
+		authByPath[r.URL.Path] = r.Header.Get("Authorization")
+		mu.Unlock()
+
+		switch {
+		case strings.HasSuffix(r.URL.Path, "/upload-token"):
+			fmt.Fprintf(w, `{"success":true,"result":{"jwt":%q}}`, jwt)
+
+		case r.URL.Path == "/pages/assets/check-missing":
+			// Report every hash as missing so all assets get uploaded.
+			body, _ := io.ReadAll(r.Body)
+			var in struct {
+				Hashes []string `json:"hashes"`
+			}
+			json.Unmarshal(body, &in)
+			out, _ := json.Marshal(map[string]any{"success": true, "result": in.Hashes})
+			w.Write(out)
+
+		case r.URL.Path == "/pages/assets/upload":
+			body, _ := io.ReadAll(r.Body)
+			var items []cfUploadItem
+			json.Unmarshal(body, &items)
+			mu.Lock()
+			for _, it := range items {
+				uploadedKeys = append(uploadedKeys, it.Key)
+				if !it.Base64 {
+					t.Errorf("upload item %s missing base64 flag", it.Key)
+				}
+			}
+			mu.Unlock()
+			w.Write([]byte(`{"success":true,"result":null}`))
+
+		case r.URL.Path == "/pages/assets/upsert-hashes":
+			w.Write([]byte(`{"success":true,"result":null}`))
+
+		case strings.HasSuffix(r.URL.Path, "/pages/projects/site") && r.Method == http.MethodGet:
+			w.Write([]byte(`{"success":true,"result":{"name":"site"}}`)) // project exists
+
+		case strings.HasSuffix(r.URL.Path, "/deployments"):
+			if err := r.ParseMultipartForm(1 << 20); err != nil {
+				t.Errorf("parsing deployment form: %v", err)
+			}
+			json.Unmarshal([]byte(r.FormValue("manifest")), &gotManifest)
+			w.Write([]byte(`{"success":true,"result":{"url":"https://h.site.pages.dev","aliases":["https://site.pages.dev"]}}`))
+
+		default:
+			t.Errorf("unexpected request: %s %s", r.Method, r.URL.Path)
+			w.WriteHeader(http.StatusNotFound)
+		}
+	})()
+
+	url, err := cfDeployDir("acct-token", "acct1", "site", "main", dir, func(string) {})
+	if err != nil {
+		t.Fatalf("cfDeployDir: %v", err)
+	}
+	if url != "https://site.pages.dev" {
+		t.Errorf("url = %q, want https://site.pages.dev", url)
+	}
+	if len(uploadedKeys) != 2 {
+		t.Errorf("uploaded %d assets, want 2", len(uploadedKeys))
+	}
+	if gotManifest["/index.html"] == "" || gotManifest["/css/style.css"] == "" {
+		t.Errorf("manifest missing expected paths: %+v", gotManifest)
+	}
+
+	// Dual auth: account token for /accounts/..., JWT for /pages/assets/...
+	if a := authByPath["/pages/assets/upload"]; a != "Bearer "+jwt {
+		t.Errorf("upload auth = %q, want the JWT", a)
+	}
+	if a := authByPath["/accounts/acct1/pages/projects/site/deployments"]; a != "Bearer acct-token" {
+		t.Errorf("deployment auth = %q, want the account token", a)
+	}
+}
+
+func mustWrite(t *testing.T, dir, rel, content string) {
+	t.Helper()
+	p := filepath.Join(dir, filepath.FromSlash(rel))
+	if err := os.MkdirAll(filepath.Dir(p), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(p, []byte(content), 0o644); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func makeJWT(t *testing.T, exp int64) string {
+	t.Helper()
+	hdr := base64.RawURLEncoding.EncodeToString([]byte(`{"alg":"none"}`))
+	payload := base64.RawURLEncoding.EncodeToString([]byte(fmt.Sprintf(`{"exp":%d}`, exp)))
+	return hdr + "." + payload + ".sig"
+}
