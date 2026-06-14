@@ -1,0 +1,188 @@
+package cli
+
+import (
+	"bufio"
+	"flag"
+	"fmt"
+	"os"
+	"strings"
+
+	"golang.org/x/term"
+
+	"github.com/shirodoromoto/crofty/internal/project"
+	"github.com/shirodoromoto/crofty/internal/secret"
+)
+
+// runConnect saves (or replaces) the Cloudflare API token crofty uses to publish
+// this project — the same token flow as the first deploy, but without deploying.
+// Use it to set up auth ahead of time or to swap in a new token.
+func runConnect(args []string) error {
+	fs := flag.NewFlagSet("connect", flag.ContinueOnError)
+	account := fs.String("account", "", "Cloudflare account id (when a token reaches several)")
+	fs.Usage = func() {
+		fmt.Println("crofty connect — save the Cloudflare API token used to publish this site")
+		fmt.Println("\nUsage: crofty connect [--account <id>]")
+		fmt.Println("\nReplaces any saved token. Run it from inside your project.")
+	}
+	if _, err := parseArgs(fs, args); err != nil {
+		return err
+	}
+
+	proj, err := currentProject()
+	if err != nil {
+		return err
+	}
+	cfg, err := proj.LoadConfig()
+	if err != nil {
+		return fmt.Errorf("reading config: %w", err)
+	}
+	if cfg.Deploy.Provider != "" && cfg.Deploy.Provider != "cloudflare" {
+		return fmt.Errorf("deploy provider %q is not supported (only \"cloudflare\")", cfg.Deploy.Provider)
+	}
+
+	// reauth=true forces the token prompt even if one is already saved.
+	_, acct, proceed, err := connectCloudflare(proj, cfg, *account, true)
+	if err != nil {
+		return err
+	}
+	if !proceed {
+		return nil // a choice was printed (e.g. pick --account)
+	}
+	fmt.Println()
+	fmt.Printf("✓ Connected to Cloudflare account %s — token saved to your keychain.\n", acct.id)
+	fmt.Println("  Run 'crofty deploy' to publish.")
+	return nil
+}
+
+// runReset removes the credentials and state crofty has saved (the Cloudflare
+// token, any syndication tokens) from the OS keychain. With --all it does this
+// for every known project and removes the global registry too, for a clean
+// uninstall. It never touches your writing under ~/Documents/Crofty.
+func runReset(args []string) error {
+	fs := flag.NewFlagSet("reset", flag.ContinueOnError)
+	all := fs.Bool("all", false, "every project's saved credentials + global state (for uninstall)")
+	yes := fs.Bool("yes", false, "skip the confirmation prompt")
+	fs.Usage = func() {
+		fmt.Println("crofty reset — remove crofty's saved credentials (keychain) and state")
+		fmt.Println("\nUsage:")
+		fmt.Println("  crofty reset          # this project's saved credentials")
+		fmt.Println("  crofty reset --all    # every project's + global state (before uninstalling)")
+		fmt.Println("\nYour writing under ~/Documents/Crofty is never touched.")
+	}
+	if _, err := parseArgs(fs, args); err != nil {
+		return err
+	}
+
+	type target struct {
+		cfg  *project.Config
+		root string
+	}
+	var targets []target
+	if *all {
+		for _, root := range project.KnownProjects() {
+			if c, err := (&project.Project{Root: root}).LoadConfig(); err == nil {
+				targets = append(targets, target{c, root})
+			}
+		}
+	} else {
+		proj, err := currentProject()
+		if err != nil {
+			return err
+		}
+		c, err := proj.LoadConfig()
+		if err != nil {
+			return fmt.Errorf("reading config: %w", err)
+		}
+		targets = append(targets, target{c, proj.Root})
+	}
+
+	// Describe what will be removed before touching anything.
+	var items []string
+	for _, t := range targets {
+		for _, d := range projectSecretDescriptions(t.cfg) {
+			items = append(items, fmt.Sprintf("%s  (%s)", d, t.root))
+		}
+	}
+	if *all {
+		items = append(items, "global state (project registry)")
+	}
+	if len(items) == 0 {
+		fmt.Println("Nothing saved to remove.")
+		return nil
+	}
+
+	fmt.Println("This removes from your keychain / state:")
+	for _, it := range items {
+		fmt.Println("  -", it)
+	}
+	fmt.Println("\nYour writing under ~/Documents/Crofty is NOT touched.")
+
+	if !*yes {
+		if !term.IsTerminal(int(os.Stdin.Fd())) {
+			return fmt.Errorf("re-run with --yes to confirm (no terminal to prompt)")
+		}
+		fmt.Print("\nRemove these? [y/N]: ")
+		line, _ := bufio.NewReader(os.Stdin).ReadString('\n')
+		if a := strings.ToLower(strings.TrimSpace(line)); a != "y" && a != "yes" {
+			fmt.Println("Cancelled.")
+			return nil
+		}
+	}
+
+	for _, t := range targets {
+		forgetProjectSecrets(t.cfg)
+	}
+	if *all {
+		if dir, err := project.GlobalDir(); err == nil {
+			_ = os.RemoveAll(dir)
+		}
+	}
+
+	fmt.Println()
+	fmt.Println("✓ Removed. Your writing is untouched.")
+	if *all {
+		fmt.Println("  You can now 'brew uninstall crofty' for a clean removal.")
+	}
+	return nil
+}
+
+// projectSecretDescriptions lists the saved secrets a config implies, for the
+// confirmation summary.
+func projectSecretDescriptions(c *project.Config) []string {
+	var out []string
+	if c.Deploy.AccountID != "" {
+		out = append(out, "Cloudflare token (account "+c.Deploy.AccountID+")")
+	}
+	for _, t := range c.Targets {
+		out = append(out, t.Type+" credential")
+	}
+	return out
+}
+
+// forgetProjectSecrets deletes a project's saved secrets from the keychain.
+// Absent entries are not an error.
+func forgetProjectSecrets(c *project.Config) {
+	if c.Deploy.AccountID != "" {
+		_ = cfTokenStore().Delete(c.Deploy.AccountID, "api_token")
+	}
+	if c.Workspace != "" {
+		store := secret.New(c.Workspace)
+		for name, t := range c.Targets {
+			if f := targetSecretField(t.Type); f != "" {
+				_ = store.Delete(name, f)
+			}
+		}
+	}
+}
+
+// targetSecretField maps a syndication target type to the keychain field its
+// credential is stored under (mirrors targets.go).
+func targetSecretField(targetType string) string {
+	switch targetType {
+	case "bluesky":
+		return "app_password"
+	case "mastodon":
+		return "access_token"
+	}
+	return ""
+}

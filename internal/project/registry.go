@@ -22,15 +22,25 @@ func DefaultBase() (string, error) {
 	return filepath.Join(home, "Documents", "Crofty"), nil
 }
 
-// registryPath is the global, non-secret list of project locations. It lets any
-// agent find projects from any directory, across sessions, without relying on
-// the agent's memory or on the user knowing a path (see 07 O3).
-func registryPath() (string, error) {
+// GlobalDir is crofty's per-user state directory (it holds the project
+// registry). Removing it is part of a clean uninstall (`crofty reset --all`).
+func GlobalDir() (string, error) {
 	cfg, err := os.UserConfigDir()
 	if err != nil {
 		return "", err
 	}
-	return filepath.Join(cfg, "crofty", "projects.json"), nil
+	return filepath.Join(cfg, "crofty"), nil
+}
+
+// registryPath is the global, non-secret list of project locations. It lets any
+// agent find projects from any directory, across sessions, without relying on
+// the agent's memory or on the user knowing a path (see 07 O3).
+func registryPath() (string, error) {
+	dir, err := GlobalDir()
+	if err != nil {
+		return "", err
+	}
+	return filepath.Join(dir, "projects.json"), nil
 }
 
 type registry struct {
