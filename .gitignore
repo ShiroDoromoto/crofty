@@ -13,3 +13,6 @@
 # Build output and per-project tool state (in case a project lives in-repo)
 /dist/
 /.crofty/
+
+# Wrangler local cache (created when deploy shells out)
+/.wrangler/
