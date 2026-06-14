@@ -1,0 +1,35 @@
+{{- /*
+  Client-side language redirect (08 i18n, Layer D without an edge worker). On the
+  default-language home only, send a first-time visitor to their language: honour
+  an explicit `lang` cookie (set by the switcher) if present, else match the
+  browser's primary language against the translations that exist, else stay.
+  Matches the Accept-Language logic crofty.blog's edge worker uses, but needs no
+  worker — it works on any static host. Degrades cleanly: with JS off the visitor
+  gets the default language plus the manual switcher. Emitted only when more than
+  one language is configured.
+*/ -}}
+{{- if and .IsHome (gt (len hugo.Sites) 1) (eq site.LanguagePrefix "") }}
+{{- $langs := slice }}
+{{- range hugo.Sites }}{{ if ne .Language.Lang site.Language.Lang }}{{ $langs = $langs | append (dict "p" .Language.Lang "url" .Home.RelPermalink) }}{{ end }}{{ end }}
+<script>
+(function () {
+  if (location.pathname !== {{ site.Home.RelPermalink }}) return;
+  var DEF = {{ site.Language.Lang }}, LANGS = {{ $langs }};
+  function cookie(n) {
+    var m = document.cookie.match(new RegExp("(?:^|; )" + n + "=([^;]+)"));
+    return m ? decodeURIComponent(m[1]) : null;
+  }
+  var chosen = cookie("lang");
+  if (chosen) {
+    if (chosen === DEF) return;
+    for (var i = 0; i < LANGS.length; i++) if (LANGS[i].p === chosen) { location.replace(LANGS[i].url); return; }
+    return;
+  }
+  var first = ((navigator.languages && navigator.languages[0]) || navigator.language || "").toLowerCase();
+  for (var i = 0; i < LANGS.length; i++) {
+    var p = LANGS[i].p;
+    if (first === p || first.indexOf(p + "-") === 0) { location.replace(LANGS[i].url); return; }
+  }
+})();
+</script>
+{{- end }}
