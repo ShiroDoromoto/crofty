@@ -8,7 +8,8 @@ import "fmt"
 
 func runEject(args []string) error {
 	return notYet("eject", "a later milestone",
-		"writes the bundled theme into ./themes so what remains is a plain Hugo project you fully own")
+		"detaches the project from crofty entirely, leaving a plain Hugo site you fully own "+
+			"(to edit the theme in place today, use 'crofty theme eject --full')")
 }
 
 func notYet(name, when, what string) error {

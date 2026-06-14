@@ -10,6 +10,13 @@
   --accent: #5c4b37; /* warm earth — links on hover, rules */
   --code-bg: #f2efe7;
   --measure: 34rem;
+
+  /* Type is a token too: the reading column, the chrome (header/footer/meta),
+     and code. Point --font-body at --font-mono for a terminal look, or swap in
+     any family. `crofty theme eject` surfaces these for editing. */
+  --font-body: Charter, "Iowan Old Style", "Palatino Linotype", Palatino, "Book Antiqua", Georgia, serif;
+  --font-chrome: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+  --font-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -30,7 +37,7 @@ body {
   margin: 0;
   color: var(--ink);
   background: var(--bg);
-  font: 1.125rem/1.7 Charter, "Iowan Old Style", "Palatino Linotype", Palatino, "Book Antiqua", Georgia, serif;
+  font: 1.125rem/1.7 var(--font-body);
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
 }
@@ -52,7 +59,7 @@ body {
   gap: 1rem;
   padding-top: 2.5rem;
   padding-bottom: 1.25rem;
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+  font-family: var(--font-chrome);
 }
 
 .site-title {
@@ -108,14 +115,14 @@ blockquote {
 }
 
 code {
-  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-family: var(--font-mono);
   font-size: 0.85em;
   background: var(--code-bg);
   padding: 0.1em 0.3em;
   border-radius: 3px;
 }
 pre {
-  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-family: var(--font-mono);
   font-size: 0.85em;
   padding: 1rem;
   overflow-x: auto;
@@ -139,7 +146,7 @@ pre code { background: none; padding: 0; }
   margin-top: 2.5rem;
   padding-top: 1rem;
   border-top: 1px solid var(--line);
-  font-family: -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+  font-family: var(--font-chrome);
   font-size: 0.85rem;
   color: var(--muted);
 }
@@ -160,7 +167,7 @@ pre code { background: none; padding: 0; }
   display: flex;
   align-items: center;
   gap: 0.8rem;
-  font-family: -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+  font-family: var(--font-chrome);
   font-size: 0.85rem;
 }
 .crofty-share-btn {
@@ -216,7 +223,7 @@ time { color: var(--muted); }
   padding-bottom: 3.5rem;
   border-top: 1px solid var(--line);
   text-align: center;
-  font-family: -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+  font-family: var(--font-chrome);
   font-size: 0.85rem;
   color: var(--muted);
 }
@@ -257,7 +264,7 @@ time { color: var(--muted); }
   margin: 0 0 2.5rem;
   padding-bottom: 1.75rem;
   border-bottom: 1px solid var(--line);
-  font-family: -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+  font-family: var(--font-chrome);
 }
 .profile-avatar {
   flex: none;
@@ -283,7 +290,7 @@ time { color: var(--muted); }
   margin: 2.5rem 0 0;
   padding-top: 1.25rem;
   border-top: 1px solid var(--line);
-  font-family: -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+  font-family: var(--font-chrome);
   font-size: 0.9rem;
 }
 .pagination-link { color: var(--ink); text-decoration: none; }
@@ -306,7 +313,7 @@ time { color: var(--muted); }
 .blogroll-name:hover { color: var(--accent); }
 .blogroll-feed {
   margin-left: 0.6rem;
-  font-family: -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+  font-family: var(--font-chrome);
   font-size: 0.7rem;
   text-transform: uppercase;
   letter-spacing: 0.08em;
