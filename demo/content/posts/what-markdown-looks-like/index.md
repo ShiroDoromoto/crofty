@@ -2,6 +2,7 @@
 title: "What Markdown looks like here"
 date: 2026-06-12T09:00:00+09:00
 description: "A short tour of the formatting crofty renders from plain Markdown."
+tags: ["markdown", "writing"]
 crofty:
     tier: full
 ---

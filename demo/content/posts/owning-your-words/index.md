@@ -2,6 +2,7 @@
 title: "Owning your words"
 date: 2026-06-10T09:00:00+09:00
 description: "Why this little blog is just plain files on a domain I control."
+tags: ["ownership", "small web"]
 crofty:
     tier: full
 ---

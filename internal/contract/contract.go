@@ -100,6 +100,12 @@ func Check(distDir string) (Report, error) {
 			})
 			return nil
 		}
+		// Skip redirect-alias stubs (e.g. Hugo's /page/1/ or taxonomy aliases):
+		// a <meta http-equiv="refresh"> page is a same-site redirect, not a
+		// content page, so the output contract doesn't apply to it.
+		if facts.redirect {
+			return nil
+		}
 		findings = append(findings, checkPage(rel, facts)...)
 		return nil
 	})
@@ -129,6 +135,7 @@ type pageFacts struct {
 	croftyID      string
 	haveID        bool
 	resourceHosts []string
+	redirect      bool
 }
 
 // checkPage turns one page's facts into findings.
@@ -219,6 +226,9 @@ func parsePage(path string) (pageFacts, error) {
 					pf.resourceHosts = append(pf.resourceHosts, h)
 				}
 			case "meta":
+				if strings.EqualFold(attr(n, "http-equiv"), "refresh") {
+					pf.redirect = true
+				}
 				switch strings.ToLower(attr(n, "name")) {
 				case "viewport":
 					pf.viewport = true

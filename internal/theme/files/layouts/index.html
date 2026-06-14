@@ -1,12 +1,14 @@
 {{ define "main" }}
 <article class="landing">
+  {{ partial "crofty/profile.html" . }}
   {{ .Content }}
   {{ $posts := where site.RegularPages "Section" "posts" }}
   {{ with $posts }}
+  {{ $paginator := $.Paginate . }}
   <section class="recent">
     <h2>Writing</h2>
     <ul class="post-list">
-      {{ range first 10 . }}
+      {{ range $paginator.Pages }}
       <li>
         <a href="{{ .RelPermalink }}">{{ .Title }}</a>
         {{ with .Date }}<time datetime="{{ .Format "2006-01-02" }}">{{ .Format "Jan 2, 2006" }}</time>{{ end }}
@@ -14,6 +16,7 @@
       {{ end }}
     </ul>
   </section>
+  {{ partial "crofty/pagination.html" $ }}
   {{ end }}
 </article>
 {{ end }}

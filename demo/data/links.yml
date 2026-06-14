@@ -1,0 +1,19 @@
+# Blogroll (03 §A-5): public sites worth reading. One-directional by default —
+# linking to a public page needs no permission, and "friends" would over-claim a
+# mutuality this list can't verify. Public URLs only, no PII.
+- name: "Daring Fireball"
+  url: "https://daringfireball.net/"
+  note: "John Gruber on Apple, design, and the web."
+  feed: "https://daringfireball.net/feeds/main"
+- name: "kottke.org"
+  url: "https://kottke.org/"
+  note: "Fine hypertext products since 1998."
+- name: "Manuel Moreale"
+  url: "https://manuelmoreale.com/"
+  note: "A people-and-blogs corner of the small web."
+- name: "Maggie Appleton"
+  url: "https://maggieappleton.com/"
+  note: "Essays and drawings on tools for thought."
+- name: "Robin Sloan"
+  url: "https://www.robinsloan.com/"
+  note: "Notes and dispatches from a writer."

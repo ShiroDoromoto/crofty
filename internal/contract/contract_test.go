@@ -56,6 +56,34 @@ func TestCheckCleanSitePasses(t *testing.T) {
 	}
 }
 
+func TestRedirectAliasIsSkipped(t *testing.T) {
+	// Hugo emits /page/1/ and taxonomy aliases as <meta http-equiv="refresh">
+	// stubs with no viewport, lang, or body. They are redirects, not content
+	// pages, so the contract must skip them rather than flag them.
+	alias := `<!DOCTYPE html><html><head>
+<title>https://example.com/</title>
+<link rel="canonical" href="https://example.com/">
+<meta http-equiv="refresh" content="0; url=https://example.com/">
+</head></html>`
+	dir := writeDist(t, map[string]string{
+		"index.html":        goodPage,
+		"page/1/index.html": alias,
+		"index.xml":         `<rss></rss>`,
+	})
+	r, err := Check(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !r.OK || r.HasError() {
+		t.Fatalf("expected redirect alias to be skipped, got findings: %+v", r.Findings)
+	}
+	for _, f := range r.Findings {
+		if f.File == "page/1/index.html" {
+			t.Fatalf("alias stub should yield no findings, got: %+v", f)
+		}
+	}
+}
+
 func TestMissingCanonicalIsError(t *testing.T) {
 	page := `<!DOCTYPE html><html lang="en"><head>
 <meta name="viewport" content="x"><title>T</title></head><body>x</body></html>`
