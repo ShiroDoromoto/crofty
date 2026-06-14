@@ -1,6 +1,7 @@
 // Command crofty turns Markdown into a website you build and deploy to your own
-// accounts. It wraps Hugo (build) and Wrangler (deploy) and never talks to a
-// server of ours — there isn't one.
+// accounts. It wraps Hugo to build and deploys straight to your Cloudflare
+// account over its API (no Node or Wrangler), and never talks to a server of
+// ours — there isn't one.
 package main
 
 import (
