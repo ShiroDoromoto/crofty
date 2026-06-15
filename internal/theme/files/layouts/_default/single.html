@@ -12,5 +12,8 @@
   </footer>
   {{ end }}
   {{ partial "crofty/share.html" . }}
+  {{ with .CurrentSection }}{{ if .RelPermalink }}
+  <nav class="post-nav"><a href="{{ .RelPermalink }}">{{ i18n "back_to_list" }}</a></nav>
+  {{ end }}{{ end }}
 </article>
 {{ end }}
