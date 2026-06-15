@@ -52,7 +52,7 @@ scoops:
     repository:
       owner: shirodoromoto
       name: scoop-crofty
-    homepage: https://crofty.blog
+    homepage: https://crofty.site
     description: "Own your website: a Markdown-to-published-site pipeline"
     license: AGPL-3.0-or-later
     depends:
@@ -70,7 +70,7 @@ brews:
     repository:
       owner: shirodoromoto
       name: homebrew-crofty
-    homepage: https://crofty.blog
+    homepage: https://crofty.site
     description: "Own your website: a Markdown-to-published-site pipeline"
     license: AGPL-3.0-or-later
     dependencies:
