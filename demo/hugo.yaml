@@ -1,6 +1,6 @@
 # Standard Hugo config. crofty reads only its own settings from .crofty/config.json,
 # so this file stays plain Hugo — your project is always yours to keep (eject-safe).
-baseURL: "https://demo.crofty.blog/"
+baseURL: "https://demo.crofty.site/"
 enableRobotsTXT: true
 
 # Multilingual is opt-in: with a single language this whole block is absent and
