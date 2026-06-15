@@ -34,6 +34,14 @@ crofty connect     # save your Cloudflare API token (to your keychain)
 crofty deploy      # publish ./dist to your own Cloudflare Pages
 ```
 
+Ways to start a project:
+
+```sh
+crofty init          # asks for a name, then creates it under ~/Documents/Crofty/
+crofty init <name>   # a bare name lands in ~/Documents/Crofty/<name>
+crofty init .        # use the current folder (a path or absolute dir works too)
+```
+
 `crofty init` scaffolds a standard Hugo project plus a `.crofty/` folder:
 
 ```
@@ -48,9 +56,11 @@ your-site/
             └── index.md # a sample post to edit or delete
 ```
 
-Run `crofty init` again inside a project to add optional settings (a support
-link, analytics). The build output is a plain Hugo project, so you can take it
-and run `hugo` yourself without this tool.
+To change settings later, run `crofty init` **inside the project** (or point it
+at one). It prompts for an optional support link; analytics and the site title
+are settings you (or your AI) edit directly in `hugo.yaml` / `data/profile.yml`
+— it shows where, and never rewrites them for you. The build output is a plain
+Hugo project, so you can take it and run `hugo` yourself without this tool.
 
 ## Commands
 
