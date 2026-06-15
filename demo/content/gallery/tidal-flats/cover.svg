@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 400" role="img" aria-label="Tidal flats at low water">
+  <defs>
+    <linearGradient id="sky2" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#cfe3e8"/>
+      <stop offset="1" stop-color="#9fc1c9"/>
+    </linearGradient>
+  </defs>
+  <rect width="800" height="400" fill="url(#sky2)"/>
+  <rect y="250" width="800" height="150" fill="#b9cfc6"/>
+  <path d="M0 270 C200 260 320 290 480 275 C620 262 700 285 800 278 L800 400 L0 400 Z" fill="#8fae9e" opacity="0.8"/>
+  <path d="M0 320 Q200 305 400 320 T800 318 L800 400 L0 400 Z" fill="#6f8f82"/>
+  <ellipse cx="250" cy="300" rx="120" ry="10" fill="#cfe3e8" opacity="0.6"/>
+  <ellipse cx="560" cy="330" rx="90" ry="8" fill="#cfe3e8" opacity="0.5"/>
+</svg>
