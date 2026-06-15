@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 600" role="img" aria-label="First light over a ridge">
+  <defs><linearGradient id="g" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#f7d2a8"/><stop offset="1" stop-color="#e79b66"/></linearGradient></defs>
+  <rect width="800" height="600" fill="url(#g)"/>
+  <circle cx="560" cy="170" r="54" fill="#fff4e8" opacity="0.92"/>
+  <path d="M0 420 C180 360 340 400 460 365 C600 325 700 360 800 335 L800 600 L0 600 Z" fill="#c97a4f" opacity="0.85"/>
+  <path d="M0 470 C160 430 330 455 470 425 C610 398 720 430 800 418 L800 600 L0 600 Z" fill="#9c5836"/>
+</svg>

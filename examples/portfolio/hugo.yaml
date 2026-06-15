@@ -1,0 +1,20 @@
+# Standard Hugo config. crofty reads only its own settings from .crofty/config.json,
+# so this file stays plain Hugo — your project is always yours to keep (eject-safe).
+baseURL: "https://portfolio.crofty.site/"
+locale: "en"
+title: "Mara Ellison — Photography"
+enableRobotsTXT: true
+menu:
+  main:
+    - { name: About, url: /about/, weight: 10 }
+    - { name: Contact, url: /contact/, weight: 20 }
+markup:
+  highlight:
+    # Class-based colours so code follows the theme's light/dark (the theme
+    # ships the stylesheet). Set true for inline styles / a fixed Chroma style.
+    noClasses: false
+params:
+  description: "Photographs by Mara Ellison — light, landscape, and quiet places."
+  # Tool-specific front matter and params nest under `crofty:` (spec v0).
+  crofty:
+    specVersion: "0"
