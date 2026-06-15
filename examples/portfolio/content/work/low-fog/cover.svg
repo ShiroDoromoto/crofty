@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 600" role="img" aria-label="Low fog in the valley">
+  <rect width="800" height="600" fill="#d7dde0"/>
+  <path d="M0 360 C150 330 320 350 470 330 C610 312 720 340 800 330 L800 600 L0 600 Z" fill="#aeb8bc" opacity="0.8"/>
+  <path d="M0 430 C160 410 330 425 480 405 C620 388 720 415 800 408 L800 600 L0 600 Z" fill="#8c989d" opacity="0.85"/>
+  <rect y="300" width="800" height="70" fill="#e6eaec" opacity="0.55"/>
+  <rect y="380" width="800" height="50" fill="#eef1f2" opacity="0.4"/>
+</svg>

@@ -25,3 +25,12 @@
 /demo/.crofty/
 /demo/.wrangler/
 /demo/.hugo_build.lock
+
+# examples/ holds focused single-purpose crofty sites (portfolio, shop, …) that
+# showcase the breadth of sites crofty builds. Same rule as demo/: keep the
+# source, ignore build output and per-deploy tool state.
+/examples/*/dist/
+/examples/*/public/
+/examples/*/.crofty/
+/examples/*/.wrangler/
+/examples/*/.hugo_build.lock

@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 600" role="img" aria-label="The coast at dusk">
+  <defs><linearGradient id="c" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#bcd3d8"/><stop offset="1" stop-color="#7fa3ab"/></linearGradient></defs>
+  <rect width="800" height="600" fill="url(#c)"/>
+  <rect y="380" width="800" height="220" fill="#5f828a"/>
+  <path d="M0 380 Q200 368 400 382 T800 380 L800 430 L0 430 Z" fill="#9fbcc1" opacity="0.7"/>
+  <ellipse cx="300" cy="470" rx="160" ry="12" fill="#cfe0e3" opacity="0.5"/>
+  <ellipse cx="600" cy="520" rx="120" ry="9" fill="#cfe0e3" opacity="0.4"/>
+</svg>
