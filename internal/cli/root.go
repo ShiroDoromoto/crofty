@@ -32,7 +32,7 @@ func commands() []command {
 		{"features", "List what crofty can do and how to turn each on", runFeatures},
 		{"agent", "Print the whole command surface for an AI to read first", runAgent},
 		{"config", "Show this project's current configuration", runConfig},
-		{"add", "Turn on a capability (mermaid, abc, highlight, raw-html)", runAdd},
+		{"add", "Turn on a capability (mermaid, abc, highlight, raw-html, analytics)", runAdd},
 		{"lang", "Add or list the languages your site is written in", runLang},
 		{"preview", "See your site in a browser (local, no account)", runPreview},
 		{"build", "Render the site to ./dist with Hugo", runBuild},
