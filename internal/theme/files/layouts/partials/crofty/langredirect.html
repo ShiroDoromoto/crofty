@@ -3,7 +3,7 @@
   default-language home only, send a first-time visitor to their language: honour
   an explicit `lang` cookie (set by the switcher) if present, else match the
   browser's primary language against the translations that exist, else stay.
-  Matches the Accept-Language logic crofty.blog's edge worker uses, but needs no
+  Matches the Accept-Language logic crofty.site's edge worker uses, but needs no
   worker — it works on any static host. Degrades cleanly: with JS off the visitor
   gets the default language plus the manual switcher. Emitted only when more than
   one language is configured.

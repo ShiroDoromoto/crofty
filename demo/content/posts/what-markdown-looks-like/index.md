@@ -29,5 +29,5 @@ crofty build
 crofty deploy
 ```
 
-And [links](https://crofty.blog) are plain text in brackets. That is the whole
+And [links](https://crofty.site) are plain text in brackets. That is the whole
 toolkit — no editor, no platform, just text you can read in any file.
