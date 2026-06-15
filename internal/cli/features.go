@@ -74,12 +74,10 @@ func featureCatalog() []feature {
 
 		// Opt-in via config — off by default on purpose.
 		{"analytics", "Cloudflare / GA4 / GTM / AdSense (opt-in, no trackers by default)", "config", "params.crofty.analytics.{cloudflare,google_tag,gtm} or .adsense.client"},
-		{"raw-html", "pass raw HTML in Markdown through (figure, video, …)", "config", "markup.goldmark.renderer.unsafe: true in hugo.yaml"},
+		{"raw-html", "pass raw HTML in Markdown through (figure, video, …)", "config", "crofty add raw-html   (sets markup.goldmark.renderer.unsafe)"},
 		{"multilingual", "two or more languages (/ and /<code>/, switch + redirect)", "config", "crofty lang add <code>   (e.g. crofty lang add ja)"},
-
-		// Needs a render hook the bundled theme doesn't ship yet.
-		{"mermaid", "turn ```mermaid code blocks into diagrams", "config", "a render-codeblock-mermaid.html hook + unsafe (see demo/)"},
-		{"abc", "turn ```abc code blocks into music notation", "config", "a render-codeblock-abc.html hook + unsafe (see demo/)"},
+		{"mermaid", "turn ```mermaid code blocks into diagrams (client JS)", "config", "crofty add mermaid"},
+		{"abc", "turn ```abc code blocks into sheet music (client JS)", "config", "crofty add abc"},
 	}
 }
 
