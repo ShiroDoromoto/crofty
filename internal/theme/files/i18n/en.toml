@@ -23,6 +23,9 @@ other = "Follow by RSS"
 [tags]
 other = "tags"
 
+[back_to_list]
+other = "← All posts"
+
 [support]
 other = "Support"
 
