@@ -29,6 +29,7 @@ type command struct {
 func commands() []command {
 	return []command{
 		{"init", "Create a new project (a website you own)", runInit},
+		{"features", "List what crofty can do and how to turn each on", runFeatures},
 		{"preview", "See your site in a browser (local, no account)", runPreview},
 		{"build", "Render the site to ./dist with Hugo", runBuild},
 		{"connect", "Save the Cloudflare API token used to deploy", runConnect},
@@ -118,6 +119,8 @@ func discover() {
 		fmt.Println("    crofty init")
 		fmt.Println()
 		fmt.Println("It creates your site under ~/Documents/Crofty/ and prints the exact path.")
+		fmt.Println()
+		fmt.Println("Curious what crofty can do first? Run 'crofty features'.")
 		return
 	}
 	fmt.Println("Your crofty projects:")
