@@ -1,13 +1,10 @@
 package cli
 
 import (
-	"bufio"
 	"fmt"
 	"os"
 	"path/filepath"
-	"strings"
 
-	"golang.org/x/term"
 	"gopkg.in/yaml.v3"
 
 	"github.com/shirodoromoto/crofty/internal/project"
@@ -15,10 +12,10 @@ import (
 
 // Re-running `crofty init` on an existing project lands here: an idempotent
 // "configure" pass for the optional, discoverable-by-no-one settings —
-// patronage and analytics (08 §4.3 C). It only ever writes data/profile.yml (a
-// file crofty owns); analytics and the title are *shown* with where to set them,
-// never auto-edited, so a hand-tuned hugo.yaml is never clobbered. Content,
-// workspace id, and deploy config are never touched.
+// patronage and analytics (08 §4.3 C). It writes nothing: both are *shown* with
+// where to set them — analytics in hugo.yaml, a support link in data/profile.yml
+// — so the author (or their AI) edits the files and a hand-tuned config is never
+// clobbered. Content, workspace id, and deploy config are never touched.
 
 // profilePath is where patronage data lives — data/profile.yml, read by the
 // theme's crofty/patronage.html partial.
@@ -26,9 +23,9 @@ func profilePath(root string) string {
 	return filepath.Join(root, "data", "profile.yml")
 }
 
-// runConfigure walks the optional settings for an existing project. In a
-// terminal it prompts for a support link; otherwise (an agent) it just prints
-// the current state and where to set things, with no prompts.
+// runConfigure shows the optional settings for an existing project. It never
+// prompts and never writes — it prints the current state and exactly where to
+// set things, leaving the edit to the author or their AI (same as init).
 func runConfigure(proj *project.Project) error {
 	fmt.Println("Configure (optional settings — your content is untouched):")
 	fmt.Println()
@@ -43,40 +40,16 @@ func runConfigure(proj *project.Project) error {
 		fmt.Println()
 	}
 
-	// Lead with the familiar blog-setup item (analytics) before the more personal
-	// support-link prompt, so the optional section eases in rather than opening on
-	// a money question (least psychological friction first).
+	// Lead with the more familiar blog-setup item (analytics) before the support
+	// link, so the optional section eases in rather than opening on a money
+	// question (least psychological friction first).
 	printAnalyticsGuidance()
 	fmt.Println()
-
-	if term.IsTerminal(int(os.Stdin.Fd())) {
-		if link, ok := promptSupportLink(); ok {
-			if !isHTTPURL(link) {
-				fmt.Println("  (that doesn't look like a URL — skipped)")
-			} else if err := setProfileSupport(proj.Root, "stripe", link); err != nil {
-				return err
-			} else {
-				fmt.Println("  ✓ saved to data/profile.yml — it shows in your site footer after the next build.")
-			}
-		}
-		fmt.Println()
-	}
+	printSupportGuidance()
+	fmt.Println()
 
 	printDirectEditTip(proj.Root)
 	return nil
-}
-
-// promptSupportLink asks for a patronage link (a non-secret URL, so a plain
-// prompt — unlike a token). Empty input skips.
-func promptSupportLink() (string, bool) {
-	fmt.Println("Add a support link so readers can chip in? (optional)")
-	fmt.Println("  Paste a Stripe Payment Link — recommended: low fees, and the supporter")
-	fmt.Println("  relationship stays yours. Create one: https://dashboard.stripe.com/payment-links")
-	fmt.Println("  (GitHub Sponsors / Ko-fi / Patreon also work — add them in data/profile.yml.)")
-	fmt.Print("Support link (or press Enter to skip): ")
-	line, _ := bufio.NewReader(os.Stdin).ReadString('\n')
-	link := strings.TrimSpace(line)
-	return link, link != ""
 }
 
 func printAnalyticsGuidance() {
@@ -85,6 +58,18 @@ func printAnalyticsGuidance() {
 	fmt.Println(`    cloudflare: "<token>"    # Cloudflare Web Analytics`)
 	fmt.Println(`    google_tag: "G-XXXXXXX"  # Google Analytics 4`)
 	fmt.Println(`    gtm: "GTM-XXXXXX"         # Google Tag Manager`)
+}
+
+// printSupportGuidance mirrors printAnalyticsGuidance: a support link is shown,
+// never prompted. It's a plain (non-secret) URL the author or their AI drops
+// into data/profile.yml, where the theme's crofty/patronage.html partial renders
+// it in the footer. Stripe is suggested first (low fees, the supporter
+// relationship stays with the author and never touches crofty).
+func printSupportGuidance() {
+	fmt.Println("Support link (optional — let readers chip in). Add under `support` in")
+	fmt.Println("data/profile.yml (any subset); it shows in your site footer:")
+	fmt.Println(`    stripe: "https://buy.stripe.com/…"   # a Stripe Payment Link (suggested)`)
+	fmt.Println(`    github_sponsors: "your-username"     # also: kofi, patreon, buymeacoffee`)
 }
 
 func printDirectEditTip(root string) {
@@ -101,11 +86,7 @@ func optionalSetupHint(root string) {
 		return // already has a profile — no nudge
 	}
 	fmt.Println()
-	fmt.Println("tip: 'crofty init' here adds an optional support link or analytics.")
-}
-
-func isHTTPURL(s string) bool {
-	return strings.HasPrefix(s, "http://") || strings.HasPrefix(s, "https://")
+	fmt.Println("tip: 'crofty init' here shows optional analytics or a support link.")
 }
 
 // --- data/profile.yml (crofty-owned) -------------------------------------
@@ -128,17 +109,6 @@ func loadProfile(root string) (map[string]any, error) {
 	return m, nil
 }
 
-func saveProfile(root string, m map[string]any) error {
-	if err := os.MkdirAll(filepath.Join(root, "data"), 0o755); err != nil {
-		return err
-	}
-	b, err := yaml.Marshal(m)
-	if err != nil {
-		return err
-	}
-	return os.WriteFile(profilePath(root), b, 0o644)
-}
-
 // currentSupport returns the existing support map (or nil).
 func currentSupport(root string) map[string]any {
 	m, err := loadProfile(root)
@@ -147,19 +117,4 @@ func currentSupport(root string) map[string]any {
 	}
 	sup, _ := asStringMap(m["support"]) // asStringMap lives in publish.go
 	return sup
-}
-
-// setProfileSupport sets one support entry, preserving any others already there.
-func setProfileSupport(root, key, val string) error {
-	m, err := loadProfile(root)
-	if err != nil {
-		return err
-	}
-	sup, ok := asStringMap(m["support"])
-	if !ok || sup == nil {
-		sup = map[string]any{}
-	}
-	sup[key] = val
-	m["support"] = sup
-	return saveProfile(root, m)
 }
