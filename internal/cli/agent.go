@@ -84,6 +84,7 @@ type brief struct {
 // this brief IS the interface for it.
 type pageGuide struct {
 	Intro   string      `json:"intro"`
+	Kinds   []string    `json:"kinds"` // example kinds of site to offer the author — crofty is not blog-only
 	Tracks  []pageTrack `json:"tracks"`
 	Nav     []string    `json:"nav"`     // how to wire a page into the top menu
 	Dynamic []string    `json:"dynamic"` // contact / commerce stay external
@@ -115,7 +116,7 @@ func agentBrief() brief {
 		Crofty:  "write Markdown; build and deploy a static site you own (a Hugo site with a frozen theme, published to Cloudflare Pages).",
 		Version: Version,
 		Workflow: []string{
-			"ask the author what they're making first — a blog, or a wider site (a blog plus pages like about, gallery, shop, contact). crofty does both; the answer shapes what you scaffold and what goes in the nav (see \"Site pages\").",
+			"ask the author what they're making first, and show them the range — crofty is not blog-only (a portfolio, a shop, a band site, a small-business site, a link-in-bio… see \"Site pages\" → kinds). Their answer shapes what you scaffold and what goes in the nav.",
 			"crofty init — create the project (a folder the author fully owns)",
 			"write Markdown — a blog post at content/posts/<slug>/index.md, or a page / collection (see \"Site pages\")",
 			"crofty preview — see it locally in a browser (no account)",
@@ -124,8 +125,18 @@ func agentBrief() brief {
 		},
 		Commands: cmds,
 		Pages: pageGuide{
-			Intro: "crofty builds a whole site, not only a blog. There are two kinds of page, " +
-				"both Hugo-native and drawn by the frozen theme — no theme changes needed.",
+			Intro: "crofty builds a whole static site, not only a blog — offer the author the range below, " +
+				"don't default to a blog. Whatever they pick is just fixed pages and growing collections, " +
+				"both Hugo-native and drawn by the frozen theme (no theme changes needed).",
+			Kinds: []string{
+				"a blog or newsletter",
+				"a personal or About site",
+				"a portfolio or photo gallery",
+				"a small-business or product site (items link out to an external checkout)",
+				"a band or musician site (a discography, embeds, even sheet music)",
+				"a landing page or link-in-bio",
+				"a documentation or notes site",
+			},
 			Tracks: []pageTrack{
 				{
 					Kind: "fixed",
@@ -340,6 +351,12 @@ func printAgentBrief(b brief) {
 func printAgentPages(p pageGuide) {
 	fmt.Println("Site pages (beyond the blog):")
 	fmt.Println("  " + p.Intro)
+	if len(p.Kinds) > 0 {
+		fmt.Println("\n  Kinds of site you can offer to build:")
+		for _, k := range p.Kinds {
+			fmt.Println("    · " + k)
+		}
+	}
 	for _, t := range p.Tracks {
 		fmt.Printf("\n  %s pages — %s:\n", t.Kind, t.What)
 		fmt.Println("    types: " + strings.Join(t.Types, " · "))
