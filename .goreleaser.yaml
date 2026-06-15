@@ -58,18 +58,24 @@ scoops:
     depends:
       - main/hugo-extended
 
-# macOS distribution — Homebrew cask. Published to the tap shirodoromoto/crofty
-# (repo homebrew-crofty); install with `brew install shirodoromoto/crofty/crofty`.
-homebrew_casks:
+# macOS/Linux distribution — Homebrew FORMULA (deliberately not a cask). A cask
+# quarantines its download, so our unsigned binary trips Gatekeeper ("Apple
+# could not verify… malware" popup) on every install; a formula does not
+# quarantine, so the unsigned binary runs cleanly with no warning. (The cask
+# route would only be warning-free with an Apple Developer ID signature +
+# notarization.) Published to the tap shirodoromoto/crofty (repo
+# homebrew-crofty); install with `brew install shirodoromoto/crofty/crofty`.
+brews:
   - name: crofty
     repository:
       owner: shirodoromoto
       name: homebrew-crofty
     homepage: https://crofty.blog
     description: "Own your website: a Markdown-to-published-site pipeline."
-    # homepage (crofty.blog) and download host (github.com) differ, so Homebrew
-    # requires a verified prefix on the url stanza (brew audit otherwise fails).
-    url:
-      verified: "github.com/shirodoromoto/crofty/"
+    license: AGPL-3.0
     dependencies:
-      - formula: hugo
+      - name: hugo
+    install: |
+      bin.install "crofty"
+    test: |
+      system "#{bin}/crofty", "version"
