@@ -27,7 +27,7 @@ crofty:
 Hugo の `unsafe` な Markdown を有効にしているので、あなた自身の HTML がそのまま通る）。
 
 <figure>
-  <img src="pipeline.svg" alt="Markdown becomes a static site, then deploys">
+  <img src="/posts/images-and-figures/pipeline.svg" alt="Markdown becomes a static site, then deploys">
   <figcaption>Markdown のフォルダから、デプロイ済みのサイトへ、ひと手間で。</figcaption>
 </figure>
 

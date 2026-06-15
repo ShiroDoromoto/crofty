@@ -17,7 +17,7 @@ JavaScript も要らない。下のクリップはこの記事のフォルダに
 音を出してほしい──音声がある。
 
 <video controls preload="metadata">
-  <source src="bunny.mp4" type="video/mp4">
+  <source src="/posts/embedding-video/bunny.mp4" type="video/mp4">
   Your browser does not support the video tag.
 </video>
 
