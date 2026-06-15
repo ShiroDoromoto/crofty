@@ -85,6 +85,7 @@ type brief struct {
 type pageGuide struct {
 	Intro   string      `json:"intro"`
 	Kinds   []string    `json:"kinds"` // example kinds of site to offer the author — crofty is not blog-only
+	Home    []string    `json:"home"`  // what the home page is, and how to make it a landing vs a post list
 	Tracks  []pageTrack `json:"tracks"`
 	Nav     []string    `json:"nav"`     // how to wire a page into the top menu
 	Dynamic []string    `json:"dynamic"` // contact / commerce stay external
@@ -136,6 +137,11 @@ func agentBrief() brief {
 				"a band or musician site (a discography, embeds, even sheet music)",
 				"a landing page or link-in-bio",
 				"a documentation or notes site",
+			},
+			Home: []string{
+				"the home page is content/_index.md: the theme shows the author's profile, that file's intro, then the latest posts",
+				"the posts list auto-hides when there is no content/posts/ — so a blog gets a post-list front page, and a site with no blog gets a clean profile + intro home (no empty list)",
+				"for a designed landing instead (a featured grid, a hero, a shop front) override layouts/index.html — it's a project file; the frozen theme is untouched",
 			},
 			Tracks: []pageTrack{
 				{
@@ -355,6 +361,12 @@ func printAgentPages(p pageGuide) {
 		fmt.Println("\n  Kinds of site you can offer to build:")
 		for _, k := range p.Kinds {
 			fmt.Println("    · " + k)
+		}
+	}
+	if len(p.Home) > 0 {
+		fmt.Println("\n  The home page (blog front vs landing):")
+		for _, h := range p.Home {
+			fmt.Println("    " + h)
 		}
 	}
 	for _, t := range p.Tracks {
