@@ -20,6 +20,9 @@ other = "RSS で購読"
 [tags]
 other = "タグ"
 
+[back_to_list]
+other = "← 一覧へ戻る"
+
 [support]
 other = "サポートする"
 
