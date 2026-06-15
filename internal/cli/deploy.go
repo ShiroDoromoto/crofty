@@ -103,7 +103,22 @@ func runDeploy(args []string) error {
 	if url != "" {
 		fmt.Println("  live at →", url)
 	}
+	printCustomDomainHelp(cfg.Deploy.Project)
 	return nil
+}
+
+// printCustomDomainHelp shows how to point a custom domain at the site once it's
+// live — the step that has no CLI home and otherwise assumes Cloudflare-dashboard
+// knowledge. There are two paths depending on where the owner runs DNS, and which
+// one applies isn't something crofty can tell from here, so it names both.
+func printCustomDomainHelp(projectName string) {
+	fmt.Println()
+	fmt.Println("Want your own domain (e.g. blog.example.com)? Two ways, by where your DNS lives:")
+	fmt.Println("  · DNS on Cloudflare — add the domain in")
+	fmt.Println("      Pages → your project → Custom domains; the DNS record is made for you.")
+	fmt.Printf("  · DNS elsewhere — keep your provider and add one record:\n")
+	fmt.Printf("      CNAME  blog  →  %s.pages.dev\n", projectName)
+	fmt.Println("  More: https://developers.cloudflare.com/pages/configuration/custom-domains/")
 }
 
 // cfAccount is a Cloudflare account crofty can deploy to.
