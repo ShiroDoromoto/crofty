@@ -46,15 +46,21 @@ func runPreview(args []string) error {
 
 	fmt.Println("Starting a local preview of your site.")
 	fmt.Println("Open the http://localhost link printed just below in your web browser.")
+	fmt.Println("Edits to content and styles reload automatically. If a change to hugo.yaml")
+	fmt.Println("(or, rarely, a stylesheet) doesn't show, stop with Control-C and run this again.")
 	fmt.Println("When you're done looking, press Control-C here to stop.")
 	fmt.Println()
 
 	// hugo server blocks until interrupted; runner.Run streams its output. A
 	// Control-C exit is the normal way to stop, not a crofty failure.
+	// --disableFastRender makes every edit trigger a full rebuild: a touch slower,
+	// but edits (including assets) reliably appear — important when an agent writes
+	// a file and checks the result, where a stale render reads as a real failure.
 	err = runner.Run(proj.Root, "hugo", "server",
 		"--source", proj.Root,
 		"--themesDir", proj.ThemesDir(),
 		"--theme", "crofty",
+		"--disableFastRender",
 	)
 	if err != nil {
 		return fmt.Errorf("preview stopped: %w", err)
