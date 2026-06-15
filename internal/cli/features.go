@@ -60,6 +60,7 @@ func featureCatalog() []feature {
 		{"writing", "Markdown in content/, one folder per post (page bundles)", "built-in", "write content/<section>/<slug>/index.md"},
 		{"tags", "tag pages and per-post tag footer", "built-in", "add `tags: [a, b]` to a post's front matter"},
 		{"rss", "an Atom/RSS feed and a 'Follow by RSS' link", "built-in", "automatic — nothing to set"},
+		{"highlight", "theme-following code colour (class-based, light/dark)", "built-in", "on for new projects; older ones: markup.highlight.noClasses: false"},
 		{"pagination", "page-by-page navigation on list pages", "built-in", "automatic; tune with paginate in hugo.yaml"},
 		{"share", "reader share buttons, and `crofty share` for a ready-to-post fragment", "built-in", "automatic on posts; `crofty share <path>` for authors"},
 		{"profile", "name / tagline / avatar / social links block", "built-in", "add data/profile.yml (name, tagline, avatar, social)"},
@@ -74,7 +75,6 @@ func featureCatalog() []feature {
 		// Opt-in via config — off by default on purpose.
 		{"analytics", "Cloudflare / GA4 / GTM / AdSense (opt-in, no trackers by default)", "config", "params.crofty.analytics.{cloudflare,google_tag,gtm} or .adsense.client"},
 		{"raw-html", "pass raw HTML in Markdown through (figure, video, …)", "config", "markup.goldmark.renderer.unsafe: true in hugo.yaml"},
-		{"highlight", "theme-following code colour (class-based, light/dark)", "config", "markup.highlight.noClasses: false + a chroma stylesheet via head_raw"},
 		{"multilingual", "two or more languages (/ and /<code>/, switch + redirect)", "config", "crofty lang add <code>   (e.g. crofty lang add ja)"},
 
 		// Needs a render hook the bundled theme doesn't ship yet.
