@@ -17,6 +17,7 @@ import (
 func runValidate(args []string) error {
 	fs := flag.NewFlagSet("validate", flag.ContinueOnError)
 	asJSON := fs.Bool("json", false, "emit structured JSON (for tools)")
+	noHints := fs.Bool("no-hints", false, "skip the capability hints (e.g. \"this won't render unless…\")")
 	fs.Usage = func() {
 		fmt.Println("crofty validate — check content against the crofty spec (v0)")
 		fmt.Println("\nUsage:")
@@ -29,15 +30,17 @@ func runValidate(args []string) error {
 		return err
 	}
 
+	// Find the project (if any) so the capability hints can read hugo.yaml — but
+	// don't require one: validate also runs on explicit paths outside a project.
+	var proj *project.Project
+	if cwd, err := os.Getwd(); err == nil {
+		proj, _ = project.Find(cwd)
+	}
+
 	var contentRoot string
 	if len(targets) == 0 {
-		cwd, err := os.Getwd()
-		if err != nil {
-			return err
-		}
-		proj, err := project.Find(cwd)
-		if err != nil {
-			return err
+		if proj == nil {
+			return project.ErrNotFound
 		}
 		contentRoot = filepath.Join(proj.Root, "content")
 		targets = []string{contentRoot}
@@ -61,17 +64,30 @@ func runValidate(args []string) error {
 		}
 	}
 
+	// Capability hints: advisory only ("you wrote a ```mermaid block, but…").
+	// They never affect the exit code — validate gates on the spec, not on what
+	// you haven't turned on.
+	var hints []hint
+	if !*noHints {
+		ctx := gatherContext(proj)
+		for _, f := range files {
+			hints = append(hints, hintsFor(f, ctx)...)
+		}
+	}
+
 	if *asJSON {
 		enc := json.NewEncoder(os.Stdout)
 		enc.SetIndent("", "  ")
 		if err := enc.Encode(struct {
 			OK    bool              `json:"ok"`
 			Files []spec.FileReport `json:"files"`
-		}{OK: !anyError, Files: reports}); err != nil {
+			Hints []hint            `json:"hints"`
+		}{OK: !anyError, Files: reports, Hints: hints}); err != nil {
 			return err
 		}
 	} else {
 		renderHuman(reports)
+		renderHints(hints)
 	}
 
 	if anyError {
@@ -164,6 +180,26 @@ func renderHuman(reports []spec.FileReport) {
 	fmt.Printf("%s, %s across %s\n",
 		countLabel(totErr, "error"), countLabel(totWarn, "warning"), countLabel(len(reports), "file"))
 	fmt.Println("\nFix these by hand, or hand the notes to any assistant you use.")
+}
+
+// renderHints prints the advisory capability notes below the validation report.
+// Grouped by file, info-style, so "wrote it but it won't show" is caught here
+// rather than after a confusing build.
+func renderHints(hints []hint) {
+	if len(hints) == 0 {
+		return
+	}
+	fmt.Println()
+	fmt.Println("Hints (capabilities your content reaches for — these don't block anything):")
+	current := ""
+	for _, h := range hints {
+		if h.File != current {
+			fmt.Println(h.File)
+			current = h.File
+		}
+		fmt.Printf("  · %-12s %s\n", h.Feature, h.Message)
+	}
+	fmt.Println("\nSee 'crofty features' for how to turn these on, or pass --no-hints to silence.")
 }
 
 func severityDisplay(s spec.Severity) (mark, label string) {
