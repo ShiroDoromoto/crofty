@@ -21,8 +21,8 @@ scoop install crofty
 ```
 
 crofty wraps [Hugo](https://gohugo.io) at runtime for `build` and `preview`.
-Homebrew installs it as a dependency; on Windows, install it alongside crofty
-with `scoop install hugo-extended`.
+Both installers pull it in for you — Homebrew as a formula dependency, Scoop as
+a manifest dependency (`hugo-extended` from the main bucket).
 
 ## Quick start
 
