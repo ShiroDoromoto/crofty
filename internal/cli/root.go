@@ -30,6 +30,7 @@ func commands() []command {
 	return []command{
 		{"init", "Create a new project (a website you own)", runInit},
 		{"features", "List what crofty can do and how to turn each on", runFeatures},
+		{"lang", "Add or list the languages your site is written in", runLang},
 		{"preview", "See your site in a browser (local, no account)", runPreview},
 		{"build", "Render the site to ./dist with Hugo", runBuild},
 		{"connect", "Save the Cloudflare API token used to deploy", runConnect},
@@ -85,6 +86,16 @@ func Run(args []string) int {
 	fmt.Fprintf(os.Stderr, "crofty: unknown command %q\n\n", args[0])
 	usage()
 	return 2
+}
+
+// findProject locates the crofty project containing the current directory, the
+// common preamble for commands that operate on "the project here".
+func findProject() (*project.Project, error) {
+	cwd, err := os.Getwd()
+	if err != nil {
+		return nil, err
+	}
+	return project.Find(cwd)
 }
 
 // parseArgs parses a flag set while allowing flags and positional arguments to
