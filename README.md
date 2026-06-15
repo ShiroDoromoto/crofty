@@ -71,6 +71,23 @@ are settings you (or your AI) edit directly in `hugo.yaml` / `data/profile.yml`
 — it shows where, and never rewrites them for you. The build output is a plain
 Hugo project, so you can take it and run `hugo` yourself without this tool.
 
+## More than a blog
+
+The sample project starts as a blog (`content/posts/`), but a crofty site is a
+whole Hugo site — the homepage bits an author rarely escapes are pages too. Two
+kinds, both drawn by the same frozen theme:
+
+- **Fixed pages** you maintain — about, contact, access, legal — are a Markdown
+  file at `content/<slug>/index.md`.
+- **Collections** that grow like the blog — a gallery, a shop, a discography —
+  are a section folder: an `_index.md` plus one folder per item.
+
+Put any of them in the top navigation through `hugo.yaml`'s `menu.main` (crofty
+prints the lines to paste; it never rewrites `hugo.yaml`). Contact and commerce
+stay external on a static site — embed a form (Formspree, Tally) or link out to
+a checkout (Stripe, BOOTH). `crofty agent` prints these recipes in full: the two
+page kinds, the menu snippet, and where the external pieces go.
+
 ## Commands
 
 ```sh

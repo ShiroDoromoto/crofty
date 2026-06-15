@@ -5,6 +5,7 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"strings"
 )
 
 // runAgent prints crofty's entire command surface in one shot, for an AI that is
@@ -71,8 +72,30 @@ type brief struct {
 	Version  string     `json:"version"`  // the running binary's version
 	Workflow []string   `json:"workflow"` // the usual order of operations
 	Commands []agentCmd `json:"commands"` // every command, from commands()
+	Pages    pageGuide  `json:"pages"`    // how to build site pages beyond the blog
 	Inspect  []string   `json:"inspect"`  // machine-readable state surfaces to read
 	Notes    []string   `json:"notes"`    // the handful of rules an agent must know
+}
+
+// pageGuide teaches the AI that crofty builds a whole site, not just a blog, and
+// how to make the pages an "I want a homepage too" author asks for. None of this
+// needs a crofty command or a theme change: pages are Markdown the AI writes, and
+// the nav is a hugo.yaml menu the AI pastes (crofty never writes hugo.yaml). So
+// this brief IS the interface for it.
+type pageGuide struct {
+	Intro   string      `json:"intro"`
+	Tracks  []pageTrack `json:"tracks"`
+	Nav     []string    `json:"nav"`     // how to wire a page into the top menu
+	Dynamic []string    `json:"dynamic"` // contact / commerce stay external
+}
+
+// pageTrack is one of the two kinds of page (a fixed page you maintain, or a
+// collection that grows like the blog), with how to make it and the usual types.
+type pageTrack struct {
+	Kind  string   `json:"kind"` // "fixed" | "collection"
+	What  string   `json:"what"`
+	How   []string `json:"how"`
+	Types []string `json:"types"` // the common page types in this track
 }
 
 // agentBrief assembles the manifest. Command names and summaries come from
@@ -92,13 +115,54 @@ func agentBrief() brief {
 		Crofty:  "write Markdown; build and deploy a static site you own (a Hugo site with a frozen theme, published to Cloudflare Pages).",
 		Version: Version,
 		Workflow: []string{
+			"ask the author what they're making first — a blog, or a wider site (a blog plus pages like about, gallery, shop, contact). crofty does both; the answer shapes what you scaffold and what goes in the nav (see \"Site pages\").",
 			"crofty init — create the project (a folder the author fully owns)",
-			"write Markdown at content/posts/<slug>/index.md",
+			"write Markdown — a blog post at content/posts/<slug>/index.md, or a page / collection (see \"Site pages\")",
 			"crofty preview — see it locally in a browser (no account)",
 			"crofty build — render the site to ./dist",
 			"crofty deploy — publish ./dist to Cloudflare Pages",
 		},
 		Commands: cmds,
+		Pages: pageGuide{
+			Intro: "crofty builds a whole site, not only a blog. There are two kinds of page, " +
+				"both Hugo-native and drawn by the frozen theme — no theme changes needed.",
+			Tracks: []pageTrack{
+				{
+					Kind: "fixed",
+					What: "one page each, that you maintain by hand",
+					How: []string{
+						"write content/<slug>/index.md (front matter + a Markdown body)",
+						"to put it in the top nav, add a menu.main entry in hugo.yaml (see nav)",
+					},
+					Types: []string{"about", "contact", "access", "pricing", "faq", "legal"},
+				},
+				{
+					Kind: "collection",
+					What: "many items that grow over time, like the blog",
+					How: []string{
+						"write content/<section>/_index.md — the list page",
+						"add one content/<section>/<item>/index.md per item",
+						"the list page goes in the nav the same way a fixed page does",
+					},
+					Types: []string{"products", "gallery", "discography", "news", "works", "events"},
+				},
+			},
+			Nav: []string{
+				"the frozen theme renders site.Menus.main; menus live in hugo.yaml under languages.<lang>.menu.main",
+				"crofty never writes hugo.yaml — add the entry yourself, e.g. under languages.en:",
+				"    menu:",
+				"      main:",
+				"        - {name: About, url: /about/,    weight: 10}",
+				"        - {name: Shop,  url: /products/, weight: 20}",
+				"for another language, mirror it under languages.<lang>.menu.main with that language's URLs (e.g. /ja/about/)",
+			},
+			Dynamic: []string{
+				"the site is static on the edge, so contact and commerce stay external:",
+				"contact form  → embed an external form (Formspree / Tally / Google Forms) in a fixed page",
+				"selling goods → link out to Stripe Payment Link / BOOTH / Gumroad from a page or a collection item",
+				"selling in Japan also needs a 特定商取引法 page — use the legal fixed page",
+			},
+		},
 		Inspect: []string{
 			"crofty config --json     — this project now: title, languages, features on, theme, deploy target",
 			"crofty features --json   — every capability and the exact one-liner to turn it on",
@@ -109,6 +173,7 @@ func agentBrief() brief {
 			"The author installs crofty and runs `crofty init`; from there you (the AI) drive it. The interface is neutral state + next-step output, not a GUI.",
 			"A Cloudflare API token must be typed in a terminal by the human — crofty reads it from a hidden TTY prompt, never stdin, so it never passes through you. To publish, tell the author to run `crofty deploy` and paste the token when asked.",
 			"crofty owns the files it writes (content stubs, render hooks, assets/css/custom.css) but never rewrites hugo.yaml — for config changes it prints the exact lines for the author to paste.",
+			"crofty builds a full site, not just a blog — see \"Site pages\" for fixed pages (about/contact/legal) and collections (products/gallery/discography), and how to wire them into the nav. Contact and commerce stay external embeds.",
 			"`draft: true` or a future `date` keeps a post off the built site; `crofty build` lists what it left out. Run `crofty validate` before build and `crofty doctor` before deploy.",
 		},
 	}
@@ -258,6 +323,8 @@ func printAgentBrief(b brief) {
 	}
 	fmt.Println()
 
+	printAgentPages(b.Pages)
+
 	fmt.Println("Read live state (machine-readable — run these against the project):")
 	for _, s := range b.Inspect {
 		fmt.Println("  " + s)
@@ -268,6 +335,27 @@ func printAgentBrief(b brief) {
 	for _, n := range b.Notes {
 		fmt.Println("  - " + n)
 	}
+}
+
+func printAgentPages(p pageGuide) {
+	fmt.Println("Site pages (beyond the blog):")
+	fmt.Println("  " + p.Intro)
+	for _, t := range p.Tracks {
+		fmt.Printf("\n  %s pages — %s:\n", t.Kind, t.What)
+		fmt.Println("    types: " + strings.Join(t.Types, " · "))
+		for _, h := range t.How {
+			fmt.Println("    → " + h)
+		}
+	}
+	fmt.Println("\n  Navigation:")
+	for _, n := range p.Nav {
+		fmt.Println("    " + n)
+	}
+	fmt.Println("\n  Contact & commerce:")
+	for _, d := range p.Dynamic {
+		fmt.Println("    " + d)
+	}
+	fmt.Println()
 }
 
 func printAgentCmd(c agentCmd, indent string) {
