@@ -36,11 +36,16 @@ func runAdd(args []string) error {
 	case "highlight":
 		printHighlightGuidance()
 		return nil
+	case "analytics":
+		printAnalyticsGuidance()
+		fmt.Println()
+		fmt.Println("These are opt-in and off by default; add any subset, then 'crofty build'.")
+		return nil
 	case "-h", "--help", "help":
 		addUsage()
 		return nil
 	default:
-		return fmt.Errorf("unknown feature %q (try: mermaid | abc | highlight | raw-html; or 'crofty features')", rest[0])
+		return fmt.Errorf("unknown feature %q (try: mermaid | abc | highlight | raw-html | analytics; or 'crofty features')", rest[0])
 	}
 }
 
@@ -52,6 +57,7 @@ func addUsage() {
 	fmt.Println("  crofty add abc         # render ```abc blocks as sheet music")
 	fmt.Println("  crofty add highlight   # theme-following code colour (older projects)")
 	fmt.Println("  crofty add raw-html    # let raw HTML in Markdown through")
+	fmt.Println("  crofty add analytics   # show how to turn on GA4 / Cloudflare / GTM")
 	fmt.Println()
 	fmt.Println("See 'crofty features' for the full list of capabilities.")
 }
