@@ -28,7 +28,7 @@ When a picture needs a credit or a caption, raw HTML works too (this site turns
 on Hugo's `unsafe` Markdown so your own HTML passes through):
 
 <figure>
-  <img src="pipeline.svg" alt="Markdown becomes a static site, then deploys">
+  <img src="/posts/images-and-figures/pipeline.svg" alt="Markdown becomes a static site, then deploys">
   <figcaption>From a folder of Markdown to a deployed site, in one step.</figcaption>
 </figure>
 
