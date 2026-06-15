@@ -30,6 +30,7 @@ func commands() []command {
 	return []command{
 		{"init", "Create a new project (a website you own)", runInit},
 		{"features", "List what crofty can do and how to turn each on", runFeatures},
+		{"add", "Turn on a capability (mermaid, abc, highlight, raw-html)", runAdd},
 		{"lang", "Add or list the languages your site is written in", runLang},
 		{"preview", "See your site in a browser (local, no account)", runPreview},
 		{"build", "Render the site to ./dist with Hugo", runBuild},
