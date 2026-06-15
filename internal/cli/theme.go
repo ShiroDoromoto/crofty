@@ -23,24 +23,74 @@ func runTheme(args []string) error {
 		return runThemeEject(args[1:])
 	case "set":
 		return runThemeSet(args[1:])
+	case "tokens":
+		printThemeTokens()
+		return nil
 	case "-h", "--help", "help":
 		themeUsage()
 		return nil
 	default:
-		return fmt.Errorf("unknown theme subcommand %q (try: crofty theme eject | crofty theme set)", args[0])
+		return fmt.Errorf("unknown theme subcommand %q (try: crofty theme tokens | set | eject)", args[0])
 	}
+}
+
+// themeToken is one design variable the theme exposes — the editable surface a
+// person or agent can change without touching layouts. Listed by `theme tokens`
+// so you can see what's adjustable before ejecting anything.
+type themeToken struct {
+	Name    string
+	Role    string
+	Default string
+}
+
+// themeTokens is the catalogue `crofty theme tokens` prints. The names must match
+// the :root variables in the bundled crofty.css (theme.CustomCSS); theme_test
+// guards against drift.
+func themeTokens() []themeToken {
+	return []themeToken{
+		{"--bg", "page background", "#fcfbf7"},
+		{"--ink", "body text and headings", "#211e1a"},
+		{"--muted", "dates, captions, secondary text", "#6f6a61"},
+		{"--line", "rules, borders, link underlines", "#e4e0d8"},
+		{"--accent", "links on hover, active marks", "#5c4b37"},
+		{"--code-bg", "inline code and code blocks", "#f2efe7"},
+		{"--measure", "reading-column width", "34rem"},
+		{"--font-body", "reading column (body text)", "Charter, …, serif"},
+		{"--font-chrome", "header / footer / meta face", "system-ui, sans-serif"},
+		{"--font-mono", "code", "ui-monospace, …, monospace"},
+	}
+}
+
+func printThemeTokens() {
+	fmt.Println("Theme tokens — the variables you can change without touching layouts.")
+	fmt.Println("Each follows light/dark; 'crofty theme eject' writes them to a file to edit.")
+	fmt.Println()
+	for _, t := range themeTokens() {
+		fmt.Printf("    %-14s %-34s %s\n", t.Name, t.Role, t.Default)
+	}
+	fmt.Println()
+	fmt.Println("next:")
+	fmt.Println("  crofty theme eject          # write these to assets/css/custom.css to edit")
+	fmt.Println("  crofty theme eject --print  # print them to stdout (don't touch any file)")
+	fmt.Println("  crofty theme set <name>     # apply a ready-made palette instead")
 }
 
 func themeUsage() {
 	fmt.Println("crofty theme — bring the theme onto disk so you can customize it")
 	fmt.Println()
 	fmt.Println("Usage:")
+	fmt.Println("  crofty theme tokens         # list the colour/type tokens you can change")
 	fmt.Println("  crofty theme set <name>     # apply a ready-made look (a token override)")
 	fmt.Println("  crofty theme set            # list the looks crofty ships")
 	fmt.Println("  crofty theme eject          # write the design tokens to assets/css/custom.css")
+	fmt.Println("  crofty theme eject --print  # print the tokens to stdout (touch no file)")
 	fmt.Println("  crofty theme eject --full   # write the whole theme (layouts + CSS) into the project")
 	fmt.Println()
-	fmt.Println("Edit the ejected file(s), then 'crofty preview' to see the change.")
+	fmt.Println("Customize in the smallest step that does the job:")
+	fmt.Println("  colour / type      → tokens (theme set, or eject + edit custom.css)")
+	fmt.Println("  a bit of extra CSS → assets/css/custom.css, or params.crofty.head_raw")
+	fmt.Println("  one template       → override just that file under layouts/")
+	fmt.Println("  everything         → theme eject --full (you then own it; no upstream updates)")
 }
 
 // runThemeSet applies a shipped preset by writing its tokens to custom.css — the
@@ -123,16 +173,25 @@ func runThemeEject(args []string) error {
 	fs := flag.NewFlagSet("theme eject", flag.ContinueOnError)
 	full := fs.Bool("full", false, "write the entire theme (layouts + CSS), not just the design tokens")
 	force := fs.Bool("force", false, "overwrite files that already exist")
+	printOnly := fs.Bool("print", false, "print the tokens to stdout instead of writing a file")
 	fs.Usage = func() {
 		fmt.Println("crofty theme eject — make the theme editable")
-		fmt.Println("\nUsage: crofty theme eject [--full] [--force]")
+		fmt.Println("\nUsage: crofty theme eject [--full] [--force] [--print]")
 		fmt.Println("\nWithout --full, writes assets/css/custom.css: the design tokens")
 		fmt.Println("(colour, type, reading width) with their defaults, ready to edit.")
 		fmt.Println("This is the safe, documented way to restyle — 'crofty doctor' still")
 		fmt.Println("guarantees your site owns its content no matter how you change it.")
+		fmt.Println("\n--print writes nothing — useful when you already have a custom.css and")
+		fmt.Println("just want the token block to copy from.")
 	}
 	if err := fs.Parse(args); err != nil {
 		return err
+	}
+
+	// --print needs no project and touches nothing: just emit the starter tokens.
+	if *printOnly {
+		fmt.Print(theme.CustomCSS)
+		return nil
 	}
 
 	cwd, err := os.Getwd()
