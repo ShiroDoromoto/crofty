@@ -372,6 +372,11 @@ func hugoConfig(name, lang string) string {
 		"locale: %q\n"+
 		"title: %q\n"+
 		"enableRobotsTXT: true\n"+
+		"markup:\n"+
+		"  highlight:\n"+
+		"    # Class-based colours so code follows the theme's light/dark (the theme\n"+
+		"    # ships the stylesheet). Set true for inline styles / a fixed Chroma style.\n"+
+		"    noClasses: false\n"+
 		"params:\n"+
 		"  description: \"A website I own, built from Markdown.\"\n"+
 		"  # Tool-specific front matter and params nest under `crofty:` (spec v0).\n"+

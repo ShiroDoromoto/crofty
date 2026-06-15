@@ -6,6 +6,7 @@
   {{ partial "crofty/langredirect.html" . }}
   <title>{{ if .IsHome }}{{ site.Title }}{{ else }}{{ .Title }} · {{ site.Title }}{{ end }}</title>
   {{ partial "crofty/head.html" . }}
+  <link rel="stylesheet" href="{{ "css/chroma.css" | relURL }}">
   <link rel="stylesheet" href="{{ "css/crofty.css" | relURL }}">
   {{- /* Your token overrides (assets/css/custom.css from `crofty theme eject`)
      load last, so whatever you set wins. Absent on a fresh site — no link, no
