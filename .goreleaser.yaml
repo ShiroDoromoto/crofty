@@ -1,12 +1,11 @@
 # GoReleaser config for crofty — cross-platform builds + package manifests.
 #
-# STATUS: verification only, NOT for public release yet.
 #   Local check :  goreleaser check
-#   Local build :  goreleaser release --snapshot --clean
-# Snapshot mode never publishes: it just emits binaries, archives, checksums,
-# and the Scoop/Homebrew manifests into dist/ for inspection. Real publishing is
-# gated behind a git tag + plain `goreleaser release`, and both package repos
-# below set skip_upload until we decide to go public.
+#   Local build :  goreleaser release --snapshot --clean   (never publishes)
+#   Publish     :  git tag vX.Y.Z && GITHUB_TOKEN=$(gh auth token) goreleaser release --clean
+# Snapshot mode emits binaries, archives, checksums, and the Scoop/Homebrew
+# manifests into dist/ for inspection. A real `goreleaser release` is gated
+# behind a git tag and pushes the manifests to the package repos below.
 version: 2
 
 project_name: crofty
@@ -17,12 +16,12 @@ builds:
     binary: crofty
     env:
       - CGO_ENABLED=0
-    # Version stays hand-bumped in internal/cli.Version (a const), so we do not
-    # inject it via ldflags here — only trim paths and strip debug info.
+    # Inject the git tag into internal/cli.Version so the package version,
+    # download URLs, and `crofty version` all derive from one source (the tag).
     flags:
       - -trimpath
     ldflags:
-      - -s -w
+      - -s -w -X github.com/shirodoromoto/crofty/internal/cli.Version={{.Version}}
     goos:
       - darwin
       - windows
@@ -46,7 +45,8 @@ checksum:
   name_template: checksums.txt
 
 # Windows distribution — Scoop bucket (the Homebrew analog for Windows).
-# skip_upload keeps this local until we publish the bucket repo.
+# Hugo is pulled from the main bucket so crofty has its runtime on install,
+# matching Homebrew's hugo dependency on macOS.
 scoops:
   - name: crofty
     repository:
@@ -55,11 +55,11 @@ scoops:
     homepage: https://crofty.blog
     description: "Own your website: a Markdown-to-published-site pipeline."
     license: AGPL-3.0
-    skip_upload: "true"
+    depends:
+      - main/hugo-extended
 
-# macOS distribution — Homebrew cask (goreleaser dropped `brews`/formula in
-# favor of casks). Currently hand-maintained in a local tap (ShiroDoromoto/homebrew-crofty,
-# no remote); skip_upload keeps that workflow intact.
+# macOS distribution — Homebrew cask. Published to the tap shirodoromoto/crofty
+# (repo homebrew-crofty); install with `brew install shirodoromoto/crofty/crofty`.
 homebrew_casks:
   - name: crofty
     repository:
@@ -69,4 +69,3 @@ homebrew_casks:
     description: "Own your website: a Markdown-to-published-site pipeline."
     dependencies:
       - formula: hugo
-    skip_upload: "true"

@@ -10,8 +10,10 @@ import (
 	"github.com/shirodoromoto/crofty/internal/project"
 )
 
-// Version is the crofty CLI version, bumped by hand.
-const Version = "0.1.0"
+// Version is the crofty CLI version. Releases inject the git tag at build time
+// via -ldflags -X (see .goreleaser.yaml), so the tag is the single source of
+// truth; plain `go build` from source reports "dev".
+var Version = "dev"
 
 // errSilent lets a command signal a non-zero exit when it has already printed
 // its own report (e.g. validate's findings), suppressing the generic wrapper.

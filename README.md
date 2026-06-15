@@ -10,7 +10,7 @@ Node or Wrangler in the loop.
 **macOS** ([Homebrew](https://brew.sh)):
 
 ```sh
-brew install shirodoromoto/tap/crofty
+brew install shirodoromoto/crofty/crofty
 ```
 
 **Windows** ([Scoop](https://scoop.sh)):
