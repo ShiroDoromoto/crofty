@@ -26,20 +26,21 @@ a manifest dependency (`hugo-extended` from the main bucket).
 
 ## Quick start
 
-```sh
-crofty init        # create a project (a website you own)
-cd <the path it prints>
-crofty preview     # see it in a browser — no account needed
-crofty connect     # save your Cloudflare API token (to your keychain)
-crofty deploy      # publish ./dist to your own Cloudflare Pages
-```
-
-Ways to start a project:
+First, start a project (a website you own) — pick where it goes:
 
 ```sh
 crofty init          # asks for a name, then creates it under ~/Documents/Crofty/
 crofty init <name>   # a bare name lands in ~/Documents/Crofty/<name>
 crofty init .        # use the current folder (a path or absolute dir works too)
+```
+
+Then build and publish it:
+
+```sh
+cd <the path it prints>   # crofty init prints where it created the site
+crofty preview     # see it in a browser — no account needed
+crofty connect     # save your Cloudflare API token (to your keychain)
+crofty deploy      # publish ./dist to your own Cloudflare Pages
 ```
 
 `crofty init` scaffolds a standard Hugo project plus a `.crofty/` folder:
