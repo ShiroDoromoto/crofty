@@ -34,7 +34,7 @@ func TestAdd_UnknownFeature(t *testing.T) {
 
 // raw-html and highlight are guidance-only (no project needed, nothing written).
 func TestAdd_GuidanceOnly(t *testing.T) {
-	for _, feature := range []string{"raw-html", "highlight"} {
+	for _, feature := range []string{"raw-html", "highlight", "analytics"} {
 		out, err := captureStdout(t, func() error { return runAdd([]string{feature}) })
 		if err != nil {
 			t.Fatalf("add %s: %v", feature, err)
