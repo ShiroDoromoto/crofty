@@ -59,12 +59,21 @@ languages:
         - name: About
           url: /about/
           weight: 10
+        - name: Gallery
+          url: /gallery/
+          weight: 20
+        - name: Shop
+          url: /products/
+          weight: 30
+        - name: Music
+          url: /discography/
+          weight: 40
         - name: Links
           url: /links/
-          weight: 20
+          weight: 50
         - name: Contact
           url: /contact/
-          weight: 30
+          weight: 60
   ja:
     languageCode: "ja"
     locale: "ja"
@@ -78,9 +87,18 @@ languages:
         - name: このサイトについて
           url: /ja/about/
           weight: 10
+        - name: ギャラリー
+          url: /ja/gallery/
+          weight: 20
+        - name: ショップ
+          url: /ja/products/
+          weight: 30
+        - name: music
+          url: /ja/discography/
+          weight: 40
         - name: リンク集
           url: /ja/links/
-          weight: 20
+          weight: 50
         - name: お問い合わせ
           url: /ja/contact/
-          weight: 30
+          weight: 60
