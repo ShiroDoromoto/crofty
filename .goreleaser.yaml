@@ -67,5 +67,9 @@ homebrew_casks:
       name: homebrew-crofty
     homepage: https://crofty.blog
     description: "Own your website: a Markdown-to-published-site pipeline."
+    # homepage (crofty.blog) and download host (github.com) differ, so Homebrew
+    # requires a verified prefix on the url stanza (brew audit otherwise fails).
+    url:
+      verified: "github.com/shirodoromoto/crofty/"
     dependencies:
       - formula: hugo
