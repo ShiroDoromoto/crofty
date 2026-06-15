@@ -115,8 +115,9 @@ func agentBrief() brief {
 		Crofty:  "write Markdown; build and deploy a static site you own (a Hugo site with a frozen theme, published to Cloudflare Pages).",
 		Version: Version,
 		Workflow: []string{
+			"ask the author what they're making first — a blog, or a wider site (a blog plus pages like about, gallery, shop, contact). crofty does both; the answer shapes what you scaffold and what goes in the nav (see \"Site pages\").",
 			"crofty init — create the project (a folder the author fully owns)",
-			"write Markdown at content/posts/<slug>/index.md",
+			"write Markdown — a blog post at content/posts/<slug>/index.md, or a page / collection (see \"Site pages\")",
 			"crofty preview — see it locally in a browser (no account)",
 			"crofty build — render the site to ./dist",
 			"crofty deploy — publish ./dist to Cloudflare Pages",
