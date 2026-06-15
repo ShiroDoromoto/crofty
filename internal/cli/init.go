@@ -157,39 +157,25 @@ func runInit(args []string) error {
 	fmt.Println("    .crofty/           crofty's own settings (never your content, no secrets)")
 	fmt.Println()
 
-	// The optional section, ordered least-friction first. Analytics leads as the
-	// familiar blog-setup idea — shown as guidance, never prompted (its ids live
-	// in a dashboard, too much friction to ask for here). The support link is the
-	// one thing we prompt for: a personal decision an agent can't invent that
-	// otherwise goes undiscovered (08 §4.3 B). Mark the boundary first ("setup is
-	// done — everything from here is optional") so neither reads like a required
-	// setup step appearing out of nowhere.
-	if term.IsTerminal(int(os.Stdin.Fd())) {
-		fmt.Println("Setup is done — everything from here is optional.")
-		fmt.Println("Skip anything with Enter; you or your AI can add it later.")
-		fmt.Println()
-		// Lead with analytics (a familiar blog-setup idea, off by default) before
-		// the more personal support-link prompt, so the optional section opens on
-		// the lower-friction item rather than a money question.
-		printAnalyticsGuidance()
-		fmt.Println()
-		if link, ok := promptSupportLink(); ok {
-			if isHTTPURL(link) {
-				if err := setProfileSupport(abs, "stripe", link); err == nil {
-					fmt.Println("  ✓ saved — it shows in your site footer after you build.")
-				}
-			} else {
-				fmt.Println("  (that doesn't look like a URL — skipped; add it later with 'crofty init')")
-			}
-		}
-		fmt.Println()
-	}
-
+	// The core next step first — what to type now — so it's never buried under
+	// optional settings.
 	fmt.Println("next — copy these one line at a time:")
 	fmt.Printf("  cd %s\n", abs)
 	fmt.Println("  crofty preview     # see your site in a browser (no account needed)")
 	fmt.Println()
-	fmt.Println("Optional later: run 'crofty init' here again to add analytics or a support link.")
+
+	// Optional settings — guidance only, never a prompt. Both analytics and a
+	// support link are added by the author (or their AI) editing the files, so
+	// init stays fully non-interactive: the interface is neutral "state + next
+	// steps" output, not an interactive question only a human could answer.
+	// Analytics leads as the more familiar blog-setup idea; the support link
+	// follows. Re-running 'crofty init' here shows these again, plus any links
+	// already set.
+	fmt.Println("Optional, anytime — you or your AI can add these by editing the files:")
+	fmt.Println()
+	printAnalyticsGuidance()
+	fmt.Println()
+	printSupportGuidance()
 	return nil
 }
 
