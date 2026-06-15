@@ -67,6 +67,11 @@ Hugo project, so you can take it and run `hugo` yourself without this tool.
 
 ```sh
 crofty init       # create a new project (or re-run to configure an existing one)
+crofty agent      # print the whole command surface for an AI to read first
+crofty features   # list what crofty can do and how to turn each on
+crofty config     # show this project's current configuration
+crofty add        # turn on a capability (mermaid, abc, highlight, raw-html, analytics)
+crofty lang       # add or list the languages your site is written in
 crofty preview    # see your site in a browser (local, no account)
 crofty build      # render the site to ./dist with Hugo
 crofty connect    # save the Cloudflare API token used to deploy
@@ -77,6 +82,12 @@ crofty share      # print a ready-to-post fragment (text + link) for any SNS
 crofty theme      # bring the theme onto disk to customize (eject tokens or full)
 crofty reset      # remove saved credentials (keychain) and state
 ```
+
+Most people run crofty through an assistant. `crofty agent` prints crofty's
+whole command surface in one shot — every command with its flags and examples,
+the usual workflow, and the machine-readable state to read (`config`,
+`features`, `validate`, `doctor` all take `--json`) — for an AI operating crofty
+on your behalf to read first. It needs no project, so it works before `init`.
 
 `crofty validate [path ...]` (default `./content`) reports, in field order,
 what does not match the spec and how to fix it — in plain language you can act
