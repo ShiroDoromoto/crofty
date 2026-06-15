@@ -43,6 +43,12 @@ func runConfigure(proj *project.Project) error {
 		fmt.Println()
 	}
 
+	// Lead with the familiar blog-setup item (analytics) before the more personal
+	// support-link prompt, so the optional section eases in rather than opening on
+	// a money question (least psychological friction first).
+	printAnalyticsGuidance()
+	fmt.Println()
+
 	if term.IsTerminal(int(os.Stdin.Fd())) {
 		if link, ok := promptSupportLink(); ok {
 			if !isHTTPURL(link) {
@@ -52,12 +58,10 @@ func runConfigure(proj *project.Project) error {
 			} else {
 				fmt.Println("  ✓ saved to data/profile.yml — it shows in your site footer after the next build.")
 			}
-			fmt.Println()
 		}
+		fmt.Println()
 	}
 
-	printAnalyticsGuidance()
-	fmt.Println()
 	printDirectEditTip(proj.Root)
 	return nil
 }
