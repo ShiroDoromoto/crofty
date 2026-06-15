@@ -5,6 +5,14 @@ on your own domain and accounts. It never talks to a server of ours — there
 isn't one. Deploys go straight to your Cloudflare account over its API, with no
 Node or Wrangler in the loop.
 
+crofty is a plain CLI you can run yourself, but it's built so your AI can run it
+for you: a person installs it and does the first setup, then an assistant takes
+over. If you work that way, point your assistant at `crofty agent` first — it
+prints crofty's whole command surface (every command with its flags and
+examples, the usual workflow, and the machine-readable state to read — `config`,
+`features`, `validate` and `doctor` all take `--json`) in one shot, with no
+project needed. From there it can drive everything below.
+
 ## Install
 
 **macOS** ([Homebrew](https://brew.sh)):
@@ -82,12 +90,6 @@ crofty share      # print a ready-to-post fragment (text + link) for any SNS
 crofty theme      # bring the theme onto disk to customize (eject tokens or full)
 crofty reset      # remove saved credentials (keychain) and state
 ```
-
-Most people run crofty through an assistant. `crofty agent` prints crofty's
-whole command surface in one shot — every command with its flags and examples,
-the usual workflow, and the machine-readable state to read (`config`,
-`features`, `validate`, `doctor` all take `--json`) — for an AI operating crofty
-on your behalf to read first. It needs no project, so it works before `init`.
 
 `crofty validate [path ...]` (default `./content`) reports, in field order,
 what does not match the spec and how to fix it — in plain language you can act
