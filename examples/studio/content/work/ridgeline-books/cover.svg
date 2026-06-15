@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 500" role="img" aria-label="Ridgeline Books identity">
+  <rect width="800" height="500" fill="#1b2024"/>
+  <path d="M120 320 L300 180 L440 280 L600 160 L700 320 Z" fill="none" stroke="#6fc4bc" stroke-width="6" stroke-linejoin="round"/>
+  <text x="400" y="410" text-anchor="middle" font-family="system-ui, sans-serif" font-size="40" font-weight="700" fill="#e7ecef">RIDGELINE</text>
+</svg>

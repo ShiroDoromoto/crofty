@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 400" role="img" aria-label="Saltlines cover">
+  <rect width="400" height="400" fill="#1b1410"/>
+  <circle cx="200" cy="180" r="110" fill="none" stroke="#e8a14f" stroke-width="2" opacity="0.55"/>
+  <circle cx="200" cy="180" r="60" fill="#e8a14f" opacity="0.9"/>
+  <rect y="300" width="400" height="100" fill="#120d0a"/>
+  <text x="200" y="350" text-anchor="middle" font-family="monospace" font-size="28" fill="#f6ece0">SALTLINES</text>
+</svg>

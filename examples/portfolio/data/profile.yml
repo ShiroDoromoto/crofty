@@ -1,0 +1,8 @@
+# Public profile, reused across the site (name / tagline / avatar / socials).
+name: "Mara Ellison"
+tagline: "Landscape & available-light photography."
+socials:
+  - name: "Instagram"
+    url: "https://instagram.com/example"
+  - name: "Email"
+    url: "mailto:mara@example.com"

@@ -1,0 +1,26 @@
+{{- /*
+  Example site (photographer). The home page IS the portfolio: a short statement
+  over a grid of work, each piece a page bundle under content/work/. Built on the
+  frozen crofty theme with the quiet-paper preset — only this home layout is
+  overridden, the rest of the chrome is the theme's.
+*/ -}}
+{{ define "main" }}
+<header class="page-header"><h1>{{ site.Title }}</h1></header>
+{{ with .Content }}<div class="page-intro">{{ . }}</div>{{ end }}
+<style>
+  .work-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:1rem;list-style:none;padding:0;margin:1.5rem 0}
+  .work-grid a{display:block;text-decoration:none}
+  .work-grid img{width:100%;height:auto;border-radius:3px;display:block}
+  .work-grid figure{margin:0}
+  .work-grid figcaption{margin-top:.4rem;font-size:.9rem;opacity:.85}
+</style>
+<ul class="work-grid">
+  {{ range (where site.RegularPages "Section" "work").ByDate.Reverse }}
+  {{ $p := . }}
+  <li><a href="{{ .RelPermalink }}"><figure>
+    {{ with .Resources.GetMatch "cover.*" }}<img src="{{ .RelPermalink }}" alt="{{ $p.Title }}" loading="lazy">{{ end }}
+    <figcaption>{{ $p.Title }}</figcaption>
+  </figure></a></li>
+  {{ end }}
+</ul>
+{{ end }}
