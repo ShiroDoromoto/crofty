@@ -62,6 +62,9 @@ languages:
         - name: Links
           url: /links/
           weight: 20
+        - name: Contact
+          url: /contact/
+          weight: 30
   ja:
     languageCode: "ja"
     locale: "ja"
@@ -78,3 +81,6 @@ languages:
         - name: リンク集
           url: /ja/links/
           weight: 20
+        - name: お問い合わせ
+          url: /ja/contact/
+          weight: 30
