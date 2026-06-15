@@ -1,0 +1,31 @@
+/* Preset: terminal — a sans reading column with monospace chrome and a
+   functional green, in the spirit of the CLI. Swap looks with `crofty theme set <name>`;
+   delete this file to return to the default theme. Restyling can't break the
+   output contract — `crofty doctor` still guarantees ownership. */
+
+:root {
+  --bg: #fbfaf8;        /* page background — barely-warm near-white */
+  --ink: #15181b;       /* body text and headings */
+  --muted: #5b6168;     /* dates, captions, secondary text */
+  --line: #e6e3dd;      /* rules, borders, link underlines */
+  --accent: #157a5b;    /* functional green ("go") */
+  --code-bg: #f1efe8;   /* inline code and code blocks */
+
+  --measure: 34rem;     /* reading-column width */
+
+  /* Body in system sans; header/footer/meta in monospace for the terminal feel. */
+  --font-body: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+  --font-chrome: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  --font-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #0f1417;
+    --ink: #e9efe9;
+    --muted: #8a948c;
+    --line: #273139;
+    --accent: #4fd0a0;
+    --code-bg: #161d21;
+  }
+}

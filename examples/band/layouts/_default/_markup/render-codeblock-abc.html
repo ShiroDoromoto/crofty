@@ -1,0 +1,41 @@
+{{- /*
+  Render ```abc fenced blocks as engraved sheet music with a play button,
+  using abcjs (https://www.abcjs.net/). Project-level render hook — the crofty
+  theme stays untouched.
+
+  The ABC source is stashed in a <script type="text/vnd.abc"> element so the
+  browser keeps it verbatim (no HTML parsing, no execution). Each block renders
+  into its own paper + audio-controls element. The abcjs library is loaded once
+  per page; until it arrives, blocks queue their render and run on load.
+*/ -}}
+{{- $id := printf "abc-%d" .Ordinal -}}
+<figure class="abc-block">
+  <div id="{{ $id }}-paper" class="abc-paper"></div>
+  <div id="{{ $id }}-audio" class="abc-audio"></div>
+  <script type="text/vnd.abc" id="{{ $id }}-src">{{ .Inner | safeHTML }}</script>
+  <script>
+  (function () {
+    function render() {
+      var src = document.getElementById("{{ $id }}-src").textContent;
+      var visual = ABCJS.renderAbc("{{ $id }}-paper", src, { responsive: "resize" })[0];
+      if (ABCJS.synth && ABCJS.synth.supportsAudio()) {
+        var ctl = new ABCJS.synth.SynthController();
+        ctl.load("#{{ $id }}-audio", null, { displayPlay: true, displayProgress: true });
+        ctl.setTune(visual, false);
+      } else {
+        document.getElementById("{{ $id }}-audio").textContent =
+          "Audio playback is not supported in this browser.";
+      }
+    }
+    if (window.ABCJS) { render(); }
+    else { (window.__abcQueue = window.__abcQueue || []).push(render); }
+  })();
+  </script>
+</figure>
+{{- if not (.Page.Store.Get "hasAbc") }}
+{{- .Page.Store.Set "hasAbc" true }}
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/abcjs@6/abcjs-audio.css">
+<script
+  src="https://cdn.jsdelivr.net/npm/abcjs@6/dist/abcjs-basic-min.js"
+  onload="(window.__abcQueue || []).forEach(function (f) { f(); });"></script>
+{{- end }}
