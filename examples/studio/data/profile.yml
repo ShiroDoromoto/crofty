@@ -1,0 +1,8 @@
+# Public profile, reused across the site.
+name: "North Yard Studio"
+tagline: "Design & build for independent businesses."
+socials:
+  - name: "Email"
+    url: "mailto:studio@example.com"
+  - name: "Instagram"
+    url: "https://instagram.com/example"

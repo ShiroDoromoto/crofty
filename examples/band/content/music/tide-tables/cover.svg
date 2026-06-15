@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 400" role="img" aria-label="Tide Tables cover">
+  <rect width="400" height="400" fill="#10171c"/>
+  <g stroke="#41d6c3" stroke-width="2" fill="none" opacity="0.9">
+    <path d="M0 150 Q50 120 100 150 T200 150 T300 150 T400 150"/>
+    <path d="M0 200 Q50 170 100 200 T200 200 T300 200 T400 200"/>
+    <path d="M0 250 Q50 220 100 250 T200 250 T300 250 T400 250"/>
+  </g>
+  <rect y="305" width="400" height="95" fill="#0a0e11"/>
+  <text x="200" y="352" text-anchor="middle" font-family="monospace" font-size="26" fill="#e7faf6">TIDE TABLES</text>
+</svg>

@@ -1,0 +1,32 @@
+{{- /*
+  Example site (small studio / business). The home is a designed landing — a
+  hero and services (from _index.md), then selected work, then a call to action.
+  Built on the frozen crofty theme; the look is set entirely through ejected
+  tokens (assets/css/custom.css), and only this home layout is overridden.
+*/ -}}
+{{ define "main" }}
+<header class="page-header"><h1>{{ site.Title }}</h1></header>
+{{ with .Content }}<div class="page-intro">{{ . }}</div>{{ end }}
+<style>
+  .work-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:1rem;list-style:none;padding:0;margin:1.5rem 0}
+  .work-grid a{display:block;text-decoration:none}
+  .work-grid img{width:100%;height:auto;border-radius:4px;display:block}
+  .work-grid figure{margin:0}
+  .work-grid figcaption{margin-top:.4rem;font-size:.9rem}
+  .cta{margin:2rem 0;padding:1rem 1.2rem;border:1px solid var(--line);border-radius:6px}
+  .cta a{font-weight:600}
+</style>
+{{ with (where site.RegularPages "Section" "work").ByDate.Reverse }}
+<h2>Selected work</h2>
+<ul class="work-grid">
+  {{ range . }}
+  {{ $p := . }}
+  <li><a href="{{ .RelPermalink }}"><figure>
+    {{ with .Resources.GetMatch "cover.*" }}<img src="{{ .RelPermalink }}" alt="{{ $p.Title }}" loading="lazy">{{ end }}
+    <figcaption>{{ $p.Title }}</figcaption>
+  </figure></a></li>
+  {{ end }}
+</ul>
+{{ end }}
+<p class="cta">Have a project in mind? <a href="/contact/">Get in touch →</a></p>
+{{ end }}

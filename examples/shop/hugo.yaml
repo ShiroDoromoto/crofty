@@ -1,0 +1,21 @@
+# Standard Hugo config. crofty reads only its own settings from .crofty/config.json,
+# so this file stays plain Hugo — your project is always yours to keep (eject-safe).
+baseURL: "https://shop.crofty.site/"
+locale: "en"
+title: "Saltfield Press"
+enableRobotsTXT: true
+menu:
+  main:
+    - { name: About, url: /about/, weight: 10 }
+    - { name: Contact, url: /contact/, weight: 20 }
+    - { name: Legal, url: /legal/, weight: 30 }
+markup:
+  highlight:
+    # Class-based colours so code follows the theme's light/dark (the theme
+    # ships the stylesheet). Set true for inline styles / a fixed Chroma style.
+    noClasses: false
+params:
+  description: "Saltfield Press — a tiny risograph studio. Zines and prints, made to order."
+  # Tool-specific front matter and params nest under `crofty:` (spec v0).
+  crofty:
+    specVersion: "0"

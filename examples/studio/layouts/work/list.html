@@ -1,0 +1,21 @@
+{{- /* Work index: the same grid as the home's "selected work", for /work/. */ -}}
+{{ define "main" }}
+<header class="page-header"><h1>{{ .Title }}</h1></header>
+{{ with .Content }}<div class="page-intro">{{ . }}</div>{{ end }}
+<style>
+  .work-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:1rem;list-style:none;padding:0;margin:1.5rem 0}
+  .work-grid a{display:block;text-decoration:none}
+  .work-grid img{width:100%;height:auto;border-radius:4px;display:block}
+  .work-grid figure{margin:0}
+  .work-grid figcaption{margin-top:.4rem;font-size:.9rem}
+</style>
+<ul class="work-grid">
+  {{ range .Pages.ByDate.Reverse }}
+  {{ $p := . }}
+  <li><a href="{{ .RelPermalink }}"><figure>
+    {{ with .Resources.GetMatch "cover.*" }}<img src="{{ .RelPermalink }}" alt="{{ $p.Title }}" loading="lazy">{{ end }}
+    <figcaption>{{ $p.Title }}</figcaption>
+  </figure></a></li>
+  {{ end }}
+</ul>
+{{ end }}
