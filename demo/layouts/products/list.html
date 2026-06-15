@@ -8,7 +8,7 @@
 <header class="page-header"><h1>{{ .Title }}</h1></header>
 {{ with .Content }}<div class="page-intro">{{ . }}</div>{{ end }}
 <style>
-  .product-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:1.2rem;list-style:none;padding:0;margin:1.5rem 0}
+  .product-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:1.2rem;list-style:none;padding:0;margin:1.5rem 0;width:min(72rem,94vw);margin-left:50%;transform:translateX(-50%)}
   .product-card{border:1px solid var(--rule,#e2ddd5);border-radius:6px;padding:1rem}
   .product-card h2{font-size:1.1rem;margin:0 0 .3rem}
   .product-card h2 a{text-decoration:none}
