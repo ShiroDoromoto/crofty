@@ -75,7 +75,7 @@ func featureCatalog() []feature {
 		{"analytics", "Cloudflare / GA4 / GTM / AdSense (opt-in, no trackers by default)", "config", "params.crofty.analytics.{cloudflare,google_tag,gtm} or .adsense.client"},
 		{"raw-html", "pass raw HTML in Markdown through (figure, video, …)", "config", "markup.goldmark.renderer.unsafe: true in hugo.yaml"},
 		{"highlight", "theme-following code colour (class-based, light/dark)", "config", "markup.highlight.noClasses: false + a chroma stylesheet via head_raw"},
-		{"multilingual", "two or more languages (/ and /<code>/, switch + redirect)", "config", "add a languages: block to hugo.yaml (see demo/hugo.yaml)"},
+		{"multilingual", "two or more languages (/ and /<code>/, switch + redirect)", "config", "crofty lang add <code>   (e.g. crofty lang add ja)"},
 
 		// Needs a render hook the bundled theme doesn't ship yet.
 		{"mermaid", "turn ```mermaid code blocks into diagrams", "config", "a render-codeblock-mermaid.html hook + unsafe (see demo/)"},
