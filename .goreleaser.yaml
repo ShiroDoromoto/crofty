@@ -53,8 +53,8 @@ scoops:
       owner: shirodoromoto
       name: scoop-crofty
     homepage: https://crofty.blog
-    description: "Own your website: a Markdown-to-published-site pipeline."
-    license: AGPL-3.0
+    description: "Own your website: a Markdown-to-published-site pipeline"
+    license: AGPL-3.0-or-later
     depends:
       - main/hugo-extended
 
@@ -71,11 +71,11 @@ brews:
       owner: shirodoromoto
       name: homebrew-crofty
     homepage: https://crofty.blog
-    description: "Own your website: a Markdown-to-published-site pipeline."
-    license: AGPL-3.0
+    description: "Own your website: a Markdown-to-published-site pipeline"
+    license: AGPL-3.0-or-later
     dependencies:
       - name: hugo
     install: |
       bin.install "crofty"
     test: |
-      system "#{bin}/crofty", "version"
+      system bin/"crofty", "version"
