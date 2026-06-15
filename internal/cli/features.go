@@ -73,7 +73,7 @@ func featureCatalog() []feature {
 		{"head-extra", "inject extra <head> markup (fonts, meta, CSS)", "config", "params.crofty.head_raw in hugo.yaml"},
 
 		// Opt-in via config — off by default on purpose.
-		{"analytics", "Cloudflare / GA4 / GTM / AdSense (opt-in, no trackers by default)", "config", "params.crofty.analytics.{cloudflare,google_tag,gtm} or .adsense.client"},
+		{"analytics", "Cloudflare / GA4 / GTM / AdSense (opt-in, no trackers by default)", "config", "crofty add analytics   (params.crofty.analytics.* in hugo.yaml)"},
 		{"raw-html", "pass raw HTML in Markdown through (figure, video, …)", "config", "crofty add raw-html   (sets markup.goldmark.renderer.unsafe)"},
 		{"multilingual", "two or more languages (/ and /<code>/, switch + redirect)", "config", "crofty lang add <code>   (e.g. crofty lang add ja)"},
 		{"mermaid", "turn ```mermaid code blocks into diagrams (client JS)", "config", "crofty add mermaid"},
