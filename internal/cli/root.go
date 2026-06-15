@@ -30,6 +30,7 @@ func commands() []command {
 	return []command{
 		{"init", "Create a new project (a website you own)", runInit},
 		{"features", "List what crofty can do and how to turn each on", runFeatures},
+		{"agent", "Print the whole command surface for an AI to read first", runAgent},
 		{"config", "Show this project's current configuration", runConfig},
 		{"add", "Turn on a capability (mermaid, abc, highlight, raw-html)", runAdd},
 		{"lang", "Add or list the languages your site is written in", runLang},
@@ -134,6 +135,7 @@ func discover() {
 		fmt.Println("It creates your site under ~/Documents/Crofty/ and prints the exact path.")
 		fmt.Println()
 		fmt.Println("Curious what crofty can do first? Run 'crofty features'.")
+		fmt.Println("Driving crofty for someone? 'crofty agent' prints the full command surface.")
 		return
 	}
 	fmt.Println("Your crofty projects:")
@@ -145,6 +147,7 @@ func discover() {
 	fmt.Printf("    cd %s\n", projects[0])
 	fmt.Println()
 	fmt.Println("Then run 'crofty help' to see what you can do there.")
+	fmt.Println("(Driving this for the author? 'crofty agent' is the full surface for an AI.)")
 }
 
 func usage() {
