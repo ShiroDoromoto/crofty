@@ -1,0 +1,14 @@
+{{- /*
+  Demo override of the site footer. The theme marks this partial "free" (not
+  contract-critical — "override it freely"), so the demo uses it to add a quiet
+  link to the privacy/colophon page — the idiomatic home for a legal page —
+  without touching the frozen theme. Mirrors the theme footer otherwise.
+*/ -}}
+<footer class="site-footer">
+  {{ partial "crofty/patronage.html" . }}
+  <p class="site-footer-meta">
+    {{ with site.Home.OutputFormats.Get "rss" }}<a href="{{ .RelPermalink }}">{{ i18n "follow_rss" }}</a> · {{ end }}
+    <a href="{{ "/legal/" | relLangURL }}">{{ if eq site.Language.Lang "ja" }}プライバシー{{ else }}Privacy{{ end }}</a> ·
+    {{ with site.Copyright }}{{ . }}{{ else }}© {{ site.Title }}{{ end }}
+  </p>
+</footer>
