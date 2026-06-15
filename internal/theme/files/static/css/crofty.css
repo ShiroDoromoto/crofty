@@ -131,6 +131,34 @@ pre {
 }
 pre code { background: none; padding: 0; }
 
+/* Standard Markdown block elements: images, figures and tables. Quiet,
+   editorial defaults so a post with a photo or a table holds together out of
+   the box — no custom.css needed for the common case. */
+img { max-width: 100%; height: auto; }
+
+figure { margin: 1.6rem 0; text-align: center; }
+figure img { display: block; margin: 0 auto; }
+figcaption {
+  margin-top: 0.5rem;
+  color: var(--muted);
+  font-family: var(--font-chrome);
+  font-size: 0.85rem;
+}
+
+table {
+  width: 100%;
+  margin: 0 0 1.2rem;
+  border-collapse: collapse;
+  font-size: 0.95em;
+}
+th, td {
+  padding: 0.5rem 0.7rem;
+  text-align: left;
+  border-bottom: 1px solid var(--line);
+  vertical-align: top;
+}
+th { font-weight: 600; }
+
 /* A single post: centered title, small-caps date, tags as a quiet footer. */
 .post-header { text-align: center; margin: 2rem 0 2.5rem; }
 .post-header h1 { font-size: 2rem; margin: 0 0 0.5rem; }
