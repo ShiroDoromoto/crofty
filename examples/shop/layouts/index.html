@@ -1,0 +1,28 @@
+{{- /*
+  Example site (shop). The home is a landing: a short intro over product cards
+  (content/products/), each linking OUT to an external checkout. The static site
+  never runs a cart; commerce is a link-out. Frozen theme, default serif look;
+  only this home layout is overridden.
+*/ -}}
+{{ define "main" }}
+<header class="page-header"><h1>{{ site.Title }}</h1></header>
+{{ with .Content }}<div class="page-intro">{{ . }}</div>{{ end }}
+<style>
+  .product-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:1.2rem;list-style:none;padding:0;margin:1.5rem 0}
+  .product-card{border:1px solid var(--rule,#e2ddd5);border-radius:6px;padding:1rem}
+  .product-card h2{font-size:1.1rem;margin:0 0 .3rem}
+  .product-card h2 a{text-decoration:none}
+  .product-price{font-variant-numeric:tabular-nums;opacity:.8;margin:.2rem 0}
+  .product-buy{display:inline-block;margin-top:.6rem;font-weight:600}
+</style>
+<ul class="product-grid">
+  {{ range (where site.RegularPages "Section" "products").ByDate.Reverse }}
+  <li class="product-card">
+    <h2><a href="{{ .RelPermalink }}">{{ .Title }}</a></h2>
+    {{ with .Params.price }}<p class="product-price">{{ . }}</p>{{ end }}
+    {{ with .Description }}<p>{{ . }}</p>{{ end }}
+    {{ with .Params.buy_url }}<a class="product-buy" href="{{ . }}" rel="external nofollow">Buy (external) →</a>{{ end }}
+  </li>
+  {{ end }}
+</ul>
+{{ end }}

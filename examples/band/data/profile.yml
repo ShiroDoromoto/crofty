@@ -1,0 +1,10 @@
+# Public profile, reused across the site.
+name: "Tidewrack"
+tagline: "Reverb, brine, and the occasional sea shanty."
+socials:
+  - name: "Bandcamp"
+    url: "https://example.com/bandcamp"
+  - name: "Instagram"
+    url: "https://instagram.com/example"
+  - name: "Email"
+    url: "mailto:hello@example.com"

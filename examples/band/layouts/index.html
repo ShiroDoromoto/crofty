@@ -1,0 +1,26 @@
+{{- /*
+  Example site (band). The home is a landing: a short intro over a grid of
+  releases (content/music/), newest first. Built on the frozen crofty theme with
+  the terminal preset; only this home layout is overridden.
+*/ -}}
+{{ define "main" }}
+<header class="page-header"><h1>{{ site.Title }}</h1></header>
+{{ with .Content }}<div class="page-intro">{{ . }}</div>{{ end }}
+<style>
+  .release-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:1.1rem;list-style:none;padding:0;margin:1.5rem 0}
+  .release-grid a{display:block;text-decoration:none}
+  .release-grid img{width:100%;height:auto;border-radius:3px;display:block}
+  .release-grid figure{margin:0}
+  .release-grid figcaption{margin-top:.4rem;font-size:.9rem}
+  .release-grid .year{opacity:.7;font-variant-numeric:tabular-nums}
+</style>
+<ul class="release-grid">
+  {{ range (where site.RegularPages "Section" "music").ByDate.Reverse }}
+  {{ $p := . }}
+  <li><a href="{{ .RelPermalink }}"><figure>
+    {{ with .Resources.GetMatch "cover.*" }}<img src="{{ .RelPermalink }}" alt="{{ $p.Title }}" loading="lazy">{{ end }}
+    <figcaption>{{ $p.Title }} <span class="year">{{ .Date.Format "2006" }}</span></figcaption>
+  </figure></a></li>
+  {{ end }}
+</ul>
+{{ end }}

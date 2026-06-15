@@ -1,0 +1,8 @@
+# Public profile, reused across the site.
+name: "Saltfield Press"
+tagline: "A tiny risograph studio. Made to order."
+socials:
+  - name: "Instagram"
+    url: "https://instagram.com/example"
+  - name: "Email"
+    url: "mailto:hello@example.com"
