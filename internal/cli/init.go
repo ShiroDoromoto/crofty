@@ -26,13 +26,17 @@ import (
 func runInit(args []string) error {
 	fs := flag.NewFlagSet("init", flag.ContinueOnError)
 	lang := fs.String("lang", "", "site language code (e.g. en, ja); default: detected from your OS")
+	titleFlag := fs.String("title", "", "site display title (free text); default: the folder name, or asked")
+	projectFlag := fs.String("project", "", "deploy/project name — becomes <name>.pages.dev; default: the folder name, or asked")
 	fs.Usage = func() {
 		fmt.Println("crofty init — create a new project (a website you own)")
 		fmt.Println("\nUsage:")
-		fmt.Println("  crofty init             # asks for a name (default my-site)")
-		fmt.Println("  crofty init [name]      # a bare name lands in ~/Documents/Crofty/<name>")
-		fmt.Println("  crofty init <path>      # an explicit path (or '.') is used as-is")
-		fmt.Println("  crofty init --lang ja   # set the site language (default: from your OS)")
+		fmt.Println("  crofty init                 # asks for a name (default my-site)")
+		fmt.Println("  crofty init [name]          # a bare name lands in ~/Documents/Crofty/<name>")
+		fmt.Println("  crofty init <path>          # an explicit path (or '.') is used as-is")
+		fmt.Println("  crofty init --lang ja       # set the site language (default: from your OS)")
+		fmt.Println("  crofty init --title \"…\"      # display title (free text, e.g. a Japanese name)")
+		fmt.Println("  crofty init --project blog  # the published name → blog.pages.dev")
 	}
 	rest, err := parseArgs(fs, args)
 	if err != nil {
@@ -64,6 +68,11 @@ func runInit(args []string) error {
 		return runConfigure(&project.Project{Root: target})
 	}
 
+	// One reader for every prompt below, so buffered input isn't lost between
+	// the location question and the name questions.
+	interactive := term.IsTerminal(int(os.Stdin.Fd()))
+	stdin := bufio.NewReader(os.Stdin)
+
 	// Resolve where a NEW project goes. With an explicit name/path, or a
 	// non-interactive (agent) run, resolve directly. In a terminal with no name,
 	// ask for one (default my-site), re-asking if it already exists so a second
@@ -71,7 +80,7 @@ func runInit(args []string) error {
 	// OS-standard base (~/Documents/Crofty/<name>), ignoring cwd; a path (slash,
 	// '.', absolute) is honored as-is, e.g. when an agent passes a real path.
 	var abs string
-	if len(rest) > 0 || !term.IsTerminal(int(os.Stdin.Fd())) {
+	if len(rest) > 0 || !interactive {
 		name := "my-site"
 		if len(rest) > 0 {
 			name = rest[0]
@@ -86,10 +95,9 @@ func runInit(args []string) error {
 				"  Or make another: crofty init <name>", abs, abs)
 		}
 	} else {
-		in := bufio.NewReader(os.Stdin)
 		for {
 			fmt.Print("Site name [my-site]: ")
-			line, _ := in.ReadString('\n')
+			line, _ := stdin.ReadString('\n')
 			name := strings.TrimSpace(line)
 			if name == "" {
 				name = "my-site"
@@ -105,16 +113,22 @@ func runInit(args []string) error {
 		}
 	}
 
+	// Display title and project (deploy) name are two different things: the title
+	// is free text shown on the site (a Japanese name is fine), while the project
+	// name becomes the public address <name>.pages.dev and must be URL-safe. We
+	// derive both from the folder, but ask in a terminal — and the project prompt
+	// states the URL, the part people miss when 'init .' silently uses the folder.
+	siteTitle, projectSlug := chooseNames(stdin, abs, *titleFlag, *projectFlag, interactive)
+
 	if err := os.MkdirAll(filepath.Join(abs, "content", "posts", "welcome"), 0o755); err != nil {
 		return err
 	}
 
-	siteName := projectName(abs)
 	now := time.Now().Add(-time.Hour) // safely in the past so Hugo never excludes it
 
 	files := map[string]string{
-		"hugo.yaml":                           hugoConfig(siteName, siteLang),
-		filepath.Join("content", "_index.md"): indexContent(siteName),
+		"hugo.yaml":                           hugoConfig(siteTitle, siteLang),
+		filepath.Join("content", "_index.md"): indexContent(siteTitle),
 		filepath.Join("content", "posts", "welcome", "index.md"): welcomePost(now),
 	}
 	for rel, body := range files {
@@ -132,7 +146,7 @@ func runInit(args []string) error {
 	proj := &project.Project{Root: abs}
 	cfg := &project.Config{
 		Workspace: ws,
-		Deploy:    project.DeployConfig{Provider: "cloudflare", Project: siteName},
+		Deploy:    project.DeployConfig{Provider: "cloudflare", Project: projectSlug},
 	}
 	if err := proj.SaveConfig(cfg); err != nil {
 		return err
@@ -155,6 +169,10 @@ func runInit(args []string) error {
 	fmt.Println("the settings, the built pages. Back up that folder and you have it all.")
 	fmt.Println("    content/posts/     your posts (a sample 'welcome' is here to edit or delete)")
 	fmt.Println("    .crofty/           crofty's own settings (never your content, no secrets)")
+	fmt.Println()
+	fmt.Printf("When you deploy, it will be published at %s.pages.dev (you can add your\n", projectSlug)
+	fmt.Println("own domain later). To change the title or that name, edit hugo.yaml's")
+	fmt.Println("`title` and .crofty/config.json's deploy.project.")
 	fmt.Println()
 
 	// The core next step first — what to type now — so it's never buried under
@@ -277,14 +295,72 @@ func langSubtag(tag string) string {
 
 // projectName derives a Hugo/Cloudflare-safe name from the target directory.
 func projectName(abs string) string {
-	base := filepath.Base(abs)
-	base = strings.ToLower(base)
-	base = regexp.MustCompile(`[^a-z0-9-]+`).ReplaceAllString(base, "-")
-	base = strings.Trim(base, "-")
-	if base == "" {
+	return sanitizeName(filepath.Base(abs))
+}
+
+// sanitizeName lowercases and strips a string to a Cloudflare Pages-safe project
+// slug (lowercase letters, digits, hyphens), since that name becomes the public
+// <name>.pages.dev address. Falls back to "my-site" if nothing usable remains.
+func sanitizeName(s string) string {
+	s = strings.ToLower(strings.TrimSpace(s))
+	s = regexp.MustCompile(`[^a-z0-9-]+`).ReplaceAllString(s, "-")
+	s = strings.Trim(s, "-")
+	if s == "" {
 		return "my-site"
 	}
-	return base
+	return s
+}
+
+// chooseNames resolves the two distinct names a site needs and keeps them apart:
+//   - title: the free-text display name (a Japanese name is fine), shown on the site
+//   - slug:  the deploy/project name, which becomes the public <slug>.pages.dev
+//
+// Flags win. Otherwise a terminal is asked — and the project prompt always spells
+// out the .pages.dev URL, the consequence people miss when 'init .' silently
+// adopts the folder name. A non-interactive run derives both from the folder
+// (the caller announces the resulting URL so it's never a surprise).
+func chooseNames(stdin *bufio.Reader, abs, titleFlag, projectFlag string, interactive bool) (title, slug string) {
+	folder := filepath.Base(abs)
+	title = strings.TrimSpace(titleFlag)
+	slug = sanitizeName(projectFlag)
+	if projectFlag == "" {
+		slug = "" // distinguish "not given" from a value that sanitized to my-site
+	}
+
+	if interactive {
+		if title == "" {
+			fmt.Printf("Site title (shown on your site) [%s]: ", folder)
+			line, _ := stdin.ReadString('\n')
+			title = strings.TrimSpace(line)
+		}
+		if slug == "" {
+			def := sanitizeName(firstNonEmpty(title, folder))
+			fmt.Printf("Project name — your site will be published at <name>.pages.dev [%s]: ", def)
+			line, _ := stdin.ReadString('\n')
+			if entered := strings.TrimSpace(line); entered != "" {
+				slug = sanitizeName(entered)
+			} else {
+				slug = def
+			}
+		}
+	}
+
+	if title == "" {
+		title = folder
+	}
+	if slug == "" {
+		slug = sanitizeName(firstNonEmpty(title, folder))
+	}
+	return title, slug
+}
+
+func firstNonEmpty(vals ...string) string {
+	for _, v := range vals {
+		if strings.TrimSpace(v) != "" {
+			return v
+		}
+	}
+	return ""
 }
 
 // These templates use double-quoted strings so the Markdown can contain literal
