@@ -29,12 +29,17 @@ type Config struct {
 	Deploy    DeployConfig `json:"deploy"`
 }
 
-// DeployConfig describes where a build is published.
+// DeployConfig describes where a build is published. Provider selects the
+// backend; the remaining fields are read per provider. Secrets (API tokens,
+// passwords, key passphrases) are never stored here — they live in the OS
+// keychain — so this file can sit in a repo safely.
 type DeployConfig struct {
-	// Provider is the deploy backend. M1 supports "cloudflare" (Pages).
+	// Provider is the deploy backend: "cloudflare" (Pages), "sftp", or "ftps".
 	Provider string `json:"provider"`
+
+	// --- Cloudflare Pages ---
 	// Project is the Cloudflare Pages project name.
-	Project string `json:"project"`
+	Project string `json:"project,omitempty"`
 	// Branch is the Cloudflare Pages production branch to deploy to. Empty means
 	// "main". This pins deploys to production regardless of the local git branch.
 	Branch string `json:"branch,omitempty"`
@@ -43,6 +48,24 @@ type DeployConfig struct {
 	// the site can't be silently retargeted to another account. Non-secret (an
 	// account id is not a key).
 	AccountID string `json:"accountId,omitempty"`
+
+	// --- SFTP / FTPS ---
+	// Host is the server hostname (no scheme).
+	Host string `json:"host,omitempty"`
+	// Port is the server port. 0 means the protocol default (22 for SFTP, 21 for
+	// FTPS).
+	Port int `json:"port,omitempty"`
+	// User is the login user.
+	User string `json:"user,omitempty"`
+	// Path is the remote target directory — the web root, which is usually NOT
+	// the login home (e.g. /public_html, /var/www/site). dist/ is uploaded here.
+	Path string `json:"path,omitempty"`
+	// KeyPath points at an SFTP private key file (a pointer, not the key itself,
+	// so it's safe here). Empty means password auth.
+	KeyPath string `json:"keyPath,omitempty"`
+	// TLSSkipVerify accepts a shared or self-signed TLS certificate for FTPS,
+	// common on budget shared hosting. Off by default.
+	TLSSkipVerify bool `json:"tlsSkipVerify,omitempty"`
 }
 
 // Project is a resolved crofty project rooted at Root.

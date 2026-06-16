@@ -28,6 +28,12 @@ func runInit(args []string) error {
 	lang := fs.String("lang", "", "site language code (e.g. en, ja); default: detected from your OS")
 	titleFlag := fs.String("title", "", "site display title (free text); default: the folder name, or asked")
 	projectFlag := fs.String("project", "", "deploy/project name — becomes <name>.pages.dev; default: the folder name, or asked")
+	providerFlag := fs.String("provider", "", "deploy backend: cloudflare (default), sftp, or ftps")
+	hostFlag := fs.String("host", "", "sftp/ftps: server hostname")
+	userFlag := fs.String("user", "", "sftp/ftps: login user")
+	pathFlag := fs.String("path", "", "sftp/ftps: remote web root to upload into (e.g. /public_html)")
+	portFlag := fs.Int("port", 0, "sftp/ftps: server port (default 22 for sftp, 21 for ftps)")
+	keyFlag := fs.String("key", "", "sftp: path to an SSH private key (default: password auth)")
 	fs.Usage = func() {
 		fmt.Println("crofty init — create a new project (a website you own)")
 		fmt.Println("\nUsage:")
@@ -36,7 +42,10 @@ func runInit(args []string) error {
 		fmt.Println("  crofty init <path>          # an explicit path (or '.') is used as-is")
 		fmt.Println("  crofty init --lang ja       # set the site language (default: from your OS)")
 		fmt.Println("  crofty init --title \"…\"      # display title (free text, e.g. a Japanese name)")
-		fmt.Println("  crofty init --project blog  # the published name → blog.pages.dev")
+		fmt.Println("  crofty init --project blog  # Cloudflare: the published name → blog.pages.dev")
+		fmt.Println("\nPublish elsewhere (own server / shared hosting):")
+		fmt.Println("  crofty init --provider sftp --host example.com --user me --path /var/www/site")
+		fmt.Println("  crofty init --provider ftps --host example.com --user me --path /public_html")
 	}
 	rest, err := parseArgs(fs, args)
 	if err != nil {
@@ -144,10 +153,14 @@ func runInit(args []string) error {
 		return err
 	}
 	proj := &project.Project{Root: abs}
-	cfg := &project.Config{
-		Workspace: ws,
-		Deploy:    project.DeployConfig{Provider: "cloudflare", Project: projectSlug},
+	deployCfg, err := chooseDeploy(stdin, interactive, projectSlug, initDeployFlags{
+		provider: *providerFlag, host: *hostFlag, user: *userFlag,
+		path: *pathFlag, port: *portFlag, key: *keyFlag,
+	})
+	if err != nil {
+		return err
 	}
+	cfg := &project.Config{Workspace: ws, Deploy: deployCfg}
 	if err := proj.SaveConfig(cfg); err != nil {
 		return err
 	}
@@ -170,9 +183,27 @@ func runInit(args []string) error {
 	fmt.Println("    content/posts/     your posts (a sample 'welcome' is here to edit or delete)")
 	fmt.Println("    .crofty/           crofty's own settings (never your content, no secrets)")
 	fmt.Println()
-	fmt.Printf("When you deploy, it will be published at %s.pages.dev (you can add your\n", projectSlug)
-	fmt.Println("own domain later). To change the title or that name, edit hugo.yaml's")
-	fmt.Println("`title` and .crofty/config.json's deploy.project.")
+	switch cfg.Deploy.Provider {
+	case "sftp", "ftps":
+		proto := strings.ToUpper(cfg.Deploy.Provider)
+		if cfg.Deploy.Host != "" && cfg.Deploy.User != "" && cfg.Deploy.Path != "" {
+			fmt.Printf("When you deploy, dist/ is uploaded over %s to %s@%s:%s\n",
+				proto, cfg.Deploy.User, cfg.Deploy.Host, cfg.Deploy.Path)
+			fmt.Println("(crofty asks for the password the first time and keeps it in your keychain).")
+		} else {
+			// Non-interactive run that picked a server provider without the
+			// connection details — say what's still needed instead of printing
+			// a blank "to @:" line.
+			fmt.Printf("Deploy target is %s, but the server isn't set yet. Before deploying, add\n", proto)
+			fmt.Println("deploy.host / deploy.user / deploy.path to .crofty/config.json — or re-run:")
+			fmt.Printf("  crofty init %s --provider %s --host … --user … --path …\n", abs, cfg.Deploy.Provider)
+		}
+		fmt.Println("To change the destination, edit .crofty/config.json's deploy section.")
+	default:
+		fmt.Printf("When you deploy, it will be published at %s.pages.dev (you can add your\n", projectSlug)
+		fmt.Println("own domain later). To change the title or that name, edit hugo.yaml's")
+		fmt.Println("`title` and .crofty/config.json's deploy.project.")
+	}
 	fmt.Println()
 
 	// The core next step first — what to type now — so it's never buried under
@@ -352,6 +383,82 @@ func chooseNames(stdin *bufio.Reader, abs, titleFlag, projectFlag string, intera
 		slug = sanitizeName(firstNonEmpty(title, folder))
 	}
 	return title, slug
+}
+
+// initDeployFlags carries the raw --provider/--host/... values into chooseDeploy.
+type initDeployFlags struct {
+	provider, host, user, path, key string
+	port                            int
+}
+
+// chooseDeploy resolves the deploy destination for a new project. Cloudflare is
+// the default and needs nothing but the project slug. For sftp/ftps it gathers
+// host/user/path — from flags, or (on a terminal) by asking. A non-interactive
+// run that picks sftp/ftps without those flags still succeeds: the fields are
+// saved empty and 'crofty deploy' explains what's missing, so an agent can set
+// them in config.json without a dead-end prompt.
+func chooseDeploy(stdin *bufio.Reader, interactive bool, projectSlug string, f initDeployFlags) (project.DeployConfig, error) {
+	provider := strings.ToLower(strings.TrimSpace(f.provider))
+	if provider == "" {
+		if interactive && f.host == "" {
+			provider = pickProvider(stdin)
+		} else {
+			provider = "cloudflare"
+		}
+	}
+	if !isSupportedProvider(provider) {
+		return project.DeployConfig{}, fmt.Errorf("unknown deploy provider %q (use one of: %s)", provider, strings.Join(supportedProviders(), ", "))
+	}
+
+	if provider == "cloudflare" {
+		return project.DeployConfig{Provider: "cloudflare", Project: projectSlug}, nil
+	}
+
+	// sftp / ftps
+	host, user, path := f.host, f.user, f.path
+	if interactive {
+		host = askIfEmpty(stdin, host, "Server hostname (e.g. example.com)")
+		user = askIfEmpty(stdin, user, "Login user")
+		path = askIfEmpty(stdin, path, "Remote web root to upload into (e.g. /public_html)")
+	}
+	return project.DeployConfig{
+		Provider: provider,
+		Host:     strings.TrimSpace(host),
+		User:     strings.TrimSpace(user),
+		Path:     strings.TrimSpace(path),
+		Port:     f.port,
+		KeyPath:  strings.TrimSpace(f.key),
+	}, nil
+}
+
+// pickProvider asks where to publish, recommended order first. Defaults to
+// Cloudflare on an empty answer.
+func pickProvider(stdin *bufio.Reader) string {
+	fmt.Println()
+	fmt.Println("Where will you publish? (you can change this later)")
+	fmt.Println("  1) Cloudflare Pages  — free, fast, custom domains; recommended")
+	fmt.Println("  2) SFTP              — your own server or VPS (over SSH)")
+	fmt.Println("  3) FTPS              — shared hosting (secure FTP over TLS)")
+	fmt.Print("Choice [1]: ")
+	line, _ := stdin.ReadString('\n')
+	switch strings.TrimSpace(line) {
+	case "2", "sftp", "SFTP":
+		return "sftp"
+	case "3", "ftps", "FTPS":
+		return "ftps"
+	default:
+		return "cloudflare"
+	}
+}
+
+// askIfEmpty prompts for a value only when it's not already set.
+func askIfEmpty(stdin *bufio.Reader, current, label string) string {
+	if strings.TrimSpace(current) != "" {
+		return current
+	}
+	fmt.Printf("%s: ", label)
+	line, _ := stdin.ReadString('\n')
+	return strings.TrimSpace(line)
 }
 
 func firstNonEmpty(vals ...string) string {
