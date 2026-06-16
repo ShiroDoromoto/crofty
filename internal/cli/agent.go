@@ -118,16 +118,16 @@ func agentBrief() brief {
 		Version: Version,
 		Workflow: []string{
 			"ask the author what they're making first, and show them the range — crofty is not blog-only (a portfolio, a shop, a band site, a small-business site, a link-in-bio… see \"Site pages\" → kinds). Their answer shapes what you scaffold and what goes in the nav.",
-			"crofty init — create the project (a folder the author fully owns)",
+			"crofty init — create the project (a folder the author fully owns). Ask which language(s) they write in, not just one: crofty is multilingual, so if they write in more than one (e.g. ja + en) set them all up now rather than defaulting to a single language — `crofty init --lang <primary>` then `crofty lang add <code>` for each other.",
 			"write Markdown — a blog post at content/posts/<slug>/index.md, or a page / collection (see \"Site pages\")",
-			"crofty preview — see it locally in a browser (no account)",
+			"crofty preview — see it locally in a browser (no account). Once the author sees it, offer to change the look: the layout is frozen so it can't break, but the design is theirs — a ready-made preset (`crofty theme set quiet-paper` / `terminal`), then individual tokens (colour / type / reading-width via `crofty theme tokens`), and `crofty theme eject` as the full escape hatch. Don't assume the default is final.",
 			"crofty deploy — build the current site and publish it to Cloudflare Pages (deploy builds first, so a stale ./dist can't ship; `crofty build` alone is just to inspect ./dist)",
 		},
 		Commands: cmds,
 		Pages: pageGuide{
 			Intro: "crofty builds a whole static site, not only a blog — offer the author the range below, " +
 				"don't default to a blog. Whatever they pick is just fixed pages and growing collections, " +
-				"both Hugo-native and drawn by the frozen theme (no theme changes needed).",
+				"both Hugo-native and drawn by the frozen theme — the layout is fixed so it can't break, but the look (colour / type / reading-width) is the author's to change via `crofty theme set` / tokens / eject.",
 			Kinds: []string{
 				"a blog or newsletter",
 				"a personal or About site",
@@ -189,6 +189,7 @@ func agentBrief() brief {
 			"The author installs crofty and runs `crofty init`; from there you (the AI) drive it. The interface is neutral state + next-step output, not a GUI.",
 			"A Cloudflare API token must be typed in a terminal by the human — crofty reads it from a hidden TTY prompt, never stdin, so it never passes through you. To publish, tell the author to run `crofty deploy` and paste the token when asked.",
 			"crofty owns the files it writes (content stubs, render hooks, assets/css/custom.css) but never rewrites hugo.yaml — for config changes it prints the exact lines for the author to paste.",
+			"\"Frozen theme\" means the layout is a guardrail (it can't be broken), not that the design is fixed — the look is the author's. Offer it, leading with the safe options: presets (`crofty theme set`) → tokens (`crofty theme tokens`) → a full eject (`crofty theme eject --full`) for anyone who wants to own the CSS. crofty stays a CLI, not a GUI theme editor.",
 			"crofty builds a full site, not just a blog — see \"Site pages\" for fixed pages (about/contact/legal) and collections (products/gallery/discography), and how to wire them into the nav. Contact and commerce stay external embeds.",
 			"`draft: true` or a future `date` keeps a post off the built site; `crofty build` lists what it left out. Run `crofty validate` before build and `crofty doctor` before deploy.",
 		},
@@ -205,7 +206,7 @@ func agentDetails() map[string]agentCmd {
 	return map[string]agentCmd{
 		"init": {
 			Flags: []agentFlag{
-				{"--lang <code>", "site language (e.g. en, ja); default: detected from the OS"},
+				{"--lang <code>", "the site's primary language (e.g. en, ja); default: detected from the OS. crofty is multilingual — add more right after with `crofty lang add <code>`, so offer multiple languages at onboarding instead of assuming one"},
 				{"--title \"<text>\"", "display title (free text, a Japanese name is fine); default: the folder name"},
 				{"--project <name>", "Cloudflare deploy name → <name>.pages.dev; default: the folder name"},
 				{"--provider <name>", "deploy backend: cloudflare (default), sftp, or ftps"},
@@ -220,6 +221,7 @@ func agentDetails() map[string]agentCmd {
 				"crofty init my-blog               # a bare name lands in the standard base",
 				"crofty init .                     # turn the current folder into a project",
 				"crofty init --lang ja --title \"…\" --project blog",
+				"crofty init --lang ja && crofty lang add en   # start bilingual (ja primary + en)",
 				"crofty init --provider sftp --host example.com --user me --path /var/www/site",
 				"crofty init --provider ftps --host example.com --user me --path /public_html",
 			},
@@ -249,10 +251,10 @@ func agentDetails() map[string]agentCmd {
 		},
 		"lang": {
 			Sub: []agentCmd{
-				{Name: "add <code>", Summary: "write a translated homepage stub + print the hugo.yaml to paste (e.g. ja)"},
+				{Name: "add <code>", Summary: "add another language (any ISO 639 code: en, ja, fr, de, es, ko, zh…): writes a translated homepage stub + prints the hugo.yaml to paste"},
 				{Name: "list", Summary: "the languages configured now"},
 			},
-			Examples: []string{"crofty lang add ja", "crofty lang list"},
+			Examples: []string{"crofty lang add ja", "crofty lang add en", "crofty lang list"},
 		},
 		"preview": {
 			Examples: []string{"crofty preview   # serves locally; blocks until Control-C"},
