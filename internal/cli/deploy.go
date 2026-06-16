@@ -66,6 +66,13 @@ func runDeploy(args []string) error {
 			return fmt.Errorf("no build output at %s — run 'crofty build' first, or drop --skip-build", proj.DistDir())
 		}
 	} else {
+		// Ask once — before the build renders the footer — whether to keep the
+		// "Made with crofty" line, so the very first published site already
+		// reflects the choice. Interactive + undecided only; CI / agent deploys
+		// are never asked and stay off (see maybeAskFooterCredit).
+		if err := maybeAskFooterCredit(proj, cfg); err != nil {
+			return err
+		}
 		fmt.Println("Building the current site before publishing…")
 		if err := buildSite(proj); err != nil {
 			return err

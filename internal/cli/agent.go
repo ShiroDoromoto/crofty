@@ -180,7 +180,7 @@ func agentBrief() brief {
 			},
 		},
 		Inspect: []string{
-			"crofty config --json     — this project now: title, languages, features on, theme, deploy target",
+			"crofty config --json     — this project now: title, languages, features on, theme, deploy target, footer credit",
 			"crofty features --json   — every capability and the exact one-liner to turn it on",
 			"crofty validate --json   — check content against the spec (the gate before build)",
 			"crofty doctor --json     — check the built ./dist against the output contract (the gate before deploy)",
@@ -192,6 +192,7 @@ func agentBrief() brief {
 			"\"Frozen theme\" means the layout is a guardrail (it can't be broken), not that the design is fixed — the look is the author's. Offer it, leading with the safe options: presets (`crofty theme set`) → tokens (`crofty theme tokens`) → a full eject (`crofty theme eject --full`) for anyone who wants to own the CSS. crofty stays a CLI, not a GUI theme editor.",
 			"crofty builds a full site, not just a blog — see \"Site pages\" for fixed pages (about/contact/legal) and collections (products/gallery/discography), and how to wire them into the nav. Contact and commerce stay external embeds.",
 			"`draft: true` or a future `date` keeps a post off the built site; `crofty build` lists what it left out. Run `crofty validate` before build and `crofty doctor` before deploy.",
+			"The optional \"Made with crofty\" footer line is opt-in and only ever set by the author. crofty asks once, neutrally, on the first interactive deploy. A deploy you run is non-interactive, so it stays off — never turn it on yourself; only set `crofty credit on` if the author asks. Read the current choice (on|off|\"\") from `crofty config --json` → footerCredit.",
 		},
 	}
 }
@@ -285,6 +286,13 @@ func agentDetails() map[string]agentCmd {
 				{"--reauth", "enter new credentials, replacing the saved token / password"},
 			},
 			Examples: []string{"crofty deploy", "crofty deploy --reauth"},
+		},
+		"credit": {
+			Sub: []agentCmd{
+				{Name: "on", Summary: "keep the \"Made with crofty\" footer line (applied on the next deploy)"},
+				{Name: "off", Summary: "remove the footer line (applied on the next deploy)"},
+			},
+			Examples: []string{"crofty credit", "crofty credit on", "crofty credit off"},
 		},
 		"reset": {
 			Flags: []agentFlag{

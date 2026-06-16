@@ -55,6 +55,7 @@ func runConfig(args []string) error {
 		state.Project = deploy.Deploy.Project
 		state.Host = deploy.Deploy.Host
 		state.RemotePath = deploy.Deploy.Path
+		state.FooterCredit = deploy.FooterCredit
 	}
 
 	if *asJSON {
@@ -79,6 +80,7 @@ type siteConfig struct {
 	Features        map[string]bool `json:"features"`             // raw-html, highlight, mermaid, abc
 	Theme           string          `json:"theme"`                // default | preset | tokens | full-eject
 	Support         []string        `json:"support"`              // patronage providers configured
+	FooterCredit    string          `json:"footerCredit"`         // on | off | "" (undecided)
 }
 
 // siteTitle is the display title: the top-level title, or — on a multilingual
@@ -204,6 +206,7 @@ func printConfig(s siteConfig) {
 	fmt.Println()
 	fmt.Printf("  analytics   %s\n", noneIfEmpty(s.Analytics))
 	fmt.Printf("  support     %s\n", noneIfEmpty(s.Support))
+	fmt.Printf("  credit      %s\n", creditLabel(s.FooterCredit))
 	fmt.Println()
 	fmt.Println("Turn things on with 'crofty add <feature>' / 'crofty lang add <code>'.")
 }
@@ -232,4 +235,16 @@ func noneIfEmpty(s []string) string {
 		return "(none)"
 	}
 	return fmt.Sprint(s)
+}
+
+// creditLabel describes the footer-credit choice for the human config view.
+func creditLabel(v string) string {
+	switch v {
+	case "on":
+		return "on (\"Made with crofty\" in the footer)"
+	case "off":
+		return "off"
+	default:
+		return "not decided (crofty asks once on first deploy)"
+	}
 }
