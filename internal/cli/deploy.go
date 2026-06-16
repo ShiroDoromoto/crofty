@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"strconv"
 	"strings"
 	"time"
 
@@ -204,8 +205,8 @@ func saveCFToken(accountID, token string) error {
 
 // connectCloudflare returns the token + account a deploy should use. It reuses
 // the saved token for a pinned account, or runs the token flow (TTY, verified,
-// stored) on the first deploy or when --reauth is set. proceed is false when it
-// printed account choices and is waiting for the user to pick one with --account.
+// stored) on the first deploy or when --reauth is set. proceed is false only when
+// the user chose no account (e.g. cancelled the picker).
 func connectCloudflare(proj *project.Project, cfg *project.Config, accountFlag string, reauth bool) (token string, acct cfAccount, proceed bool, err error) {
 	// Fast path: a pinned account with a saved, still-valid token.
 	if cfg.Deploy.AccountID != "" && accountFlag == "" && !reauth {
@@ -239,37 +240,51 @@ func connectCloudflare(proj *project.Project, cfg *project.Config, accountFlag s
 	return tok, chosen, true, nil
 }
 
-// pickAccount resolves the account a token deploys to: an explicit --account or
-// the pinned one (verified reachable), the sole account the token lists, or — when
-// several or none are listed — a prompt for the account id. ok is false when it
-// printed a choice and is waiting for --account.
+// pickAccount resolves the account a token deploys to: an explicit --account, the
+// pinned account when the token can still reach it, the sole account the token
+// lists, an interactive pick among several, or a prompt for the account id when
+// the token can't list any.
+//
+// A pinned account the token can NO LONGER reach is deliberately not a hard error:
+// the common case is a fresh token for a *different* Cloudflare account because
+// the user is moving the site. Forcing them to rerun with --account (a flag most
+// people never discover) is the wrong answer — instead we fall through to account
+// discovery and re-pin to whatever the token can actually use. pickAccount is only
+// ever reached after the interactive token prompt, so stdin is a terminal and we
+// can ask the user to choose. ok is false only when nothing was chosen.
 func pickAccount(token string, cfg *project.Config, accountFlag string) (cfAccount, bool, error) {
+	// An explicit --account always wins.
 	if want := accountFlag; want != "" {
 		if err := cfVerifyPagesAccess(token, want); err != nil {
 			return cfAccount{}, false, err
 		}
 		return cfAccount{id: want}, true, nil
 	}
-	if cfg.Deploy.AccountID != "" {
-		if err := cfVerifyPagesAccess(token, cfg.Deploy.AccountID); err != nil {
-			return cfAccount{}, false, err
+
+	// Reuse the pinned account when this token can still manage Pages there.
+	pinned := cfg.Deploy.AccountID
+	if pinned != "" {
+		if err := cfVerifyPagesAccess(token, pinned); err == nil {
+			return cfAccount{id: pinned}, true, nil
 		}
-		return cfAccount{id: cfg.Deploy.AccountID}, true, nil
+		// The token can't reach the pinned account — almost always a new token for
+		// a new account (moving the site). Don't dead-end; find one it can use.
+		fmt.Println()
+		fmt.Printf("This token can't manage Pages on this site's saved account (%s).\n", pinned)
+		fmt.Println("That's expected if you're moving the site to a different Cloudflare")
+		fmt.Println("account. Finding an account this token can use…")
 	}
 
 	accts, err := cfListAccounts(token)
 	switch {
 	case err == nil && len(accts) == 1:
-		return accts[0], true, nil
-	case err == nil && len(accts) > 1:
-		fmt.Println()
-		fmt.Println("That token reaches several Cloudflare accounts:")
-		for _, a := range accts {
-			fmt.Printf("    %s  (%s)\n", a.id, a.name)
+		a := accts[0]
+		if pinned != "" && a.id != pinned {
+			fmt.Printf("→ Moving this site to account %s (%s).\n", a.id, a.name)
 		}
-		fmt.Println()
-		fmt.Println("Pick one:  crofty deploy --account <id>")
-		return cfAccount{}, false, nil
+		return a, true, nil
+	case err == nil && len(accts) > 1:
+		return chooseAccount(accts, pinned)
 	}
 
 	// The token can't list accounts (a Pages-only token often can't) — ask for
@@ -282,6 +297,43 @@ func pickAccount(token string, cfg *project.Config, accountFlag string) (cfAccou
 		return cfAccount{}, false, verr
 	}
 	return cfAccount{id: id}, true, nil
+}
+
+// chooseAccount asks the user to pick from the accounts a token can reach, by
+// number — so it works without the user knowing the --account flag. It is only
+// reached after the interactive token prompt, so stdin is a terminal.
+func chooseAccount(accts []cfAccount, pinned string) (cfAccount, bool, error) {
+	fmt.Println()
+	fmt.Println("This token reaches several Cloudflare accounts:")
+	for i, a := range accts {
+		marker := ""
+		if a.id == pinned {
+			marker = "  ← current"
+		}
+		fmt.Printf("  %d) %s  (%s)%s\n", i+1, a.id, a.name, marker)
+	}
+	r := bufio.NewReader(os.Stdin)
+	for attempt := 0; attempt < 3; attempt++ {
+		fmt.Printf("Which account? [1-%d]: ", len(accts))
+		line, err := r.ReadString('\n')
+		if n, ok := parseMenuChoice(line, len(accts)); ok {
+			return accts[n-1], true, nil
+		}
+		if err != nil {
+			break
+		}
+		fmt.Println("  (enter a number from the list)")
+	}
+	return cfAccount{}, false, fmt.Errorf("no account chosen — run the command again to pick one")
+}
+
+// parseMenuChoice reads a 1-based menu selection in [1,max] from a line of input.
+func parseMenuChoice(line string, max int) (int, bool) {
+	n, err := strconv.Atoi(strings.TrimSpace(line))
+	if err != nil || n < 1 || n > max {
+		return 0, false
+	}
+	return n, true
 }
 
 // promptCFToken guides the user to a Pages: Edit token and reads it from a hidden
