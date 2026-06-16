@@ -21,7 +21,7 @@ builds:
     flags:
       - -trimpath
     ldflags:
-      - -s -w -X github.com/shirodoromoto/crofty/internal/cli.Version={{.Version}}
+      - -s -w -X github.com/ShiroDoromoto/crofty/internal/cli.Version={{.Version}}
     goos:
       - darwin
       - windows
@@ -73,7 +73,7 @@ checksum:
 scoops:
   - name: crofty
     repository:
-      owner: shirodoromoto
+      owner: ShiroDoromoto
       name: scoop-crofty
     homepage: https://crofty.site
     description: "Own your website: a Markdown-to-published-site pipeline"
@@ -86,12 +86,12 @@ scoops:
 # could not verify… malware" popup) on every install; a formula does not
 # quarantine, so the unsigned binary runs cleanly with no warning. (The cask
 # route would only be warning-free with an Apple Developer ID signature +
-# notarization.) Published to the tap shirodoromoto/crofty (repo
-# homebrew-crofty); install with `brew install shirodoromoto/crofty/crofty`.
+# notarization.) Published to the tap ShiroDoromoto/crofty (repo
+# homebrew-crofty); install with `brew install ShiroDoromoto/crofty/crofty`.
 brews:
   - name: crofty
     repository:
-      owner: shirodoromoto
+      owner: ShiroDoromoto
       name: homebrew-crofty
     homepage: https://crofty.site
     description: "Own your website: a Markdown-to-published-site pipeline"

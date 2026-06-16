@@ -8,7 +8,7 @@ import (
 
 	"gopkg.in/yaml.v3"
 
-	"github.com/shirodoromoto/crofty/internal/project"
+	"github.com/ShiroDoromoto/crofty/internal/project"
 )
 
 // hint is one "you wrote it but it won't show (yet)" note: a capability the

@@ -18,17 +18,17 @@ project needed. From there it can drive everything below.
 **macOS** ([Homebrew](https://brew.sh)):
 
 ```sh
-brew install shirodoromoto/crofty/crofty
+brew install ShiroDoromoto/crofty/crofty
 ```
 
 **Windows** ([Scoop](https://scoop.sh)):
 
 ```sh
-scoop bucket add crofty https://github.com/shirodoromoto/scoop-crofty
+scoop bucket add crofty https://github.com/ShiroDoromoto/scoop-crofty
 scoop install crofty
 ```
 
-**Linux** (`.deb` / `.rpm` from the [releases page](https://github.com/shirodoromoto/crofty/releases)):
+**Linux** (`.deb` / `.rpm` from the [releases page](https://github.com/ShiroDoromoto/crofty/releases)):
 
 ```sh
 # Debian/Ubuntu

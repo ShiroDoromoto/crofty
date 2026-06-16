@@ -12,8 +12,8 @@ import (
 
 	"golang.org/x/term"
 
-	"github.com/shirodoromoto/crofty/internal/project"
-	"github.com/shirodoromoto/crofty/internal/secret"
+	"github.com/ShiroDoromoto/crofty/internal/project"
+	"github.com/ShiroDoromoto/crofty/internal/secret"
 )
 
 func runDeploy(args []string) error {

@@ -9,7 +9,7 @@ import (
 
 	"golang.org/x/term"
 
-	"github.com/shirodoromoto/crofty/internal/project"
+	"github.com/ShiroDoromoto/crofty/internal/project"
 )
 
 // runConnect saves (or replaces) the Cloudflare API token crofty uses to publish

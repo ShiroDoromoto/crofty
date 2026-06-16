@@ -10,8 +10,8 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/shirodoromoto/crofty/internal/project"
-	"github.com/shirodoromoto/crofty/internal/spec"
+	"github.com/ShiroDoromoto/crofty/internal/project"
+	"github.com/ShiroDoromoto/crofty/internal/spec"
 )
 
 func runValidate(args []string) error {

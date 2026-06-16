@@ -6,8 +6,8 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/shirodoromoto/crofty/internal/contract"
-	"github.com/shirodoromoto/crofty/internal/project"
+	"github.com/ShiroDoromoto/crofty/internal/contract"
+	"github.com/ShiroDoromoto/crofty/internal/project"
 )
 
 func runDoctor(args []string) error {

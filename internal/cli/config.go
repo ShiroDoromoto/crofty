@@ -8,7 +8,7 @@ import (
 	"path/filepath"
 	"sort"
 
-	"github.com/shirodoromoto/crofty/internal/theme"
+	"github.com/ShiroDoromoto/crofty/internal/theme"
 )
 
 // runConfig reports the project's current configuration: language(s), which

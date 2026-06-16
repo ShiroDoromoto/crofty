@@ -9,7 +9,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/shirodoromoto/crofty/internal/spec"
+	"github.com/ShiroDoromoto/crofty/internal/spec"
 )
 
 // shareChannel describes a destination for the auth-free `share` command: a text

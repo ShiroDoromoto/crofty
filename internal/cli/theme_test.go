@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/shirodoromoto/crofty/internal/theme"
+	"github.com/ShiroDoromoto/crofty/internal/theme"
 )
 
 // The `theme tokens` catalogue must stay in sync with the variables the bundled

@@ -9,7 +9,7 @@ read. Nothing phones home. The host logs what any static host logs to serve a
 file, and no more.
 
 **Colophon.** Written in Markdown, built with
-[crofty](https://github.com/shirodoromoto/crofty) on top of Hugo, and published
+[crofty](https://github.com/ShiroDoromoto/crofty) on top of Hugo, and published
 as static files to a domain its author owns. The theme is frozen but ejectable;
 the content is just a folder of text. A site that sells something, or collects
 more than this one does, would put its fuller privacy policy and terms here too.

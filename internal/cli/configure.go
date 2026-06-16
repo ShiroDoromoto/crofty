@@ -7,7 +7,7 @@ import (
 
 	"gopkg.in/yaml.v3"
 
-	"github.com/shirodoromoto/crofty/internal/project"
+	"github.com/ShiroDoromoto/crofty/internal/project"
 )
 
 // Re-running `crofty init` on an existing project lands here: an idempotent

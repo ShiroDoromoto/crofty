@@ -21,8 +21,8 @@ import (
 	"golang.org/x/crypto/ssh"
 	"golang.org/x/term"
 
-	"github.com/shirodoromoto/crofty/internal/project"
-	"github.com/shirodoromoto/crofty/internal/secret"
+	"github.com/ShiroDoromoto/crofty/internal/project"
+	"github.com/ShiroDoromoto/crofty/internal/secret"
 )
 
 // sftpSecretStore keeps SFTP passwords / key passphrases in the OS keychain,

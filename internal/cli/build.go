@@ -8,10 +8,10 @@ import (
 	"strings"
 	"time"
 
-	"github.com/shirodoromoto/crofty/internal/project"
-	"github.com/shirodoromoto/crofty/internal/runner"
-	"github.com/shirodoromoto/crofty/internal/spec"
-	"github.com/shirodoromoto/crofty/internal/theme"
+	"github.com/ShiroDoromoto/crofty/internal/project"
+	"github.com/ShiroDoromoto/crofty/internal/runner"
+	"github.com/ShiroDoromoto/crofty/internal/spec"
+	"github.com/ShiroDoromoto/crofty/internal/theme"
 )
 
 func runBuild(args []string) error {
