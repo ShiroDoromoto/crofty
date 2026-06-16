@@ -28,9 +28,22 @@ scoop bucket add crofty https://github.com/shirodoromoto/scoop-crofty
 scoop install crofty
 ```
 
+**Linux** (`.deb` / `.rpm` from the [releases page](https://github.com/shirodoromoto/crofty/releases)):
+
+```sh
+# Debian/Ubuntu
+sudo dpkg -i crofty_*_linux_amd64.deb
+# Fedora/RHEL
+sudo rpm -i crofty_*_linux_amd64.rpm
+```
+
 crofty wraps [Hugo](https://gohugo.io) at runtime for `build` and `preview`.
-Both installers pull it in for you — Homebrew as a formula dependency, Scoop as
-a manifest dependency (`hugo-extended` from the main bucket).
+On macOS and Windows both installers pull it in for you — Homebrew as a formula
+dependency, Scoop as a manifest dependency (`hugo-extended` from the main
+bucket). On Linux the `.deb`/`.rpm` only *recommends* hugo (distro packages are
+often outdated or not the extended build), so install
+[hugo-extended](https://gohugo.io/installation/linux/) yourself —
+`crofty build` / `crofty preview` will tell you if it's missing from your PATH.
 
 ## Quick start
 
