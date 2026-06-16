@@ -37,7 +37,7 @@ func commands() []command {
 		{"preview", "See your site in a browser (local, no account)", runPreview},
 		{"build", "Render the site to ./dist with Hugo", runBuild},
 		{"connect", "Save the Cloudflare API token used to deploy", runConnect},
-		{"deploy", "Publish ./dist to your Cloudflare Pages project", runDeploy},
+		{"deploy", "Build the current site and publish it to Cloudflare Pages", runDeploy},
 		{"reset", "Remove saved credentials (keychain) and state", runReset},
 		{"validate", "Check content against the crofty spec (v0)", runValidate},
 		{"doctor", "Check the built site against the output contract", runDoctor},

@@ -121,8 +121,7 @@ func agentBrief() brief {
 			"crofty init — create the project (a folder the author fully owns)",
 			"write Markdown — a blog post at content/posts/<slug>/index.md, or a page / collection (see \"Site pages\")",
 			"crofty preview — see it locally in a browser (no account)",
-			"crofty build — render the site to ./dist",
-			"crofty deploy — publish ./dist to Cloudflare Pages",
+			"crofty deploy — build the current site and publish it to Cloudflare Pages (deploy builds first, so a stale ./dist can't ship; `crofty build` alone is just to inspect ./dist)",
 		},
 		Commands: cmds,
 		Pages: pageGuide{
@@ -259,6 +258,7 @@ func agentDetails() map[string]agentCmd {
 		},
 		"deploy": {
 			Flags: []agentFlag{
+				{"--skip-build", "publish the existing ./dist without rebuilding (deploy builds first by default)"},
 				{"--account <id>", "Cloudflare account id to deploy to (when a token reaches several)"},
 				{"--reauth", "enter a new Cloudflare API token (replace the saved one)"},
 			},

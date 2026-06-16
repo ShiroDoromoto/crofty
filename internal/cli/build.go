@@ -33,30 +33,8 @@ func runBuild(args []string) error {
 		return err
 	}
 
-	if !runner.Look("hugo") {
-		return fmt.Errorf("hugo not found on PATH.\n" +
-			"crofty wraps Hugo to build your site. Install it (e.g. 'brew install hugo'), then run 'crofty build' again.")
-	}
-
-	// Materialize the bundled theme into .crofty/themes/crofty each build so the
-	// copy embedded in the binary stays the single source of truth.
-	themeDst := filepath.Join(proj.ThemesDir(), "crofty")
-	if err := theme.Materialize(themeDst); err != nil {
-		return fmt.Errorf("writing bundled theme: %w", err)
-	}
-
-	// Run Hugo against the project root. .crofty/ holds the theme and tool state
-	// and is never rendered into the output, so nothing from it can ride along
-	// to deploy.
-	err = runner.Run(proj.Root, "hugo",
-		"--source", proj.Root,
-		"--themesDir", proj.ThemesDir(),
-		"--theme", "crofty",
-		"--destination", proj.DistDir(),
-		"--cleanDestinationDir",
-	)
-	if err != nil {
-		return fmt.Errorf("hugo build failed (your Markdown is untouched): %w", err)
+	if err := buildSite(proj); err != nil {
+		return err
 	}
 
 	fmt.Println()
@@ -69,6 +47,36 @@ func runBuild(args []string) error {
 	fmt.Println("next:")
 	fmt.Println("  crofty preview     # look at it locally first (no account)")
 	fmt.Println("  crofty deploy      # put it online (connects a free Cloudflare account)")
+	return nil
+}
+
+// buildSite renders the project to ./dist with Hugo, materializing the bundled
+// theme first. It is the shared core of `crofty build` and of the build that
+// `crofty deploy` runs before publishing — so a deploy always ships the current
+// source, never a stale ./dist left behind after an edit.
+func buildSite(proj *project.Project) error {
+	if !runner.Look("hugo") {
+		return fmt.Errorf("hugo not found on PATH.\n" +
+			"crofty wraps Hugo to build your site. Install it (e.g. 'brew install hugo'), then run the command again.")
+	}
+	// Materialize the bundled theme into .crofty/themes/crofty each build so the
+	// copy embedded in the binary stays the single source of truth.
+	themeDst := filepath.Join(proj.ThemesDir(), "crofty")
+	if err := theme.Materialize(themeDst); err != nil {
+		return fmt.Errorf("writing bundled theme: %w", err)
+	}
+	// Run Hugo against the project root. .crofty/ holds the theme and tool state
+	// and is never rendered into the output, so nothing from it can ride along
+	// to deploy.
+	if err := runner.Run(proj.Root, "hugo",
+		"--source", proj.Root,
+		"--themesDir", proj.ThemesDir(),
+		"--theme", "crofty",
+		"--destination", proj.DistDir(),
+		"--cleanDestinationDir",
+	); err != nil {
+		return fmt.Errorf("hugo build failed (your Markdown is untouched): %w", err)
+	}
 	return nil
 }
 

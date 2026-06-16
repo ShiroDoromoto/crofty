@@ -48,7 +48,7 @@ Then build and publish it:
 cd <the path it prints>   # crofty init prints where it created the site
 crofty preview     # see it in a browser — no account needed
 crofty connect     # save your Cloudflare API token (to your keychain)
-crofty deploy      # publish ./dist to your own Cloudflare Pages
+crofty deploy      # build the current site and publish it to your own Cloudflare Pages
 ```
 
 `crofty init` scaffolds a standard Hugo project plus a `.crofty/` folder:
@@ -98,9 +98,9 @@ crofty config     # show this project's current configuration
 crofty add        # turn on a capability (mermaid, abc, highlight, raw-html, analytics)
 crofty lang       # add or list the languages your site is written in
 crofty preview    # see your site in a browser (local, no account)
-crofty build      # render the site to ./dist with Hugo
+crofty build      # render the site to ./dist with Hugo (to inspect it)
 crofty connect    # save the Cloudflare API token used to deploy
-crofty deploy     # publish ./dist to your Cloudflare Pages project
+crofty deploy     # build the current site and publish it to Cloudflare Pages
 crofty validate   # check content against the crofty spec (v0)
 crofty doctor     # check the built site against the output contract
 crofty share      # print a ready-to-post fragment (text + link) for any SNS
