@@ -43,3 +43,6 @@ other = "That page isn’t here."
 
 [back_home]
 other = "Back home"
+
+[built_with_crofty]
+other = "Made with crofty"

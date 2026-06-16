@@ -40,3 +40,6 @@ other = "そのページはありません。"
 
 [back_home]
 other = "ホームへ戻る"
+
+[built_with_crofty]
+other = "このサイトは crofty で作られています"
