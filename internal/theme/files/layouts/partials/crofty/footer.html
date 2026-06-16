@@ -14,7 +14,7 @@
      badge. Rendered only when the author kept it (crofty deploy / crofty credit on);
      the value rides in via .crofty/themes/crofty/data/crofty.yaml, written at build
      time. Plain dofollow <a>, no image / JS / tracking (08 no-phone-home). */ -}}
-  {{- with site.Data.crofty }}{{ if eq .footer_credit "on" }}
+  {{- with hugo.Data.crofty }}{{ if eq .footer_credit "on" }}
   <p class="site-footer-credit"><a href="https://crofty.site/">{{ i18n "built_with_crofty" }}</a></p>
   {{- end }}{{ end }}
 </footer>
