@@ -27,7 +27,21 @@ type Config struct {
 	// assigned once and never contains secrets.
 	Workspace string       `json:"workspace,omitempty"`
 	Deploy    DeployConfig `json:"deploy"`
+
+	// FooterCredit controls the optional "Made with crofty" footer line:
+	// "on", "off", or "" (unset). It is a free, removable referral — never
+	// forced. crofty asks once, neutrally, on the first interactive deploy
+	// (before the build that renders it); a non-interactive deploy is never
+	// asked, so unset always renders as off. Change it anytime with
+	// `crofty credit on|off`. Never silently defaults to on.
+	FooterCredit string `json:"footerCredit,omitempty"`
 }
+
+// Footer-credit values for Config.FooterCredit. "" means unset (renders off).
+const (
+	FooterCreditOn  = "on"
+	FooterCreditOff = "off"
+)
 
 // DeployConfig describes where a build is published. Provider selects the
 // backend; the remaining fields are read per provider. Secrets (API tokens,
