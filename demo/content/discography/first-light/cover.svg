@@ -1,7 +1,0 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 400" role="img" aria-label="First Light cover">
-  <rect width="400" height="400" fill="#1f2a33"/>
-  <circle cx="200" cy="230" r="120" fill="none" stroke="#e8a55f" stroke-width="2" opacity="0.6"/>
-  <circle cx="200" cy="230" r="70" fill="#e8a55f" opacity="0.9"/>
-  <rect x="0" y="300" width="400" height="100" fill="#11181d"/>
-  <text x="200" y="350" text-anchor="middle" font-family="Georgia, serif" font-size="26" fill="#f3ece1">First Light</text>
-</svg>
