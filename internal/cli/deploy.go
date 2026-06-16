@@ -5,8 +5,10 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"path/filepath"
 	"regexp"
 	"strings"
+	"time"
 
 	"golang.org/x/term"
 
@@ -18,12 +20,15 @@ func runDeploy(args []string) error {
 	fs := flag.NewFlagSet("deploy", flag.ContinueOnError)
 	var account string
 	var reauth bool
+	var skipBuild bool
 	fs.StringVar(&account, "account", "", "Cloudflare account id to deploy to (when a token reaches several)")
 	fs.BoolVar(&reauth, "reauth", false, "enter a new Cloudflare API token (replace the saved one)")
+	fs.BoolVar(&skipBuild, "skip-build", false, "publish the existing ./dist as-is, without rebuilding (e.g. CI built it)")
 	fs.Usage = func() {
-		fmt.Println("crofty deploy — publish your site to Cloudflare Pages")
+		fmt.Println("crofty deploy — build the current site and publish it to Cloudflare Pages")
 		fmt.Println("\nUsage:")
-		fmt.Println("  crofty deploy                 # first run asks for a Cloudflare API token (kept in your keychain)")
+		fmt.Println("  crofty deploy                 # build, then publish (first run asks for a Cloudflare API token)")
+		fmt.Println("  crofty deploy --skip-build    # publish the existing ./dist without rebuilding")
 		fmt.Println("  crofty deploy --reauth        # replace the saved token")
 		fmt.Println("  crofty deploy --account <id>  # pick the account when a token reaches several")
 	}
@@ -50,10 +55,21 @@ func runDeploy(args []string) error {
 		return fmt.Errorf("deploy.project is empty in %s", proj.ConfigPath())
 	}
 
-	// Deploy uploads ONLY ./dist. If there is no build, stop here rather than
-	// risk publishing anything else from the project.
-	if _, err := os.Stat(proj.DistDir()); err != nil {
-		return fmt.Errorf("no build output at %s — run 'crofty build' first", proj.DistDir())
+	// Build the current source before publishing, so deploy can never ship a
+	// stale ./dist left behind after an edit (the source moved on but ./dist
+	// didn't). --skip-build opts out for callers that built separately (e.g. CI).
+	if skipBuild {
+		if _, err := os.Stat(proj.DistDir()); err != nil {
+			return fmt.Errorf("no build output at %s — run 'crofty build' first, or drop --skip-build", proj.DistDir())
+		}
+	} else {
+		fmt.Println("Building the current site before publishing…")
+		if err := buildSite(proj); err != nil {
+			return err
+		}
+		contentDir := filepath.Join(proj.Root, "content")
+		warnDrafts(contentDir)
+		warnFutureDated(contentDir, time.Now())
 	}
 
 	// Gate on the output contract before touching credentials or the network: a
