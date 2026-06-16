@@ -48,7 +48,13 @@ func runConfig(args []string) error {
 		Support:         supportProviders(proj.Root),
 	}
 	if deploy != nil {
+		state.Provider = deploy.Deploy.Provider
+		if state.Provider == "" {
+			state.Provider = "cloudflare"
+		}
 		state.Project = deploy.Deploy.Project
+		state.Host = deploy.Deploy.Host
+		state.RemotePath = deploy.Deploy.Path
 	}
 
 	if *asJSON {
@@ -64,12 +70,15 @@ func runConfig(args []string) error {
 type siteConfig struct {
 	Title           string          `json:"title"`
 	DefaultLanguage string          `json:"defaultLanguage"`
-	Languages       []string        `json:"languages"` // empty when single-language
-	Project         string          `json:"project"`   // becomes <project>.pages.dev
-	Analytics       []string        `json:"analytics"` // providers configured
-	Features        map[string]bool `json:"features"`  // raw-html, highlight, mermaid, abc
-	Theme           string          `json:"theme"`     // default | preset | tokens | full-eject
-	Support         []string        `json:"support"`   // patronage providers configured
+	Languages       []string        `json:"languages"`            // empty when single-language
+	Provider        string          `json:"provider"`             // cloudflare | sftp | ftps
+	Project         string          `json:"project,omitempty"`    // Cloudflare: becomes <project>.pages.dev
+	Host            string          `json:"host,omitempty"`       // sftp/ftps server
+	RemotePath      string          `json:"remotePath,omitempty"` // sftp/ftps web root
+	Analytics       []string        `json:"analytics"`            // providers configured
+	Features        map[string]bool `json:"features"`             // raw-html, highlight, mermaid, abc
+	Theme           string          `json:"theme"`                // default | preset | tokens | full-eject
+	Support         []string        `json:"support"`              // patronage providers configured
 }
 
 // siteTitle is the display title: the top-level title, or — on a multilingual
@@ -172,8 +181,13 @@ func printConfig(s siteConfig) {
 	} else {
 		fmt.Printf("  languages   %v (default: %s)\n", s.Languages, s.DefaultLanguage)
 	}
-	if s.Project != "" {
-		fmt.Printf("  deploy      %s.pages.dev\n", s.Project)
+	switch s.Provider {
+	case "sftp", "ftps":
+		fmt.Printf("  deploy      %s → %s:%s\n", s.Provider, s.Host, s.RemotePath)
+	default:
+		if s.Project != "" {
+			fmt.Printf("  deploy      %s.pages.dev\n", s.Project)
+		}
 	}
 	fmt.Printf("  theme       %s\n", s.Theme)
 

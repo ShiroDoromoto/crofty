@@ -22,15 +22,16 @@ func runDeploy(args []string) error {
 	var reauth bool
 	var skipBuild bool
 	fs.StringVar(&account, "account", "", "Cloudflare account id to deploy to (when a token reaches several)")
-	fs.BoolVar(&reauth, "reauth", false, "enter a new Cloudflare API token (replace the saved one)")
+	fs.BoolVar(&reauth, "reauth", false, "enter new credentials (replace the saved token / password)")
 	fs.BoolVar(&skipBuild, "skip-build", false, "publish the existing ./dist as-is, without rebuilding (e.g. CI built it)")
 	fs.Usage = func() {
-		fmt.Println("crofty deploy — build the current site and publish it to Cloudflare Pages")
+		fmt.Println("crofty deploy — build the current site and publish it to your deploy provider")
+		fmt.Println("\nProviders (set at 'crofty init'): cloudflare (default), sftp, ftps")
 		fmt.Println("\nUsage:")
-		fmt.Println("  crofty deploy                 # build, then publish (first run asks for a Cloudflare API token)")
+		fmt.Println("  crofty deploy                 # build, then publish (first run asks for credentials)")
 		fmt.Println("  crofty deploy --skip-build    # publish the existing ./dist without rebuilding")
-		fmt.Println("  crofty deploy --reauth        # replace the saved token")
-		fmt.Println("  crofty deploy --account <id>  # pick the account when a token reaches several")
+		fmt.Println("  crofty deploy --reauth        # replace saved credentials")
+		fmt.Println("  crofty deploy --account <id>  # Cloudflare: pick the account when a token reaches several")
 	}
 	if _, err := parseArgs(fs, args); err != nil {
 		return err
@@ -48,11 +49,12 @@ func runDeploy(args []string) error {
 	if err != nil {
 		return fmt.Errorf("reading deploy config: %w", err)
 	}
-	if cfg.Deploy.Provider != "cloudflare" {
-		return fmt.Errorf("deploy provider %q is not supported in M1 (only \"cloudflare\")", cfg.Deploy.Provider)
+	provider := cfg.Deploy.Provider
+	if provider == "" {
+		provider = "cloudflare" // backwards-compatible default for early configs
 	}
-	if cfg.Deploy.Project == "" {
-		return fmt.Errorf("deploy.project is empty in %s", proj.ConfigPath())
+	if !isSupportedProvider(provider) {
+		return fmt.Errorf("deploy provider %q is not supported (use one of: %s)", provider, strings.Join(supportedProviders(), ", "))
 	}
 
 	// Build the current source before publishing, so deploy can never ship a
@@ -79,48 +81,90 @@ func runDeploy(args []string) error {
 		return err
 	}
 
-	// Authenticate with crofty's OWN Cloudflare token (kept in the keychain). On
-	// the first deploy this asks the user for a token; crofty then talks to the
-	// Cloudflare API directly (no wrangler, no Node) using that single credential.
-	token, acct, proceed, err := connectCloudflare(proj, cfg, account, reauth)
+	// Resolve credentials (keychain / TTY prompt) and build the Deployer for the
+	// configured provider. Nothing but dist/ is ever uploaded — keys, .crofty/,
+	// and config stay local.
+	deployer, onDone, err := resolveDeployer(provider, proj, cfg, account, reauth)
 	if err != nil {
 		return err
 	}
-	if !proceed {
-		return nil // choices were shown; nothing is deployed until the user picks
-	}
-	fmt.Println()
-	if acct.name != "" {
-		fmt.Printf("Deploying to Cloudflare account: %s (%s)\n", acct.name, acct.id)
-	} else {
-		fmt.Printf("Deploying to Cloudflare account: %s\n", acct.id)
-	}
-	fmt.Printf("  project: %s\n", cfg.Deploy.Project)
-
-	// The production branch to deploy to. Pinning this makes deploy target the
-	// live site: the deployment's branch matches the project's production branch,
-	// so Cloudflare treats it as production rather than a preview.
-	branch := cfg.Deploy.Branch
-	if branch == "" {
-		branch = "main"
+	if deployer == nil {
+		return nil // a choice was printed (e.g. Cloudflare's "pick --account")
 	}
 
-	// Upload dist/ straight to the Pages API (no wrangler, no Node). Nothing else
-	// — keys, .crofty/, config — is ever uploaded.
-	url, err := cfDeployDir(token, acct.id, cfg.Deploy.Project, branch, proj.DistDir(), func(line string) {
+	url, err := deployer.Deploy(proj.DistDir(), func(line string) {
 		fmt.Println("  " + line)
 	})
 	if err != nil {
 		return fmt.Errorf("deploy failed — your site and Markdown are untouched; fix the issue and retry: %w", err)
 	}
-
-	fmt.Println()
-	fmt.Println("✓ deployed", cfg.Deploy.Project, "to Cloudflare Pages")
-	if url != "" {
-		fmt.Println("  live at →", url)
-	}
-	printCustomDomainHelp(cfg.Deploy.Project)
+	onDone(url)
 	return nil
+}
+
+// resolveDeployer authenticates for the given provider and returns a ready
+// Deployer plus an onDone callback that prints the provider's success message. A
+// nil Deployer (with nil error) means a choice was printed and nothing should be
+// deployed yet (Cloudflare's multi-account case).
+func resolveDeployer(provider string, proj *project.Project, cfg *project.Config, account string, reauth bool) (Deployer, func(url string), error) {
+	switch provider {
+	case "cloudflare":
+		if cfg.Deploy.Project == "" {
+			return nil, nil, fmt.Errorf("deploy.project is empty in %s", proj.ConfigPath())
+		}
+		// crofty's own Cloudflare token (kept in the keychain) talks to the Pages
+		// API directly — no wrangler, no Node.
+		token, acct, proceed, err := connectCloudflare(proj, cfg, account, reauth)
+		if err != nil {
+			return nil, nil, err
+		}
+		if !proceed {
+			return nil, nil, nil // choices were shown; wait for the user to pick
+		}
+		fmt.Println()
+		if acct.name != "" {
+			fmt.Printf("Deploying to Cloudflare account: %s (%s)\n", acct.name, acct.id)
+		} else {
+			fmt.Printf("Deploying to Cloudflare account: %s\n", acct.id)
+		}
+		fmt.Printf("  project: %s\n", cfg.Deploy.Project)
+		// Pinning the production branch makes Cloudflare treat this as production
+		// rather than a preview, regardless of the local git branch.
+		branch := cfg.Deploy.Branch
+		if branch == "" {
+			branch = "main"
+		}
+		d := &cloudflareDeployer{token: token, accountID: acct.id, project: cfg.Deploy.Project, branch: branch}
+		return d, func(url string) {
+			fmt.Println()
+			fmt.Println("✓ deployed", cfg.Deploy.Project, "to Cloudflare Pages")
+			if url != "" {
+				fmt.Println("  live at →", url)
+			}
+			printCustomDomainHelp(cfg.Deploy.Project)
+		}, nil
+
+	case "sftp":
+		d, err := connectSFTP(proj, cfg, reauth)
+		if err != nil {
+			return nil, nil, err
+		}
+		fmt.Printf("\nDeploying over SFTP to %s@%s:%s\n", cfg.Deploy.User, cfg.Deploy.Host, cfg.Deploy.Path)
+		return d, func(string) {
+			fmt.Printf("\n✓ deployed to %s:%s over SFTP\n", cfg.Deploy.Host, cfg.Deploy.Path)
+		}, nil
+
+	case "ftps":
+		d, err := connectFTPS(proj, cfg, reauth)
+		if err != nil {
+			return nil, nil, err
+		}
+		fmt.Printf("\nDeploying over FTPS to %s@%s:%s\n", cfg.Deploy.User, cfg.Deploy.Host, cfg.Deploy.Path)
+		return d, func(string) {
+			fmt.Printf("\n✓ deployed to %s:%s over FTPS\n", cfg.Deploy.Host, cfg.Deploy.Path)
+		}, nil
+	}
+	return nil, nil, fmt.Errorf("deploy provider %q is not supported", provider)
 }
 
 // printCustomDomainHelp shows how to point a custom domain at the site once it's

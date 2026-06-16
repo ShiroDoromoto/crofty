@@ -35,20 +35,42 @@ func runConnect(args []string) error {
 	if err != nil {
 		return fmt.Errorf("reading config: %w", err)
 	}
-	if cfg.Deploy.Provider != "" && cfg.Deploy.Provider != "cloudflare" {
-		return fmt.Errorf("deploy provider %q is not supported (only \"cloudflare\")", cfg.Deploy.Provider)
+	provider := cfg.Deploy.Provider
+	if provider == "" {
+		provider = "cloudflare"
+	}
+	if !isSupportedProvider(provider) {
+		return fmt.Errorf("deploy provider %q is not supported (use one of: %s)", provider, strings.Join(supportedProviders(), ", "))
 	}
 
-	// reauth=true forces the token prompt even if one is already saved.
-	_, acct, proceed, err := connectCloudflare(proj, cfg, *account, true)
-	if err != nil {
-		return err
+	// reauth=true forces a fresh credential prompt even if one is already saved.
+	switch provider {
+	case "cloudflare":
+		_, acct, proceed, err := connectCloudflare(proj, cfg, *account, true)
+		if err != nil {
+			return err
+		}
+		if !proceed {
+			return nil // a choice was printed (e.g. pick --account)
+		}
+		fmt.Println()
+		fmt.Printf("✓ Connected to Cloudflare account %s — token saved to your keychain.\n", acct.id)
+	case "sftp":
+		if _, err := connectSFTP(proj, cfg, true); err != nil {
+			return err
+		}
+		fmt.Printf("\n✓ Saved SFTP credentials for %s@%s to your keychain.\n", cfg.Deploy.User, cfg.Deploy.Host)
+	case "ftps":
+		if _, err := connectFTPS(proj, cfg, true); err != nil {
+			return err
+		}
+		fmt.Printf("\n✓ Saved FTPS credentials for %s@%s to your keychain.\n", cfg.Deploy.User, cfg.Deploy.Host)
+	default:
+		// isSupportedProvider() passed but no arm handled it — a provider was
+		// added to supportedProviders() without a connect handler. Fail loudly
+		// rather than print success having saved nothing.
+		return fmt.Errorf("internal: deploy provider %q has no connect handler", provider)
 	}
-	if !proceed {
-		return nil // a choice was printed (e.g. pick --account)
-	}
-	fmt.Println()
-	fmt.Printf("✓ Connected to Cloudflare account %s — token saved to your keychain.\n", acct.id)
 	fmt.Println("  Run 'crofty deploy' to publish.")
 	return nil
 }
@@ -149,8 +171,19 @@ func runReset(args []string) error {
 // confirmation summary.
 func projectSecretDescriptions(c *project.Config) []string {
 	var out []string
-	if c.Deploy.AccountID != "" {
-		out = append(out, "Cloudflare token (account "+c.Deploy.AccountID+")")
+	switch c.Deploy.Provider {
+	case "sftp":
+		if c.Deploy.Host != "" && c.Deploy.User != "" {
+			out = append(out, "SFTP credentials ("+c.Deploy.User+"@"+c.Deploy.Host+")")
+		}
+	case "ftps":
+		if c.Deploy.Host != "" && c.Deploy.User != "" {
+			out = append(out, "FTPS password ("+c.Deploy.User+"@"+c.Deploy.Host+")")
+		}
+	default: // "" or "cloudflare"
+		if c.Deploy.AccountID != "" {
+			out = append(out, "Cloudflare token (account "+c.Deploy.AccountID+")")
+		}
 	}
 	return out
 }
@@ -158,7 +191,20 @@ func projectSecretDescriptions(c *project.Config) []string {
 // forgetProjectSecrets deletes a project's saved secrets from the keychain.
 // Absent entries are not an error.
 func forgetProjectSecrets(c *project.Config) {
-	if c.Deploy.AccountID != "" {
-		_ = cfTokenStore().Delete(c.Deploy.AccountID, "api_token")
+	switch c.Deploy.Provider {
+	case "sftp":
+		if c.Deploy.Host != "" && c.Deploy.User != "" {
+			t := c.Deploy.Host + ":" + c.Deploy.User
+			_ = sftpSecretStore().Delete(t, "password")
+			_ = sftpSecretStore().Delete(t, "key_passphrase")
+		}
+	case "ftps":
+		if c.Deploy.Host != "" && c.Deploy.User != "" {
+			_ = ftpsSecretStore().Delete(c.Deploy.Host+":"+c.Deploy.User, "password")
+		}
+	default: // "" or "cloudflare"
+		if c.Deploy.AccountID != "" {
+			_ = cfTokenStore().Delete(c.Deploy.AccountID, "api_token")
+		}
 	}
 }

@@ -207,13 +207,21 @@ func agentDetails() map[string]agentCmd {
 			Flags: []agentFlag{
 				{"--lang <code>", "site language (e.g. en, ja); default: detected from the OS"},
 				{"--title \"<text>\"", "display title (free text, a Japanese name is fine); default: the folder name"},
-				{"--project <name>", "deploy name → <name>.pages.dev; default: the folder name"},
+				{"--project <name>", "Cloudflare deploy name → <name>.pages.dev; default: the folder name"},
+				{"--provider <name>", "deploy backend: cloudflare (default), sftp, or ftps"},
+				{"--host <host>", "sftp/ftps: server hostname"},
+				{"--user <user>", "sftp/ftps: login user"},
+				{"--path <dir>", "sftp/ftps: remote web root to upload into (e.g. /public_html)"},
+				{"--port <n>", "sftp/ftps: server port (default 22 for sftp, 21 for ftps)"},
+				{"--key <file>", "sftp: path to an SSH private key (default: password auth)"},
 			},
 			Examples: []string{
 				"crofty init                       # a new project under ~/Documents/Crofty/",
 				"crofty init my-blog               # a bare name lands in the standard base",
 				"crofty init .                     # turn the current folder into a project",
 				"crofty init --lang ja --title \"…\" --project blog",
+				"crofty init --provider sftp --host example.com --user me --path /var/www/site",
+				"crofty init --provider ftps --host example.com --user me --path /public_html",
 			},
 		},
 		"features": {
@@ -225,7 +233,7 @@ func agentDetails() map[string]agentCmd {
 			Examples: []string{"crofty agent", "crofty agent --json"},
 		},
 		"config": {
-			Flags:    []agentFlag{{"--json", "the current configuration as JSON"}},
+			Flags:    []agentFlag{{"--json", "the current configuration as JSON (includes deploy provider/host/path)"}},
 			Examples: []string{"crofty config", "crofty config --json"},
 		},
 		"add": {
@@ -254,13 +262,13 @@ func agentDetails() map[string]agentCmd {
 		},
 		"connect": {
 			Flags:    []agentFlag{{"--account <id>", "Cloudflare account id (when a token reaches several)"}},
-			Examples: []string{"crofty connect   # save the deploy token without deploying"},
+			Examples: []string{"crofty connect   # save deploy credentials (token / password) without deploying"},
 		},
 		"deploy": {
 			Flags: []agentFlag{
 				{"--skip-build", "publish the existing ./dist without rebuilding (deploy builds first by default)"},
 				{"--account <id>", "Cloudflare account id to deploy to (when a token reaches several)"},
-				{"--reauth", "enter a new Cloudflare API token (replace the saved one)"},
+				{"--reauth", "enter new credentials, replacing the saved token / password"},
 			},
 			Examples: []string{"crofty deploy", "crofty deploy --reauth"},
 		},
