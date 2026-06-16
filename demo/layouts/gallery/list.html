@@ -7,8 +7,8 @@
 {{ define "main" }}
 <header class="page-header"><h1>{{ .Title }}</h1></header>
 {{ with .Content }}<div class="page-intro">{{ . }}</div>{{ end }}
-<style>
-  .gallery-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:1rem;list-style:none;padding:0;margin:1.5rem 0;width:min(72rem,94vw);margin-left:50%;transform:translateX(-50%)}
+<style> .content{max-width:64rem}
+  .gallery-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:1rem;list-style:none;padding:0;margin:1.5rem 0}
   .gallery-grid a{display:block;text-decoration:none}
   .gallery-grid img{width:100%;height:auto;border-radius:4px;display:block}
   .gallery-grid figure{margin:0}
