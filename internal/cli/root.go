@@ -36,7 +36,7 @@ func commands() []command {
 		{"lang", "Add or list the languages your site is written in", runLang},
 		{"preview", "See your site in a browser (local, no account)", runPreview},
 		{"build", "Render the site to ./dist with Hugo", runBuild},
-		{"connect", "Save the Cloudflare API token used to deploy", runConnect},
+		{"connect", "Set the deploy backend (cloudflare/sftp/ftps) and save its credentials", runConnect},
 		{"deploy", "Build the current site and publish it to Cloudflare Pages", runDeploy},
 		{"reset", "Remove saved credentials (keychain) and state", runReset},
 		{"validate", "Check content against the crofty spec (v0)", runValidate},

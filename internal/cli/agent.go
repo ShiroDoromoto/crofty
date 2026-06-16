@@ -263,8 +263,20 @@ func agentDetails() map[string]agentCmd {
 			Examples: []string{"crofty build   # renders to ./dist; warns about drafts / future-dated posts left out"},
 		},
 		"connect": {
-			Flags:    []agentFlag{{"--account <id>", "Cloudflare account id (when a token reaches several)"}},
-			Examples: []string{"crofty connect   # save deploy credentials (token / password) without deploying"},
+			Flags: []agentFlag{
+				{"--provider <name>", "switch the deploy backend: cloudflare, sftp, or ftps (rewrites config, forgets the old backend's secret) — the CLI way to change destination after init"},
+				{"--account <id>", "Cloudflare account id (when a token reaches several)"},
+				{"--host <host>", "sftp/ftps: server hostname"},
+				{"--user <user>", "sftp/ftps: login user"},
+				{"--path <dir>", "sftp/ftps: remote web root to upload into (e.g. /public_html)"},
+				{"--port <n>", "sftp/ftps: server port (default 22 for sftp, 21 for ftps)"},
+				{"--key <file>", "sftp: path to an SSH private key (default: password auth)"},
+			},
+			Examples: []string{
+				"crofty connect                                   # re-save the current backend's credentials",
+				"crofty connect --provider sftp --host example.com --user me --path /var/www/site",
+				"crofty connect --provider cloudflare             # switch back to Cloudflare Pages",
+			},
 		},
 		"deploy": {
 			Flags: []agentFlag{
