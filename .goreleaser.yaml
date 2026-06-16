@@ -41,6 +41,29 @@ archives:
       - README.md
       - LICENSE
 
+# Linux distribution — .deb / .rpm attached to the GitHub release. There is no
+# hosted apt/yum repo (no `apt install crofty`); users grab the package from
+# Releases and install it directly:
+#   Debian/Ubuntu :  sudo dpkg -i crofty_*_linux_amd64.deb
+#   Fedora/RHEL   :  sudo rpm -i  crofty_*_linux_amd64.rpm
+# hugo is NOT a hard dependency: distro hugo is often outdated or the non-extended
+# build, so we list it as soft recommends/suggests; `crofty build`/`preview`
+# emit a clear "hugo not found on PATH" error if it is missing.
+nfpms:
+  - id: crofty
+    package_name: crofty
+    homepage: https://crofty.site
+    description: "Own your website: a Markdown-to-published-site pipeline"
+    maintainer: "Shiro Doromoto <ShiroDoromoto@users.noreply.github.com>"
+    license: AGPL-3.0-or-later
+    formats:
+      - deb
+      - rpm
+    recommends:
+      - hugo
+    suggests:
+      - hugo
+
 checksum:
   name_template: checksums.txt
 
