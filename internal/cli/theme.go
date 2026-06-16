@@ -6,8 +6,8 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/shirodoromoto/crofty/internal/project"
-	"github.com/shirodoromoto/crofty/internal/theme"
+	"github.com/ShiroDoromoto/crofty/internal/project"
+	"github.com/ShiroDoromoto/crofty/internal/theme"
 )
 
 // runTheme groups commands that bring the bundled theme onto disk so it — and

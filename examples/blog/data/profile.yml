@@ -11,7 +11,7 @@ socials:
   - name: "Mastodon"
     url: "https://mastodon.social/@wren"
   - name: "GitHub"
-    url: "https://github.com/shirodoromoto/crofty"
+    url: "https://github.com/ShiroDoromoto/crofty"
 
 # Patronage (08 §4.2). crofty only places the link; the payment happens on the
 # owner's own hosted page and the money never touches crofty. Stripe Payment

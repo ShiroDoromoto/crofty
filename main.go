@@ -7,7 +7,7 @@ package main
 import (
 	"os"
 
-	"github.com/shirodoromoto/crofty/internal/cli"
+	"github.com/ShiroDoromoto/crofty/internal/cli"
 )
 
 func main() {

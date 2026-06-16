@@ -7,7 +7,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/shirodoromoto/crofty/internal/project"
+	"github.com/ShiroDoromoto/crofty/internal/project"
 )
 
 // Version is the crofty CLI version. Releases inject the git tag at build time

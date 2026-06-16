@@ -14,8 +14,8 @@ import (
 
 	"golang.org/x/term"
 
-	"github.com/shirodoromoto/crofty/internal/id"
-	"github.com/shirodoromoto/crofty/internal/project"
+	"github.com/ShiroDoromoto/crofty/internal/id"
+	"github.com/ShiroDoromoto/crofty/internal/project"
 )
 
 // runInit scaffolds a new crofty project: a plain Hugo site (hugo.yaml +

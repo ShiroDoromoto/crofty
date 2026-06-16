@@ -17,8 +17,8 @@ import (
 
 	"github.com/jlaffaye/ftp"
 
-	"github.com/shirodoromoto/crofty/internal/project"
-	"github.com/shirodoromoto/crofty/internal/secret"
+	"github.com/ShiroDoromoto/crofty/internal/project"
+	"github.com/ShiroDoromoto/crofty/internal/secret"
 )
 
 // ftpsSecretStore keeps FTPS passwords in the OS keychain, keyed by host:user.

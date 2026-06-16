@@ -6,9 +6,9 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/shirodoromoto/crofty/internal/project"
-	"github.com/shirodoromoto/crofty/internal/runner"
-	"github.com/shirodoromoto/crofty/internal/theme"
+	"github.com/ShiroDoromoto/crofty/internal/project"
+	"github.com/ShiroDoromoto/crofty/internal/runner"
+	"github.com/ShiroDoromoto/crofty/internal/theme"
 )
 
 // runPreview serves the site locally with Hugo's dev server so anyone can see

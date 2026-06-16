@@ -1,4 +1,4 @@
-module github.com/shirodoromoto/crofty
+module github.com/ShiroDoromoto/crofty
 
 go 1.25.0
 
