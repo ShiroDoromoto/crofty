@@ -320,8 +320,9 @@ func agentDetails() map[string]agentCmd {
 				{"--skip-build", "publish the existing ./dist without rebuilding (deploy builds first by default)"},
 				{"--account <id>", "Cloudflare account id to deploy to (when a token reaches several)"},
 				{"--reauth", "enter new credentials, replacing the saved token / password"},
+				{"--yes", "SFTP only: trust an unknown server host key on first use without the y/N prompt (pass this when no human is at the keyboard to answer it)"},
 			},
-			Examples: []string{"crofty deploy", "crofty deploy --reauth"},
+			Examples: []string{"crofty deploy", "crofty deploy --reauth", "crofty deploy --yes"},
 		},
 		"credit": {
 			Sub: []agentCmd{
