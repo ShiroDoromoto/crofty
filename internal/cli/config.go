@@ -241,7 +241,7 @@ func noneIfEmpty(s []string) string {
 func creditLabel(v string) string {
 	switch v {
 	case "on":
-		return "on (\"Made with crofty\" in the footer)"
+		return "on (\"via crofty\" in the footer)"
 	case "off":
 		return "off"
 	default:

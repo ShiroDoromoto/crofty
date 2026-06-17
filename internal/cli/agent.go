@@ -114,14 +114,14 @@ func agentBrief() brief {
 	}
 
 	return brief{
-		Crofty:  "write Markdown; build and deploy a static site you own (a Hugo site with a frozen theme, published to Cloudflare Pages).",
+		Crofty:  "write Markdown; build and deploy a static site you own (a Hugo site with a frozen theme, published to Cloudflare Pages, or to your own server over SFTP/FTPS).",
 		Version: Version,
 		Workflow: []string{
 			"ask the author what they're making first, and show them the range — crofty is not blog-only (a portfolio, a shop, a band site, a small-business site, a link-in-bio… see \"Site pages\" → kinds). Their answer shapes what you scaffold and what goes in the nav.",
 			"crofty init — create the project (a folder the author fully owns). Ask which language(s) they write in, not just one: crofty is multilingual, so if they write in more than one (e.g. ja + en) set them all up now rather than defaulting to a single language — `crofty init --lang <primary>` then `crofty lang add <code>` for each other.",
 			"write Markdown — a blog post at content/posts/<slug>/index.md, or a page / collection (see \"Site pages\")",
 			"crofty preview — see it locally in a browser (no account). Once the author sees it, offer to change the look: the layout is frozen so it can't break, but the design is theirs — a ready-made preset (`crofty theme set quiet-paper` / `terminal`), then individual tokens (colour / type / reading-width via `crofty theme tokens`), and `crofty theme eject` as the full escape hatch. Don't assume the default is final.",
-			"crofty deploy — build the current site and publish it to Cloudflare Pages (deploy builds first, so a stale ./dist can't ship; `crofty build` alone is just to inspect ./dist)",
+			"crofty deploy — build the current site and publish it to the configured backend: Cloudflare Pages by default, or the author's own server over SFTP/FTPS (set at `crofty init --provider …` or switched later with `crofty connect --provider …`). deploy builds first, so a stale ./dist can't ship; `crofty build` alone is just to inspect ./dist.",
 		},
 		Commands: cmds,
 		Pages: pageGuide{

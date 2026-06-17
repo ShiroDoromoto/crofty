@@ -76,10 +76,10 @@ func runCredit(args []string) error {
 func printCreditStatus(v string) {
 	switch v {
 	case project.FooterCreditOn:
-		fmt.Println("Footer credit: on — \"Made with crofty\" shows in your footer.")
+		fmt.Println("Footer credit: on — \"via crofty\" shows in your footer.")
 		fmt.Println("Remove it anytime with 'crofty credit off' (nothing else changes).")
 	case project.FooterCreditOff:
-		fmt.Println("Footer credit: off — no \"Made with crofty\" line.")
+		fmt.Println("Footer credit: off — no \"via crofty\" line.")
 		fmt.Println("Add it anytime with 'crofty credit on'.")
 	default:
 		fmt.Println("Footer credit: not decided yet — crofty will ask once, on your first deploy.")
@@ -132,7 +132,7 @@ func askFooterCreditChoice(r io.Reader, w io.Writer) (string, bool) {
 	fmt.Fprintln(w)
 	fmt.Fprintln(w, "crofty can leave a single line in your site's footer:")
 	fmt.Fprintln(w)
-	fmt.Fprintln(w, "    Made with crofty")
+	fmt.Fprintln(w, "    via crofty")
 	fmt.Fprintln(w)
 	fmt.Fprintln(w, "Keep it only if crofty was useful and you'd point someone here.")
 	fmt.Fprintln(w, "Removing it changes nothing about how your site works — no feature is")

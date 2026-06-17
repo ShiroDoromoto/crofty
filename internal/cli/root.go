@@ -38,7 +38,7 @@ func commands() []command {
 		{"preview", "See your site in a browser (local, no account)", runPreview},
 		{"build", "Render the site to ./dist with Hugo", runBuild},
 		{"connect", "Set the deploy backend (cloudflare/sftp/ftps) and save its credentials", runConnect},
-		{"deploy", "Build the current site and publish it to Cloudflare Pages", runDeploy},
+		{"deploy", "Build the current site and deploy it (Cloudflare Pages, SFTP, or FTPS)", runDeploy},
 		{"reset", "Remove saved credentials (keychain) and state", runReset},
 		{"validate", "Check content against the crofty spec (v0)", runValidate},
 		{"doctor", "Check the built site against the output contract", runDoctor},
@@ -74,12 +74,12 @@ func Run(args []string) int {
 				case errors.Is(err, errSilent):
 					// command already printed its own report
 				case errors.Is(err, project.ErrNotFound):
-					// Turn the dead end into a doorway. A first-timer can't process
-					// much here, so emphasize one single next step.
-					fmt.Fprintln(os.Stderr, "\nThere's no crofty project here yet.")
-					fmt.Fprintln(os.Stderr, "\nTo start one, type this and press Enter:")
-					fmt.Fprintln(os.Stderr, "\n    crofty init")
-					fmt.Fprintln(os.Stderr, "\n(Already have a folder of Markdown? Run 'crofty init .' inside it.)")
+					// Turn the dead end into a doorway, but pick the doorway from the
+					// registry: someone who just ran `crofty init` and forgot to cd has
+					// a project already — telling them to `crofty init` again is wrong
+					// (it risks a second site). Only a true first-timer (no known
+					// projects) gets the "start one" path.
+					printNoProjectHere()
 				default:
 					fmt.Fprintf(os.Stderr, "\ncrofty: %v\n", err)
 				}
@@ -91,6 +91,33 @@ func Run(args []string) int {
 	fmt.Fprintf(os.Stderr, "crofty: unknown command %q\n\n", args[0])
 	usage()
 	return 2
+}
+
+// printNoProjectHere handles the "ran a project command outside any project"
+// dead end. It consults crofty's own registry so the guidance fits the person:
+// someone who already has projects (e.g. just ran `crofty init` and forgot to
+// cd) is pointed at those with a ready cd line; a true first-timer is pointed at
+// `crofty init`. Either way they leave with one concrete next step.
+func printNoProjectHere() {
+	projects := project.KnownProjects()
+	if len(projects) == 0 {
+		fmt.Fprintln(os.Stderr, "\nThere's no crofty project here yet.")
+		fmt.Fprintln(os.Stderr, "\nTo start one, type this and press Enter:")
+		fmt.Fprintln(os.Stderr, "\n    crofty init")
+		fmt.Fprintln(os.Stderr, "\n(Already have a folder of Markdown? Run 'crofty init .' inside it.)")
+		return
+	}
+	fmt.Fprintln(os.Stderr, "\nThere's no crofty project in this folder.")
+	if len(projects) == 1 {
+		fmt.Fprintln(os.Stderr, "\nYou already have one — cd into it first:")
+		fmt.Fprintf(os.Stderr, "\n    cd %s\n", projects[0])
+	} else {
+		fmt.Fprintln(os.Stderr, "\nYou already have these — cd into the one you want first:")
+		for _, p := range projects {
+			fmt.Fprintf(os.Stderr, "    cd %s\n", p)
+		}
+	}
+	fmt.Fprintln(os.Stderr, "\n(Starting a new site instead? Run 'crofty init'.)")
 }
 
 // findProject locates the crofty project containing the current directory, the
