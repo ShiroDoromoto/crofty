@@ -69,6 +69,27 @@ often outdated or not the extended build), so install
 [hugo-extended](https://gohugo.io/installation/linux/) yourself —
 `crofty build` / `crofty preview` will tell you if it's missing from your PATH.
 
+### Updating
+
+**macOS** — `brew upgrade` only compares against the formula Homebrew already
+has locally, so refresh the tap first to pick up a just-published release:
+
+```sh
+brew update && brew upgrade crofty
+```
+
+(Homebrew auto-refreshes taps roughly once a day, so `brew upgrade crofty` alone
+catches up eventually — `brew update` just pulls the latest version now.)
+
+**Windows** (Scoop):
+
+```sh
+scoop update && scoop update crofty
+```
+
+**Linux** — updates arrive with your package manager (`sudo apt update && sudo
+apt upgrade` / `sudo dnf update`).
+
 ## Quick start
 
 First, start a project (a website you own) — pick where it goes:
