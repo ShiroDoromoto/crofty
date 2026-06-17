@@ -85,7 +85,7 @@ func runConnect(args []string) error {
 		fmt.Println()
 		fmt.Printf("✓ Connected to Cloudflare account %s — token saved to your keychain.\n", acct.id)
 	case "sftp":
-		if _, err := connectSFTP(proj, cfg, true); err != nil {
+		if _, err := connectSFTP(proj, cfg, true, false); err != nil {
 			return err
 		}
 		fmt.Printf("\n✓ Saved SFTP credentials for %s@%s to your keychain.\n", cfg.Deploy.User, cfg.Deploy.Host)

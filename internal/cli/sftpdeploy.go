@@ -14,11 +14,13 @@ import (
 	"net"
 	"os"
 	"path"
+	"path/filepath"
 	"strconv"
 	"strings"
 
 	"github.com/pkg/sftp"
 	"golang.org/x/crypto/ssh"
+	"golang.org/x/crypto/ssh/knownhosts"
 	"golang.org/x/term"
 
 	"github.com/ShiroDoromoto/crofty/internal/project"
@@ -104,7 +106,9 @@ func sftpPutFile(client *sftp.Client, localPath, remotePath string) error {
 
 // connectSFTP resolves the SFTP destination from config + secrets, prompting on
 // a TTY for anything missing. reauth forces a fresh password/passphrase prompt.
-func connectSFTP(proj *project.Project, cfg *project.Config, reauth bool) (Deployer, error) {
+// autoAccept pins an unknown server host key without the interactive TOFU prompt
+// (the --yes path, for agent-driven deploys with no human to answer y/N).
+func connectSFTP(proj *project.Project, cfg *project.Config, reauth, autoAccept bool) (Deployer, error) {
 	sc := deployServerConfig{
 		host: cfg.Deploy.Host, port: cfg.Deploy.Port,
 		user: cfg.Deploy.User, path: cfg.Deploy.Path, keyPath: cfg.Deploy.KeyPath,
@@ -121,7 +125,7 @@ func connectSFTP(proj *project.Project, cfg *project.Config, reauth bool) (Deplo
 	if err != nil {
 		return nil, err
 	}
-	cb, err := sftpHostKeyCallback()
+	cb, err := sftpHostKeyCallback(autoAccept)
 	if err != nil {
 		return nil, err
 	}
@@ -202,10 +206,13 @@ func sftpKnownHostsPath() (string, error) {
 	return path.Join(dir, "known_hosts"), nil
 }
 
-// sftpHostKeyCallback verifies a server's host key against crofty's TOFU store:
-// a known match passes, a changed key is a hard error (possible MITM), and an
-// unknown key is shown (with fingerprint) for the user to accept once on a TTY.
-func sftpHostKeyCallback() (ssh.HostKeyCallback, error) {
+// sftpHostKeyCallback verifies a server's host key. A key crofty already pinned
+// passes; a host the user already trusts in their own ~/.ssh/known_hosts passes
+// (read-only — crofty never edits that file); a changed key is a hard error
+// (possible MITM); and a genuinely unknown key is pinned non-interactively when
+// autoAccept (--yes) is set, else shown (with fingerprint) for the user to accept
+// once on a TTY.
+func sftpHostKeyCallback(autoAccept bool) (ssh.HostKeyCallback, error) {
 	khPath, err := sftpKnownHostsPath()
 	if err != nil {
 		return nil, err
@@ -224,10 +231,25 @@ func sftpHostKeyCallback() (ssh.HostKeyCallback, error) {
 				"  If you trust it, remove the %s line from %s and retry.", hostname, fp, hostname, khPath)
 		}
 
-		// First time seeing this host: ask to trust it (TTY only).
+		// Honour a host the user already trusts in their own ~/.ssh/known_hosts —
+		// the common case where they've reached this server over ssh/sftp before,
+		// so there's nothing new to confirm. Read-only: crofty never writes there.
+		if trustedInUserKnownHosts(hostname, remote, key) {
+			return nil
+		}
+
+		// Genuinely unknown host. Pin it without prompting when --yes was passed
+		// (an agent-driven deploy has no human to answer y/N), …
+		if autoAccept {
+			if err := appendLine(khPath, line); err != nil {
+				return fmt.Errorf("recording the host key: %w", err)
+			}
+			return nil
+		}
+		// … otherwise ask to trust it (TTY only).
 		if !term.IsTerminal(int(os.Stdin.Fd())) {
 			return fmt.Errorf("unknown host key for %s (fingerprint %s) and no terminal to confirm it.\n"+
-				"  Run 'crofty deploy' yourself once to accept it.", hostname, fp)
+				"  Run 'crofty deploy' yourself once to accept it, or pass --yes to trust it on first use.", hostname, fp)
 		}
 		fmt.Printf("\nThe server %s is presenting host key fingerprint:\n  %s\n", hostname, fp)
 		fmt.Print("Trust this host and continue? [y/N]: ")
@@ -241,6 +263,27 @@ func sftpHostKeyCallback() (ssh.HostKeyCallback, error) {
 		}
 		return nil
 	}, nil
+}
+
+// trustedInUserKnownHosts reports whether the server's host key is already
+// trusted in the user's own ~/.ssh/known_hosts. It's consulted read-only, so a
+// host the user has reached over ssh/sftp before doesn't trigger crofty's own
+// trust-on-first-use prompt. Any parse/lookup failure (missing file, unknown
+// host, or a different key) returns false, falling back to crofty's TOFU store.
+func trustedInUserKnownHosts(hostname string, remote net.Addr, key ssh.PublicKey) bool {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return false
+	}
+	khPath := filepath.Join(home, ".ssh", "known_hosts")
+	if _, err := os.Stat(khPath); err != nil {
+		return false
+	}
+	cb, err := knownhosts.New(khPath)
+	if err != nil {
+		return false
+	}
+	return cb(hostname, remote, key) == nil
 }
 
 // matchKnownHost scans known_hosts content for hostname. found=false means the

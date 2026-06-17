@@ -22,9 +22,12 @@ func runDeploy(args []string) error {
 	var account string
 	var reauth bool
 	var skipBuild bool
+	var yes bool
 	fs.StringVar(&account, "account", "", "Cloudflare account id to deploy to (when a token reaches several)")
 	fs.BoolVar(&reauth, "reauth", false, "enter new credentials (replace the saved token / password)")
 	fs.BoolVar(&skipBuild, "skip-build", false, "publish the existing ./dist as-is, without rebuilding (e.g. CI built it)")
+	fs.BoolVar(&yes, "yes", false, "trust an unknown SFTP host key on first use without the y/N prompt")
+	fs.BoolVar(&yes, "y", false, "trust an unknown SFTP host key on first use without the y/N prompt")
 	fs.Usage = func() {
 		fmt.Println("crofty deploy — build the current site and publish it to your deploy provider")
 		fmt.Println("\nProviders (set at 'crofty init'): cloudflare (default), sftp, ftps")
@@ -32,6 +35,7 @@ func runDeploy(args []string) error {
 		fmt.Println("  crofty deploy                 # build, then publish (first run asks for credentials)")
 		fmt.Println("  crofty deploy --skip-build    # publish the existing ./dist without rebuilding")
 		fmt.Println("  crofty deploy --reauth        # replace saved credentials")
+		fmt.Println("  crofty deploy --yes           # SFTP: trust an unknown host key on first use (no y/N prompt)")
 		fmt.Println("  crofty deploy --account <id>  # Cloudflare: pick the account when a token reaches several")
 	}
 	if _, err := parseArgs(fs, args); err != nil {
@@ -92,7 +96,7 @@ func runDeploy(args []string) error {
 	// Resolve credentials (keychain / TTY prompt) and build the Deployer for the
 	// configured provider. Nothing but dist/ is ever uploaded — keys, .crofty/,
 	// and config stay local.
-	deployer, onDone, err := resolveDeployer(provider, proj, cfg, account, reauth)
+	deployer, onDone, err := resolveDeployer(provider, proj, cfg, account, reauth, yes)
 	if err != nil {
 		return err
 	}
@@ -114,7 +118,7 @@ func runDeploy(args []string) error {
 // Deployer plus an onDone callback that prints the provider's success message. A
 // nil Deployer (with nil error) means a choice was printed and nothing should be
 // deployed yet (Cloudflare's multi-account case).
-func resolveDeployer(provider string, proj *project.Project, cfg *project.Config, account string, reauth bool) (Deployer, func(url string), error) {
+func resolveDeployer(provider string, proj *project.Project, cfg *project.Config, account string, reauth, yes bool) (Deployer, func(url string), error) {
 	switch provider {
 	case "cloudflare":
 		if cfg.Deploy.Project == "" {
@@ -153,7 +157,7 @@ func resolveDeployer(provider string, proj *project.Project, cfg *project.Config
 		}, nil
 
 	case "sftp":
-		d, err := connectSFTP(proj, cfg, reauth)
+		d, err := connectSFTP(proj, cfg, reauth, yes)
 		if err != nil {
 			return nil, nil, err
 		}

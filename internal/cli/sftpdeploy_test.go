@@ -11,6 +11,7 @@ import (
 
 	"github.com/pkg/sftp"
 	"golang.org/x/crypto/ssh"
+	"golang.org/x/crypto/ssh/knownhosts"
 )
 
 // End-to-end: sftpDeployer.Deploy must connect over a real SSH transport,
@@ -155,6 +156,123 @@ func TestMatchKnownHost(t *testing.T) {
 	changed := host + " ssh-ed25519 AAAAKEYTWO"
 	if found, match := matchKnownHost(known, host, changed); !found || match {
 		t.Errorf("changed key: found=%v match=%v; want true,false", found, match)
+	}
+}
+
+// newTestHostKey returns a fresh ed25519 SSH public key for host-key tests.
+func newTestHostKey(t *testing.T) ssh.PublicKey {
+	t.Helper()
+	pub, _, err := ed25519.GenerateKey(rand.Reader)
+	if err != nil {
+		t.Fatal(err)
+	}
+	sshPub, err := ssh.NewPublicKey(pub)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return sshPub
+}
+
+// A host the user already trusts in their own ~/.ssh/known_hosts must pass
+// without crofty's trust-on-first-use prompt — the case behind the original
+// report, where the user had reached the server over sftp before but crofty
+// only consulted its own (empty) store and stalled at the y/N prompt.
+func TestTrustedInUserKnownHosts(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+
+	const addr = "127.0.0.1:2222"
+	remote := &net.TCPAddr{IP: net.ParseIP("127.0.0.1"), Port: 2222}
+	key := newTestHostKey(t)
+
+	if err := os.MkdirAll(filepath.Join(home, ".ssh"), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	khPath := filepath.Join(home, ".ssh", "known_hosts")
+	line := knownhosts.Line([]string{knownhosts.Normalize(addr)}, key)
+	if err := os.WriteFile(khPath, []byte(line+"\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	if !trustedInUserKnownHosts(addr, remote, key) {
+		t.Error("a host+key present in ~/.ssh/known_hosts must be trusted")
+	}
+	// A different key for the same host must NOT be trusted.
+	if trustedInUserKnownHosts(addr, remote, newTestHostKey(t)) {
+		t.Error("a different key for a known host must not be trusted")
+	}
+}
+
+// With no ~/.ssh/known_hosts at all, the consult is a clean miss (false), not an
+// error — crofty falls back to its own TOFU store.
+func TestTrustedInUserKnownHosts_NoFile(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+	remote := &net.TCPAddr{IP: net.ParseIP("127.0.0.1"), Port: 2222}
+	if trustedInUserKnownHosts("127.0.0.1:2222", remote, newTestHostKey(t)) {
+		t.Error("with no known_hosts file the consult must return false")
+	}
+}
+
+// --yes (autoAccept) pins an unknown host key without a prompt, so an
+// agent-driven deploy with no human to answer y/N doesn't stall. The pinned key
+// is recorded to crofty's own store and recognised on the next connection.
+func TestSFTPHostKeyCallback_AutoAccept(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+	const addr = "example.com:22"
+	remote := &net.TCPAddr{IP: net.ParseIP("203.0.113.7"), Port: 22}
+	key := newTestHostKey(t)
+
+	cb, err := sftpHostKeyCallback(true)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := cb(addr, remote, key); err != nil {
+		t.Fatalf("auto-accept must trust an unknown host: %v", err)
+	}
+	// The same key now passes from crofty's store on a second connection.
+	cb2, err := sftpHostKeyCallback(false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := cb2(addr, remote, key); err != nil {
+		t.Errorf("a previously pinned key must pass without prompting: %v", err)
+	}
+	// A changed key for that host is a hard error (possible MITM).
+	if err := cb2(addr, remote, newTestHostKey(t)); err == nil {
+		t.Error("a changed host key must be rejected")
+	}
+}
+
+// Honouring ~/.ssh/known_hosts must not write to crofty's own store: the user's
+// file stays the single source of truth and crofty records nothing.
+func TestSFTPHostKeyCallback_UserTrustedNotRecorded(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	const addr = "127.0.0.1:2222"
+	remote := &net.TCPAddr{IP: net.ParseIP("127.0.0.1"), Port: 2222}
+	key := newTestHostKey(t)
+
+	if err := os.MkdirAll(filepath.Join(home, ".ssh"), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	line := knownhosts.Line([]string{knownhosts.Normalize(addr)}, key)
+	if err := os.WriteFile(filepath.Join(home, ".ssh", "known_hosts"), []byte(line+"\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	// autoAccept=false: without the user's file this would error on a non-TTY,
+	// but the existing trust lets it pass.
+	cb, err := sftpHostKeyCallback(false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := cb(addr, remote, key); err != nil {
+		t.Fatalf("a host trusted in ~/.ssh/known_hosts must pass: %v", err)
+	}
+	if p, err := sftpKnownHostsPath(); err == nil {
+		if _, statErr := os.Stat(p); statErr == nil {
+			t.Errorf("crofty must not write its own store when honouring the user's known_hosts (found %s)", p)
+		}
 	}
 }
 
