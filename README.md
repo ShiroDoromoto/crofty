@@ -28,13 +28,37 @@ scoop bucket add crofty https://github.com/ShiroDoromoto/scoop-crofty
 scoop install crofty
 ```
 
-**Linux** (`.deb` / `.rpm` from the [releases page](https://github.com/ShiroDoromoto/crofty/releases)):
+**Linux** — add the repository so updates arrive with `apt upgrade` / `dnf update`:
 
 ```sh
 # Debian/Ubuntu
-sudo dpkg -i crofty_*_linux_amd64.deb
+echo "deb [trusted=yes] https://apt.fury.io/shirodoromoto/ * *" \
+  | sudo tee /etc/apt/sources.list.d/crofty.list
+sudo apt update && sudo apt install crofty
+```
+
+```sh
 # Fedora/RHEL
-sudo rpm -i crofty_*_linux_amd64.rpm
+sudo tee /etc/yum.repos.d/crofty.repo >/dev/null <<'EOF'
+[crofty]
+name=crofty
+baseurl=https://yum.fury.io/shirodoromoto/
+enabled=1
+gpgcheck=0
+EOF
+sudo dnf install crofty
+```
+
+The repos are served over HTTPS but are **not GPG-signed** (hence `trusted=yes` /
+`gpgcheck=0`): transport is encrypted, but there is no package-signature check.
+If you'd rather verify integrity yourself, grab the `.deb` / `.rpm` straight from
+the [releases page](https://github.com/ShiroDoromoto/crofty/releases) — each
+release ships a `checksums.txt` — and install it once (you then update by
+repeating this when a new release ships):
+
+```sh
+sudo dpkg -i crofty_*_linux_amd64.deb   # Debian/Ubuntu
+sudo rpm -i  crofty_*_linux_amd64.rpm   # Fedora/RHEL
 ```
 
 crofty wraps [Hugo](https://gohugo.io) at runtime for `build` and `preview`.
