@@ -114,6 +114,7 @@ crofty preview    # see your site in a browser (local, no account)
 crofty build      # render the site to ./dist with Hugo (to inspect it)
 crofty connect    # save the Cloudflare API token used to deploy
 crofty deploy     # build the current site and publish it to Cloudflare Pages
+crofty analytics  # read your traffic (GA4) and search performance (Search Console)
 crofty validate   # check content against the crofty spec (v0)
 crofty doctor     # check the built site against the output contract
 crofty share      # print a ready-to-post fragment (text + link) for any SNS
@@ -134,6 +135,14 @@ away, so readers come to your site for the rest. It touches no credentials and
 posts nothing — it prints the text (and, where a platform has one, a pre-filled
 compose link) for you or your agent to paste or open. `--json` emits the same
 fragments as structured output; `--plain` prints just the text and link.
+
+`crofty analytics` reads your own traffic from the command line: GA4 (who
+visited, what they read) and Search Console (search queries, pages, sitemaps),
+as a plain table or `--json` for an assistant. It uses your own Google
+service-account key, kept in your OS keychain, and talks to Google's APIs
+directly — there is no server of ours in between. Set the property in
+`hugo.yaml` (`params.crofty.analytics`); `crofty analytics status` walks you
+through the one-time setup and tells you the next missing step.
 
 A draft stays off your published site: add `draft: true` to a post's
 frontmatter, or give it a future `date` to schedule it ahead. `crofty build`
