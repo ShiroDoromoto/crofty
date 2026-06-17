@@ -67,6 +67,7 @@ func (c *Client) SearchAnalytics(site string, q GSCQuery) (*Report, error) {
 		Site:      site,
 		DateRange: DateRange{Start: start, End: end},
 		Headers:   headers,
+		Rows:      []map[string]string{}, // non-nil so empty serializes as [] not null
 	}
 	for _, r := range resp.Rows {
 		row := map[string]string{}
@@ -104,6 +105,9 @@ func (c *Client) Sites() ([]GSCSite, error) {
 	if err := json.Unmarshal(raw, &resp); err != nil {
 		return nil, err
 	}
+	if resp.SiteEntry == nil {
+		return []GSCSite{}, nil
+	}
 	return resp.SiteEntry, nil
 }
 
@@ -129,6 +133,9 @@ func (c *Client) Sitemaps(site string) ([]Sitemap, error) {
 	}
 	if err := json.Unmarshal(raw, &resp); err != nil {
 		return nil, err
+	}
+	if resp.Sitemap == nil {
+		return []Sitemap{}, nil
 	}
 	return resp.Sitemap, nil
 }

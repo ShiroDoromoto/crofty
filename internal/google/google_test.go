@@ -241,6 +241,30 @@ func TestRunReportSurfacesAPIError(t *testing.T) {
 	}
 }
 
+func TestEmptyRowsSerializeAsArray(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if strings.HasSuffix(r.URL.Path, "/token") {
+			fmt.Fprint(w, `{"access_token":"t"}`)
+			return
+		}
+		fmt.Fprint(w, `{"rows":[],"rowCount":0}`) // a new property: no data yet
+	}))
+	defer srv.Close()
+	pinClock(t, srv.URL, srv.URL)
+	c := NewClient(testCreds(t, srv.URL+"/token"))
+
+	rep, err := c.RunReport("1", GA4Query{Metrics: []string{"sessions"}, Start: "today", End: "today"})
+	if err != nil {
+		t.Fatalf("RunReport: %v", err)
+	}
+	// An empty result must be [] for agents, never null — a nil slice marshals
+	// to null, so the builder seeds a non-nil slice.
+	out, _ := json.Marshal(rep)
+	if !strings.Contains(string(out), `"rows":[]`) {
+		t.Errorf("empty rows should marshal as [], got: %s", out)
+	}
+}
+
 func TestResolveDate(t *testing.T) {
 	pinClock(t, "", "")
 	if got := ResolveDate("today"); got != "2026-06-17" {

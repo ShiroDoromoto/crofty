@@ -129,6 +129,7 @@ func (c *Client) RunReport(propertyID string, q GA4Query) (*Report, error) {
 		DateRange: DateRange{Start: q.Start, End: q.End},
 		Headers:   headers,
 		RowCount:  resp.RowCount,
+		Rows:      []map[string]string{}, // non-nil so empty serializes as [] not null
 	}
 	for _, r := range resp.Rows {
 		row := map[string]string{}
