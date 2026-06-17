@@ -250,6 +250,33 @@ func agentDetails() map[string]agentCmd {
 			},
 			Examples: []string{"crofty add mermaid", "crofty add analytics"},
 		},
+		"analytics": {
+			Flags: []agentFlag{
+				{"--start <date>", "window start: YYYY-MM-DD or NdaysAgo (default 28daysAgo)"},
+				{"--end <date>", "window end: YYYY-MM-DD or 'today' (default today)"},
+				{"--limit <n>", "max rows (default 25)"},
+				{"--json", "emit the report/status as JSON (for your agent)"},
+				{"--key <file>", "use a service-account JSON key at this path (else the saved one)"},
+				{"--metrics <m,m>", "ga4: raw query — comma-separated GA4 metrics (overrides the preset)"},
+				{"--dimensions <d,d>", "ga4: raw query — comma-separated GA4 dimensions"},
+				{"--order-by <name>", "ga4: metric or dimension to sort by, descending"},
+				{"--property <id>", "ga4: GA4 numeric property id (else hugo.yaml params.crofty.analytics.ga4_property)"},
+				{"--site <prop>", "search: Search Console property (else hugo.yaml …search_console)"},
+				{"--sitemap <url>", "search: sitemap URL for submit-sitemap (default: derived from the property)"},
+			},
+			Sub: []agentCmd{
+				{Name: "ga4 <report>", Summary: "GA4 (who visited, what they read). reports: top-pages, traffic, devices, countries, overview; or a raw --metrics/--dimensions query"},
+				{Name: "search <report>", Summary: "Search Console (how Google sees the site). reports: queries, pages, countries, devices, overview, sites, sitemaps, submit-sitemap"},
+				{Name: "connect", Summary: "load a service-account JSON key into the keychain (once): crofty analytics connect --key <sa.json>"},
+				{Name: "status", Summary: "what's configured (key, property) and the next setup step — read --json before driving"},
+			},
+			Examples: []string{
+				"crofty analytics status --json",
+				"crofty analytics ga4 top-pages --json",
+				"crofty analytics ga4 --metrics screenPageViews,activeUsers --dimensions pagePath",
+				"crofty analytics search queries --start 90daysAgo --json",
+			},
+		},
 		"lang": {
 			Sub: []agentCmd{
 				{Name: "add <code>", Summary: "add another language (any ISO 639 code: en, ja, fr, de, es, ko, zh…): writes a translated homepage stub + prints the hugo.yaml to paste"},
