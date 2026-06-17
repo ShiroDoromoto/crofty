@@ -33,6 +33,7 @@ func commands() []command {
 		{"agent", "Print the whole command surface for an AI to read first", runAgent},
 		{"config", "Show this project's current configuration", runConfig},
 		{"add", "Turn on a capability (mermaid, abc, highlight, raw-html, analytics)", runAdd},
+		{"analytics", "Read your traffic (GA4) and search performance (Search Console)", runAnalytics},
 		{"lang", "Add or list the languages your site is written in", runLang},
 		{"preview", "See your site in a browser (local, no account)", runPreview},
 		{"build", "Render the site to ./dist with Hugo", runBuild},
