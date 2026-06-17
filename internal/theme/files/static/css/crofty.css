@@ -9,7 +9,7 @@
   --bg: #fcfbf7;
   --accent: #5c4b37; /* warm earth — links on hover, rules */
   --code-bg: #f2efe7;
-  --measure: 34rem;
+  --measure: 46rem;
 
   /* Type is a token too: the reading column, the chrome (header/footer/meta),
      and code. Point --font-body at --font-mono for a terminal look, or swap in
@@ -54,9 +54,10 @@ body {
    serif reading column. */
 .site-header {
   display: flex;
+  flex-wrap: wrap;
   align-items: baseline;
   justify-content: space-between;
-  gap: 1rem;
+  gap: 0.5rem 1.5rem;
   padding-top: 2.5rem;
   padding-bottom: 1.25rem;
   font-family: var(--font-chrome);
@@ -72,8 +73,9 @@ body {
 
 .site-header-end {
   display: flex;
+  flex-wrap: wrap;
   align-items: baseline;
-  gap: 1.25rem;
+  gap: 0.5rem 1.25rem;
 }
 .site-header nav a {
   margin-left: 1rem;
@@ -230,7 +232,7 @@ th { font-weight: 600; }
   align-items: baseline;
   justify-content: space-between;
   gap: 0.3rem 1rem;
-  padding: 0.55rem 0;
+  padding: 0.8rem 0;
   border-bottom: 1px solid var(--line);
 }
 .post-list a { text-decoration: none; }
@@ -240,6 +242,15 @@ th { font-weight: 600; }
   font-variant: small-caps;
   letter-spacing: 0.04em;
   font-size: 0.9rem;
+}
+/* Optional one-line blurb under a list entry — shown only for posts that set a
+   description in front matter, so a title-only site stays spare by default. */
+.post-list-summary {
+  flex-basis: 100%;
+  margin: 0.25rem 0 0;
+  color: var(--muted);
+  font-size: 0.95rem;
+  line-height: 1.5;
 }
 
 .recent { margin-top: 3rem; }

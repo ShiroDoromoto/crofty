@@ -1,6 +1,6 @@
 ---
 title: "Diagrams with Mermaid"
-date: 2026-06-13T15:00:00+09:00
+date: 2026-06-07T09:00:00+09:00
 description: "Flowcharts, sequences, and more — drawn from a fenced code block."
 tags: ["markdown", "tools"]
 crofty:

@@ -8,7 +8,7 @@ crofty:
 ---
 
 [ABC notation](https://abcnotation.com/) is a plain-text way to write music. A
-project render hook (`render-codeblock-abc`) feeds an ```abc fenced block to
+project render hook (`render-codeblock-abc`) feeds an `abc` fenced code block to
 [abc.js](https://www.abcjs.net/), which engraves the score and adds a play
 button — all in the browser, from text in your post.
 

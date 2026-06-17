@@ -1,6 +1,6 @@
 ---
 title: "Images and figures"
-date: 2026-06-13T09:00:00+09:00
+date: 2026-06-04T09:00:00+09:00
 description: "How pictures, captions, and inline images render from plain Markdown."
 tags: ["markdown", "writing"]
 crofty:

@@ -12,6 +12,7 @@
       <li>
         <a href="{{ .RelPermalink }}">{{ .Title }}</a>
         {{ with .Date }}<time datetime="{{ .Format "2006-01-02" }}">{{ .Format "Jan 2, 2006" }}</time>{{ end }}
+        {{ with .Description }}<p class="post-list-summary">{{ . }}</p>{{ end }}
       </li>
       {{ end }}
     </ul>

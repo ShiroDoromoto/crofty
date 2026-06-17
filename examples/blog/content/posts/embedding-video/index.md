@@ -1,6 +1,6 @@
 ---
 title: "Embedding video"
-date: 2026-06-13T11:00:00+09:00
+date: 2026-05-31T09:00:00+09:00
 description: "Self-hosted video and platform embeds, both from Markdown."
 tags: ["markdown", "the-web"]
 crofty:

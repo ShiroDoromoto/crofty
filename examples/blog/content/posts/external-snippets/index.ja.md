@@ -1,6 +1,6 @@
 ---
 title: "貼り付けるだけの外部スニペット"
-date: 2026-06-13T13:00:00+09:00
+date: 2026-05-25T09:00:00+09:00
 description: "Gist、CodePen、ソーシャル埋め込み、iframe──web が手渡してくるコピペ HTML。"
 tags: ["the-web", "tools"]
 crofty:

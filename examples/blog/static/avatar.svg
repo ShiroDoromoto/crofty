@@ -1,4 +1,34 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="72" height="72" viewBox="0 0 72 72" role="img" aria-label="Wren Maddox">
-  <rect width="72" height="72" fill="#e8e2d6"/>
-  <text x="36" y="47" text-anchor="middle" font-family="Charter, Georgia, serif" font-size="32" fill="#5c4b37">W</text>
+  <style>
+    .mark { fill: #5c4b37; }
+    .eye { fill: #f2efe7; }
+    .twig { stroke: #5c4b37; }
+    @media (prefers-color-scheme: dark) {
+      .mark { fill: #c9b79a; }
+      .eye { fill: #221f18; }
+      .twig { stroke: #c9b79a; }
+    }
+  </style>
+  <!-- A small perched bird: a quiet mark for a quiet corner of the web. -->
+  <g class="mark">
+    <!-- beak -->
+    <path d="M23 31 L15 33.5 L23 36 Z"/>
+    <!-- plump body, head upper-left, short tail tapering to the lower-right -->
+    <path d="M23 30
+      C28 25 36 24 42 27
+      C49 30 53 36 53 42
+      C53 43 52 44 50 44
+      L43 43
+      C40 46 35 48 30 47
+      C24 46 20 41 20 35
+      C20 33 21 31 23 30 Z"/>
+    <!-- folded wing, a soft fold over the back -->
+    <path d="M34 31 C40 31 45 34 47 39 C42 39 37 37 33 34 Z" opacity="0.35"/>
+  </g>
+  <circle class="eye" cx="28" cy="31" r="1.8"/>
+  <g class="twig">
+    <line x1="18" y1="55" x2="46" y2="55" stroke-width="1.5" stroke-linecap="round"/>
+    <line x1="29" y1="47" x2="29" y2="55" stroke-width="1.3" stroke-linecap="round"/>
+    <line x1="35" y1="47" x2="35" y2="55" stroke-width="1.3" stroke-linecap="round"/>
+  </g>
 </svg>
