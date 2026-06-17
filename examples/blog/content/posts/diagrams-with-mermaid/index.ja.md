@@ -1,6 +1,6 @@
 ---
 title: "Mermaid で図を描く"
-date: 2026-06-13T15:00:00+09:00
+date: 2026-06-07T09:00:00+09:00
 description: "フローチャート、シーケンス、その他──フェンス付きコードブロックから描かれる。"
 tags: ["markdown", "tools"]
 crofty:

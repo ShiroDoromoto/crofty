@@ -35,7 +35,7 @@ const CustomCSS = `/* Your theme's editable surface.
   --accent: #5c4b37;    /* links on hover, active marks */
   --code-bg: #f2efe7;   /* inline code and code blocks */
 
-  --measure: 34rem;     /* reading-column width */
+  --measure: 46rem;     /* reading-column width */
 
   /* Point --font-body at var(--font-mono) for a terminal feel, or drop in any
      family. --font-chrome is the header/footer/meta face. */

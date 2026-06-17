@@ -8,7 +8,7 @@ crofty:
 ---
 
 [ABC notation](https://abcnotation.com/) は音楽を書くための素のテキストの方法だ。
-プロジェクトのレンダーフック（`render-codeblock-abc`）が ```abc フェンス付きブロックを
+プロジェクトのレンダーフック（`render-codeblock-abc`）が `abc` フェンス付きコードブロックを
 [abc.js](https://www.abcjs.net/) に送り、それが譜面を彫刻して再生ボタンを加える──
 すべてブラウザのなかで、あなたの記事のテキストから。
 

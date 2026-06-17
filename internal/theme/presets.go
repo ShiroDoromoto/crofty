@@ -58,7 +58,7 @@ const presetQuietPaper = `/* Preset: quiet-paper — a literary serif page, warm
   --accent: #4a6a52;    /* muted moss — links on hover, marks */
   --code-bg: #f2efe7;   /* inline code and code blocks */
 
-  --measure: 34rem;     /* reading-column width */
+  --measure: 46rem;     /* reading-column width */
 
   --font-body: Charter, "Iowan Old Style", "Palatino Linotype", Palatino, "Book Antiqua", Georgia, serif;
   --font-chrome: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
@@ -90,7 +90,7 @@ const presetTerminal = `/* Preset: terminal — a sans reading column with monos
   --accent: #157a5b;    /* functional green ("go") */
   --code-bg: #f1efe8;   /* inline code and code blocks */
 
-  --measure: 34rem;     /* reading-column width */
+  --measure: 46rem;     /* reading-column width */
 
   /* Body in system sans; header/footer/meta in monospace for the terminal feel. */
   --font-body: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;

@@ -1,6 +1,6 @@
 ---
 title: "External snippets that paste in"
-date: 2026-06-13T13:00:00+09:00
+date: 2026-05-25T09:00:00+09:00
 description: "Gists, CodePen, social embeds, and iframes — the copy-paste HTML the web hands you."
 tags: ["the-web", "tools"]
 crofty:

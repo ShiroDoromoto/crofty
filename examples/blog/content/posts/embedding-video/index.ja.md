@@ -1,6 +1,6 @@
 ---
 title: "動画を埋め込む"
-date: 2026-06-13T11:00:00+09:00
+date: 2026-05-31T09:00:00+09:00
 description: "自前ホスティングの動画とプラットフォームの埋め込み、どちらも Markdown から。"
 tags: ["markdown", "the-web"]
 crofty:

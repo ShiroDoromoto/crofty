@@ -1,6 +1,6 @@
 ---
 title: "Code, highlighted"
-date: 2026-06-13T17:00:00+09:00
+date: 2026-06-11T09:00:00+09:00
 description: "Fenced code blocks across languages, with syntax colours that follow light and dark mode."
 tags: ["markdown", "tools"]
 crofty:

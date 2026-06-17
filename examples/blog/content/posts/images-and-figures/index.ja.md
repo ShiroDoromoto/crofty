@@ -1,6 +1,6 @@
 ---
 title: "画像と図版"
-date: 2026-06-13T09:00:00+09:00
+date: 2026-06-04T09:00:00+09:00
 description: "写真、キャプション、インライン画像が素の Markdown からどうレンダリングされるか。"
 tags: ["markdown", "writing"]
 crofty:
