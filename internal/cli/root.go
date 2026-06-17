@@ -49,8 +49,17 @@ func commands() []command {
 	}
 }
 
-// Run dispatches a subcommand and returns a process exit code.
+// Run dispatches a subcommand and returns a process exit code. It funnels every
+// path through dispatch() so a single trailing update nudge covers them all
+// (version, help, discover and each command alike).
 func Run(args []string) int {
+	code := dispatch(args)
+	maybeNotifyUpdate()
+	return code
+}
+
+// dispatch is the command router; Run wraps it to append the update nudge.
+func dispatch(args []string) int {
 	if len(args) == 0 {
 		// A bare `crofty` is the cwd-independent entry point: it lists the
 		// author's projects (with absolute paths) so an agent started anywhere,
