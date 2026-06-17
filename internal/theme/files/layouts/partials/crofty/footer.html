@@ -13,8 +13,11 @@
   {{- /* Optional, removable "Made with crofty" referral — a quiet footnote, not a
      badge. Rendered only when the author kept it (crofty deploy / crofty credit on);
      the value rides in via .crofty/themes/crofty/data/crofty.yaml, written at build
-     time. Plain dofollow <a>, no image / JS / tracking (08 no-phone-home). */ -}}
+     time. Plain dofollow <a>, no image / JS / tracking (08 no-phone-home).
+     The label falls back to "via crofty" when the site's default language has no
+     translation table (the theme ships en + ja); without this an fr-/de-/… site
+     would render an empty link, since Hugo's i18n returns "" for a missing key. */ -}}
   {{- with hugo.Data.crofty }}{{ if eq .footer_credit "on" }}
-  <p class="site-footer-credit"><a href="https://crofty.site/" target="_blank" rel="noopener">{{ i18n "built_with_crofty" }}</a></p>
+  <p class="site-footer-credit"><a href="https://crofty.site/" target="_blank" rel="noopener">{{ with i18n "built_with_crofty" }}{{ . }}{{ else }}via crofty{{ end }}</a></p>
   {{- end }}{{ end }}
 </footer>
