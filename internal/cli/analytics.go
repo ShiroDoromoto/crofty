@@ -121,7 +121,7 @@ func runAnalyticsGA4(args []string) error {
 	}
 	rep, err := client.RunReport(propertyID, q)
 	if err != nil {
-		return guidanceForAPIError(err, client, "ga4")
+		return guidanceForAPIError(err, client, "ga4", propertyID, *asJSON)
 	}
 	return emitReport(rep, *asJSON, "GA4 has no data for this window yet (new property, or it lags a little)")
 }
@@ -172,13 +172,13 @@ func runAnalyticsSearch(args []string) error {
 	case "sites":
 		sites, err := client.Sites()
 		if err != nil {
-			return guidanceForAPIError(err, client, "search")
+			return guidanceForAPIError(err, client, "search", siteURL, *asJSON)
 		}
 		return emitSites(sites, *asJSON)
 	case "sitemaps":
 		sms, err := client.Sitemaps(siteURL)
 		if err != nil {
-			return guidanceForAPIError(err, client, "search")
+			return guidanceForAPIError(err, client, "search", siteURL, *asJSON)
 		}
 		return emitSitemaps(sms, siteURL, *asJSON)
 	case "submit-sitemap":
@@ -187,7 +187,7 @@ func runAnalyticsSearch(args []string) error {
 			feed = defaultSitemapURL(siteURL)
 		}
 		if err := client.SubmitSitemap(siteURL, feed); err != nil {
-			return guidanceForAPIError(err, client, "search")
+			return guidanceForAPIError(err, client, "search", siteURL, *asJSON)
 		}
 		fmt.Printf("submitted %s to %s\n", feed, siteURL)
 		fmt.Println("Google downloads it asynchronously — re-run 'crofty analytics search sitemaps' for status.")
@@ -201,7 +201,7 @@ func runAnalyticsSearch(args []string) error {
 	}
 	rep, err := client.SearchAnalytics(siteURL, google.GSCQuery{Dimensions: dims, Start: *start, End: *end, Limit: *limit})
 	if err != nil {
-		return guidanceForAPIError(err, client, "search")
+		return guidanceForAPIError(err, client, "search", siteURL, *asJSON)
 	}
 	return emitReport(rep, *asJSON, "no search data yet — normal for a new/low-traffic property (GSC also lags ~2-3 days)")
 }
