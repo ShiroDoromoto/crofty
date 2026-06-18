@@ -46,10 +46,10 @@ func testCreds(t *testing.T, tokenURL string) *Credentials {
 // pinClock fixes nowFunc and the base URLs for one test, restoring them after.
 func pinClock(t *testing.T, ga4, gsc string) {
 	t.Helper()
-	prevNow, prevGA4, prevGSC, prevAdmin := nowFunc, ga4Base, gscBase, ga4AdminBase
+	prevNow, prevGA4, prevGSC := nowFunc, ga4Base, gscBase
 	nowFunc = func() time.Time { return time.Date(2026, 6, 17, 0, 0, 0, 0, time.UTC) }
-	ga4Base, gscBase, ga4AdminBase = ga4, gsc, ga4 // Admin API shares the GA4 test server
-	t.Cleanup(func() { nowFunc, ga4Base, gscBase, ga4AdminBase = prevNow, prevGA4, prevGSC, prevAdmin })
+	ga4Base, gscBase = ga4, gsc
+	t.Cleanup(func() { nowFunc, ga4Base, gscBase = prevNow, prevGA4, prevGSC })
 }
 
 func TestRunReport(t *testing.T) {
@@ -187,36 +187,6 @@ func TestSitesAndSitemaps(t *testing.T) {
 	sm, err := c.Sitemaps("sc-domain:example.com")
 	if err != nil || len(sm) != 1 || sm[0].Path == "" {
 		t.Fatalf("Sitemaps: %v / %+v", err, sm)
-	}
-}
-
-func TestAccountSummaries(t *testing.T) {
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		switch {
-		case strings.HasSuffix(r.URL.Path, "/token"):
-			fmt.Fprint(w, `{"access_token":"t"}`)
-		case strings.HasSuffix(r.URL.Path, "/accountSummaries"):
-			// Two properties under one account; ids come back as "properties/<n>".
-			fmt.Fprint(w, `{"accountSummaries":[{"propertySummaries":[
-				{"property":"properties/123456789","displayName":"example.com"},
-				{"property":"properties/987654321","displayName":"example.org"}]}]}`)
-		default:
-			t.Errorf("unexpected path %s", r.URL.Path)
-		}
-	}))
-	defer srv.Close()
-	pinClock(t, srv.URL, srv.URL)
-	c := NewClient(testCreds(t, srv.URL+"/token"))
-
-	props, err := c.AccountSummaries()
-	if err != nil {
-		t.Fatalf("AccountSummaries: %v", err)
-	}
-	if len(props) != 2 {
-		t.Fatalf("want 2 properties, got %d: %+v", len(props), props)
-	}
-	if props[0].ID != "123456789" || props[0].Name != "example.com" {
-		t.Errorf("first property = %+v, want id stripped of properties/ prefix", props[0])
 	}
 }
 
