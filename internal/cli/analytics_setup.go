@@ -1,9 +1,11 @@
 package cli
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"os"
+	"strings"
 
 	"github.com/ShiroDoromoto/crofty/internal/google"
 )
@@ -79,33 +81,166 @@ func printSetupKeyMissing() {
 	fmt.Fprintln(w, "       crofty analytics connect --key ~/Downloads/your-key.json")
 }
 
-// guidanceForAPIError is steps 3 and 4: the call reached Google but came back
-// 403. Either the API isn't enabled (turn it on) or the service account isn't a
-// member of the property (grant it access) — and crofty knows the project and
-// the SA email from the loaded key, so it fills them in.
-func guidanceForAPIError(err error, c *google.Client, source string) error {
+// guidanceForAPIError is steps 3 and 4: the call reached Google but came back an
+// error. Either the API isn't enabled (turn it on), the configured property id
+// isn't one the key can see (fix the id), or the service account isn't a member
+// (grant it access) — and crofty knows the project and the SA email from the
+// loaded key, so it fills them in. target is the configured property/site the
+// failing call used (for context and for the wrong-id check); asJSON emits a
+// structured failure an agent can branch on instead of scraping prose.
+//
+// Whatever the cause, Google's own message is carried through (never swallowed):
+// it's the one place "User does not have sufficient permissions ... see
+// property-id" reaches the author.
+func guidanceForAPIError(err error, c *google.Client, source, target string, asJSON bool) error {
 	var ae *google.APIError
 	if !errors.As(err, &ae) {
 		return err
 	}
-	w := os.Stderr
 	switch {
 	case ae.Disabled():
-		fmt.Fprintf(w, "The %s API isn't enabled in your project yet.\n", sourceLabel(source))
-		fmt.Fprintf(w, "\n  Enable it: %s\n", enableAPIURL(apiHost(source), c.ProjectID()))
-		fmt.Fprintln(w, "  (it can take a minute to take effect, then re-run this command)")
+		return emitAPIError(asJSON, apiErrorBody{
+			Source:      source,
+			Kind:        "disabled",
+			GoogleError: googleErrorOf(ae),
+			Next:        "enable the API: " + enableAPIURL(apiHost(source), c.ProjectID()),
+		}, []string{
+			fmt.Sprintf("The %s API isn't enabled in your project yet.", sourceLabel(source)),
+			"",
+			"  Enable it: " + enableAPIURL(apiHost(source), c.ProjectID()),
+			"  (it can take a minute to take effect, then re-run this command)",
+		}, ae)
 	case ae.Forbidden():
-		fmt.Fprintf(w, "The service account can't access this %s property yet.\n", sourceLabel(source))
-		fmt.Fprintf(w, "\n  Add this email as a viewer:\n    %s\n", c.Email())
-		if source == "search" {
-			fmt.Fprintf(w, "\n  Search Console → Settings → Users and permissions: %s\n", gscUsersURL)
-		} else {
-			fmt.Fprintf(w, "\n  GA4 → Admin → Property access management → add as Viewer: %s\n", ga4AdminURL)
+		// Distinguish "wrong destination" from "no access": Google returns the same
+		// PERMISSION_DENIED for a non-existent id and an unauthorized one, so ask the
+		// Admin API what this key can actually reach and compare. Only when the list
+		// call succeeds and the configured id is genuinely absent — otherwise fall
+		// through to the access guidance (a failed list, e.g. Admin API not enabled,
+		// must not mask a real permission problem).
+		if source == "ga4" && target != "" {
+			if props, lerr := c.AccountSummaries(); lerr == nil && len(props) > 0 && !containsProperty(props, target) {
+				return ga4WrongPropertyGuidance(ae, c.Email(), target, props, asJSON)
+			}
 		}
+		return accessGuidance(ae, c.Email(), source, target, asJSON)
 	default:
-		fmt.Fprintf(w, "%s API error: %s\n", sourceLabel(source), ae.Error())
+		return emitAPIError(asJSON, apiErrorBody{
+			Source:      source,
+			Kind:        "apiError",
+			GoogleError: googleErrorOf(ae),
+		}, []string{fmt.Sprintf("%s API error: %s", sourceLabel(source), ae.Error())}, ae)
+	}
+}
+
+// ga4WrongPropertyGuidance is the case the 403 plumbing exists for: the
+// configured ga4_property is not one the service account can see. Adding a viewer
+// won't fix it — the id is wrong. So crofty lists the ids the key actually reaches
+// and points at hugo.yaml.
+func ga4WrongPropertyGuidance(ae *google.APIError, email, target string, props []google.GA4Property, asJSON bool) error {
+	lines := []string{
+		fmt.Sprintf("The configured GA4 property %s isn't one this service account can see.", target),
+		fmt.Sprintf("This service account (%s) currently has access to:", email),
+	}
+	for _, p := range props {
+		lines = append(lines, fmt.Sprintf("    %s  %s", p.ID, p.Name))
+	}
+	lines = append(lines,
+		"",
+		"Update params.crofty.analytics.ga4_property in hugo.yaml to the right id",
+		fmt.Sprintf("(crofty doesn't edit hugo.yaml for you), or grant the SA access to %s", target),
+		"in GA4 → Admin → Property access management.",
+	)
+	return emitAPIError(asJSON, apiErrorBody{
+		Source:              "ga4",
+		Kind:                "wrongProperty",
+		GoogleError:         googleErrorOf(ae),
+		ConfiguredProperty:  target,
+		AvailableProperties: props,
+		Next:                "set ga4_property in hugo.yaml to one of availableProperties",
+	}, lines, ae)
+}
+
+// accessGuidance is the genuine "not a member yet (or role still propagating)"
+// 403 — the one the viewer instruction actually fixes.
+func accessGuidance(ae *google.APIError, email, source, target string, asJSON bool) error {
+	lines := []string{
+		fmt.Sprintf("The service account can't access this %s property yet.", sourceLabel(source)),
+		"",
+		"  Add this email as a viewer:",
+		"    " + email,
+	}
+	if source == "search" {
+		lines = append(lines, "", "  Search Console → Settings → Users and permissions: "+gscUsersURL)
+	} else {
+		lines = append(lines, "", "  GA4 → Admin → Property access management → add as Viewer: "+ga4AdminURL)
+	}
+	return emitAPIError(asJSON, apiErrorBody{
+		Source:             source,
+		Kind:               "forbidden",
+		GoogleError:        googleErrorOf(ae),
+		ConfiguredProperty: target,
+		Next:               "grant the service account viewer access, then wait a minute and re-run",
+	}, lines, ae)
+}
+
+// apiErrorBody is the structured failure --json mode emits so an agent can branch
+// on the real cause (kind) and read Google's own envelope (googleError) instead
+// of scraping prose. It goes to stdout — so --json always yields parseable stdout,
+// success or failure — and the command still exits non-zero.
+type apiErrorBody struct {
+	Source              string               `json:"source"`
+	Kind                string               `json:"kind"` // disabled|wrongProperty|forbidden|apiError
+	GoogleError         googleErrorJSON      `json:"googleError"`
+	ConfiguredProperty  string               `json:"configuredProperty,omitempty"`
+	AvailableProperties []google.GA4Property `json:"availableProperties,omitempty"`
+	Next                string               `json:"next,omitempty"`
+}
+
+type googleErrorJSON struct {
+	Code    int    `json:"code"`
+	Status  string `json:"status,omitempty"`
+	Message string `json:"message,omitempty"`
+}
+
+func googleErrorOf(ae *google.APIError) googleErrorJSON {
+	return googleErrorJSON{Code: ae.Code, Status: ae.Status, Message: ae.Message}
+}
+
+// emitAPIError prints the failure: structured JSON to stdout under --json, else
+// the human lines to stderr with Google's raw message appended so its "check the
+// property-id" hint never gets lost. Always returns errSilent (the command has
+// reported; the harness exits non-zero without re-printing).
+func emitAPIError(asJSON bool, body apiErrorBody, lines []string, ae *google.APIError) error {
+	if asJSON {
+		enc := json.NewEncoder(os.Stdout)
+		enc.SetIndent("", "  ")
+		_ = enc.Encode(struct {
+			Error apiErrorBody `json:"error"`
+		}{body})
+		return errSilent
+	}
+	w := os.Stderr
+	for _, l := range lines {
+		fmt.Fprintln(w, l)
+	}
+	// The apiError branch already shows ae.Error() (== Message) in its lines;
+	// every other branch substitutes crofty's own prose, so carry Google's real
+	// message through there. Skip the synthetic "Google API error (HTTP n)" stand-in
+	// parseAPIError uses when Google sent no message of its own.
+	if body.Kind != "apiError" && ae.Message != "" && !strings.HasPrefix(ae.Message, "Google API error (HTTP") {
+		fmt.Fprintf(w, "\n  Google said: %s\n", ae.Message)
 	}
 	return errSilent
+}
+
+// containsProperty reports whether id is among the reachable GA4 properties.
+func containsProperty(props []google.GA4Property, id string) bool {
+	for _, p := range props {
+		if p.ID == id {
+			return true
+		}
+	}
+	return false
 }
 
 func sourceLabel(source string) string {

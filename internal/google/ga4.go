@@ -3,7 +3,13 @@ package google
 import (
 	"encoding/json"
 	"fmt"
+	"net/url"
+	"strings"
 )
+
+// ga4AdminBase is the GA4 Admin API host (separate from the Data API host). A
+// package var so tests can point it at an httptest server.
+var ga4AdminBase = "https://analyticsadmin.googleapis.com"
 
 // GA4Preset is a named runReport query — the common questions, so the author (or
 // their agent) doesn't have to know GA4's metric/dimension vocabulary. Order is
@@ -149,6 +155,59 @@ func (c *Client) RunReport(propertyID string, q GA4Query) (*Report, error) {
 		rep.RowCount = len(rep.Rows)
 	}
 	return rep, nil
+}
+
+// GA4Property is one GA4 property the service account can reach: its numeric id
+// and display name. The GA4 analog of GSCSite — the "what can this key see" list.
+type GA4Property struct {
+	ID   string `json:"id"`   // numeric property id, e.g. "123456789"
+	Name string `json:"name"` // display name, e.g. "example.com"
+}
+
+// AccountSummaries lists the GA4 properties the service account can actually
+// reach, via the Admin API accountSummaries.list (readable with the same
+// analytics.readonly scope the reports use). It's how a 403 can tell "wrong
+// property id" from "no access": Google returns the same PERMISSION_DENIED for a
+// non-existent id and an unauthorized one, but this list is the ground truth of
+// what the key sees. Paginates until exhausted.
+func (c *Client) AccountSummaries() ([]GA4Property, error) {
+	var out []GA4Property
+	pageToken := ""
+	for {
+		u := ga4AdminBase + "/v1beta/accountSummaries?pageSize=200"
+		if pageToken != "" {
+			u += "&pageToken=" + url.QueryEscape(pageToken)
+		}
+		raw, err := c.do(ScopeAnalyticsRead, "GET", u, nil)
+		if err != nil {
+			return nil, err
+		}
+		var resp struct {
+			AccountSummaries []struct {
+				PropertySummaries []struct {
+					Property    string `json:"property"` // "properties/123"
+					DisplayName string `json:"displayName"`
+				} `json:"propertySummaries"`
+			} `json:"accountSummaries"`
+			NextPageToken string `json:"nextPageToken"`
+		}
+		if err := json.Unmarshal(raw, &resp); err != nil {
+			return nil, err
+		}
+		for _, a := range resp.AccountSummaries {
+			for _, p := range a.PropertySummaries {
+				out = append(out, GA4Property{
+					ID:   strings.TrimPrefix(p.Property, "properties/"),
+					Name: p.DisplayName,
+				})
+			}
+		}
+		if resp.NextPageToken == "" {
+			break
+		}
+		pageToken = resp.NextPageToken
+	}
+	return out, nil
 }
 
 // ga4OrderByFor turns the requested sort key into the API's orderBys entry,
