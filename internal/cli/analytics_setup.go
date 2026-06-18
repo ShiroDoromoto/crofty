@@ -82,16 +82,16 @@ func printSetupKeyMissing() {
 }
 
 // guidanceForAPIError is steps 3 and 4: the call reached Google but came back an
-// error. Either the API isn't enabled (turn it on), the configured property id
-// isn't one the key can see (fix the id), or the service account isn't a member
-// (grant it access) — and crofty knows the project and the SA email from the
-// loaded key, so it fills them in. target is the configured property/site the
-// failing call used (for context and for the wrong-id check); asJSON emits a
-// structured failure an agent can branch on instead of scraping prose.
+// error. crofty's job here is not to guess the single cause — Google returns the
+// same 403 for a wrong/non-existent id and for missing access, on purpose — but
+// to hand the caller (often the author's AI agent) everything it needs to reason
+// about the cause itself: which property was tried, Google's own message, and the
+// candidate causes spelled out. target is the configured property/site the failing
+// call used; asJSON emits the structured form an agent can branch on.
 //
-// Whatever the cause, Google's own message is carried through (never swallowed):
-// it's the one place "User does not have sufficient permissions ... see
-// property-id" reaches the author.
+// Google's own message is always carried through (never swallowed): it's the one
+// place "User does not have sufficient permissions ... see property-id" reaches
+// the caller.
 func guidanceForAPIError(err error, c *google.Client, source, target string, asJSON bool) error {
 	var ae *google.APIError
 	if !errors.As(err, &ae) {
@@ -111,18 +111,7 @@ func guidanceForAPIError(err error, c *google.Client, source, target string, asJ
 			"  (it can take a minute to take effect, then re-run this command)",
 		}, ae)
 	case ae.Forbidden():
-		// Distinguish "wrong destination" from "no access": Google returns the same
-		// PERMISSION_DENIED for a non-existent id and an unauthorized one, so ask the
-		// Admin API what this key can actually reach and compare. Only when the list
-		// call succeeds and the configured id is genuinely absent — otherwise fall
-		// through to the access guidance (a failed list, e.g. Admin API not enabled,
-		// must not mask a real permission problem).
-		if source == "ga4" && target != "" {
-			if props, lerr := c.AccountSummaries(); lerr == nil && len(props) > 0 && !containsProperty(props, target) {
-				return ga4WrongPropertyGuidance(ae, c.Email(), target, props, asJSON)
-			}
-		}
-		return accessGuidance(ae, c.Email(), source, target, asJSON)
+		return forbiddenGuidance(ae, c.Email(), source, target, asJSON)
 	default:
 		return emitAPIError(asJSON, apiErrorBody{
 			Source:      source,
@@ -132,68 +121,78 @@ func guidanceForAPIError(err error, c *google.Client, source, target string, asJ
 	}
 }
 
-// ga4WrongPropertyGuidance is the case the 403 plumbing exists for: the
-// configured ga4_property is not one the service account can see. Adding a viewer
-// won't fix it — the id is wrong. So crofty lists the ids the key actually reaches
-// and points at hugo.yaml.
-func ga4WrongPropertyGuidance(ae *google.APIError, email, target string, props []google.GA4Property, asJSON bool) error {
-	lines := []string{
-		fmt.Sprintf("The configured GA4 property %s isn't one this service account can see.", target),
-		fmt.Sprintf("This service account (%s) currently has access to:", email),
-	}
-	for _, p := range props {
-		lines = append(lines, fmt.Sprintf("    %s  %s", p.ID, p.Name))
-	}
-	lines = append(lines,
-		"",
-		"Update params.crofty.analytics.ga4_property in hugo.yaml to the right id",
-		fmt.Sprintf("(crofty doesn't edit hugo.yaml for you), or grant the SA access to %s", target),
-		"in GA4 → Admin → Property access management.",
-	)
-	return emitAPIError(asJSON, apiErrorBody{
-		Source:              "ga4",
-		Kind:                "wrongProperty",
-		GoogleError:         googleErrorOf(ae),
-		ConfiguredProperty:  target,
-		AvailableProperties: props,
-		Next:                "set ga4_property in hugo.yaml to one of availableProperties",
-	}, lines, ae)
-}
-
-// accessGuidance is the genuine "not a member yet (or role still propagating)"
-// 403 — the one the viewer instruction actually fixes.
-func accessGuidance(ae *google.APIError, email, source, target string, asJSON bool) error {
-	lines := []string{
-		fmt.Sprintf("The service account can't access this %s property yet.", sourceLabel(source)),
-		"",
-		"  Add this email as a viewer:",
-		"    " + email,
-	}
+// forbiddenGuidance handles the 403 that isn't a disabled API. Two different
+// problems land here as the identical PERMISSION_DENIED — a wrong/non-existent
+// property id, and a service account that simply isn't a member — and Google won't
+// say which (it hides id existence on purpose). So crofty doesn't pretend to know:
+// it names both candidate causes, points at how to check each, and lets the caller
+// (or its agent) decide. The wrong-id case is listed first because it's the easy
+// one to overlook (the old "add a viewer" wording sent people only down the access
+// path).
+func forbiddenGuidance(ae *google.APIError, email, source, target string, asJSON bool) error {
 	if source == "search" {
-		lines = append(lines, "", "  Search Console → Settings → Users and permissions: "+gscUsersURL)
-	} else {
-		lines = append(lines, "", "  GA4 → Admin → Property access management → add as Viewer: "+ga4AdminURL)
+		causes := []string{
+			"the configured Search Console property is wrong or doesn't exist",
+			"this service account isn't a user on the property",
+			"access was granted but is still propagating",
+		}
+		lines := []string{
+			fmt.Sprintf("Search Console returned 403 for %s.", orDash(target)),
+			"Google returns the same 403 whether the property is wrong and whether the",
+			"service account just isn't a user, so check both:",
+			"",
+			fmt.Sprintf("  1. Is %s the exact property string? (a domain property looks like", orDash(target)),
+			"     sc-domain:your-site.com). Fix search_console under params.crofty.analytics",
+			"     in hugo.yaml if not, or run 'crofty analytics search sites' to list the",
+			"     properties this key can reach.",
+			"  2. Is this service account a user on it?",
+			"       " + email,
+			"     Search Console → Settings → Users and permissions: " + gscUsersURL,
+		}
+		return emitAPIError(asJSON, apiErrorBody{
+			Source: source, Kind: "forbidden", GoogleError: googleErrorOf(ae),
+			ConfiguredProperty: target, ServiceAccount: email, PossibleCauses: causes,
+			Next: "verify the property string ('crofty analytics search sites' lists reachable ones) and that the service account is a user",
+		}, lines, ae)
+	}
+	causes := []string{
+		"the configured GA4 property id is wrong or doesn't exist",
+		"this service account isn't a member (viewer) of the property",
+		"access was granted but is still propagating",
+	}
+	lines := []string{
+		fmt.Sprintf("GA4 returned 403 for property %s.", orDash(target)),
+		"Google returns the same 403 whether the id is wrong and whether the service",
+		"account just isn't a member, so check both:",
+		"",
+		fmt.Sprintf("  1. Is %s the right Property ID?", orDash(target)),
+		`     GA4 → Admin → Property settings → "Property ID" (a number, not the`,
+		"     G-XXXXXXX measurement tag). Fix ga4_property under params.crofty.analytics",
+		"     in hugo.yaml if not.",
+		"  2. Is this service account a Viewer on it?",
+		"       " + email,
+		"     GA4 → Admin → Property access management → add as Viewer: " + ga4AdminURL,
 	}
 	return emitAPIError(asJSON, apiErrorBody{
-		Source:             source,
-		Kind:               "forbidden",
-		GoogleError:        googleErrorOf(ae),
-		ConfiguredProperty: target,
-		Next:               "grant the service account viewer access, then wait a minute and re-run",
+		Source: source, Kind: "forbidden", GoogleError: googleErrorOf(ae),
+		ConfiguredProperty: target, ServiceAccount: email, PossibleCauses: causes,
+		Next: "verify the property id (GA4 → Admin → Property settings) and that the service account is a Viewer",
 	}, lines, ae)
 }
 
 // apiErrorBody is the structured failure --json mode emits so an agent can branch
-// on the real cause (kind) and read Google's own envelope (googleError) instead
-// of scraping prose. It goes to stdout — so --json always yields parseable stdout,
-// success or failure — and the command still exits non-zero.
+// on the error class (kind), read Google's own envelope (googleError), and reason
+// about the candidate causes (possibleCauses) instead of scraping prose. It goes
+// to stdout — so --json always yields parseable stdout, success or failure — and
+// the command still exits non-zero.
 type apiErrorBody struct {
-	Source              string               `json:"source"`
-	Kind                string               `json:"kind"` // disabled|wrongProperty|forbidden|apiError
-	GoogleError         googleErrorJSON      `json:"googleError"`
-	ConfiguredProperty  string               `json:"configuredProperty,omitempty"`
-	AvailableProperties []google.GA4Property `json:"availableProperties,omitempty"`
-	Next                string               `json:"next,omitempty"`
+	Source             string          `json:"source"`
+	Kind               string          `json:"kind"` // disabled|forbidden|apiError
+	GoogleError        googleErrorJSON `json:"googleError"`
+	ConfiguredProperty string          `json:"configuredProperty,omitempty"`
+	ServiceAccount     string          `json:"serviceAccount,omitempty"`
+	PossibleCauses     []string        `json:"possibleCauses,omitempty"`
+	Next               string          `json:"next,omitempty"`
 }
 
 type googleErrorJSON struct {
@@ -231,16 +230,6 @@ func emitAPIError(asJSON bool, body apiErrorBody, lines []string, ae *google.API
 		fmt.Fprintf(w, "\n  Google said: %s\n", ae.Message)
 	}
 	return errSilent
-}
-
-// containsProperty reports whether id is among the reachable GA4 properties.
-func containsProperty(props []google.GA4Property, id string) bool {
-	for _, p := range props {
-		if p.ID == id {
-			return true
-		}
-	}
-	return false
 }
 
 func sourceLabel(source string) string {

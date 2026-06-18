@@ -114,19 +114,15 @@ func TestAnalyticsUnknownSubcommand(t *testing.T) {
 	}
 }
 
-// A 403 against a property the key can't see must be diagnosed as a wrong id, not
-// as missing access — the regression this whole change exists for. The JSON form
-// (what an agent reads) must carry kind=wrongProperty, the configured id, the
-// reachable candidates, and Google's own message.
-func TestGA4WrongPropertyGuidanceJSON(t *testing.T) {
+// A 403 must not be pinned to a single cause: Google returns the same error for a
+// wrong id and for missing access, so crofty enumerates both so the caller (its
+// AI agent) can reason. The JSON form must carry kind=forbidden, the property that
+// was tried, the candidate causes, and Google's own message.
+func TestForbiddenGuidanceJSON(t *testing.T) {
 	ae := &google.APIError{Code: 403, Status: "PERMISSION_DENIED",
 		Message: "User does not have sufficient permissions for this property."}
-	props := []google.GA4Property{
-		{ID: "123456789", Name: "example.com"},
-		{ID: "987654321", Name: "example.org"},
-	}
 	out, _ := captureOutput(t, func() {
-		_ = ga4WrongPropertyGuidance(ae, "sa@example.iam.gserviceaccount.com", "555555555", props, true)
+		_ = forbiddenGuidance(ae, "sa@example.iam.gserviceaccount.com", "ga4", "555555555", true)
 	})
 	var got struct {
 		Error apiErrorBody `json:"error"`
@@ -134,53 +130,43 @@ func TestGA4WrongPropertyGuidanceJSON(t *testing.T) {
 	if err := json.Unmarshal([]byte(out), &got); err != nil {
 		t.Fatalf("emitted non-JSON under --json: %v\n%s", err, out)
 	}
-	if got.Error.Kind != "wrongProperty" {
-		t.Errorf("kind = %q, want wrongProperty", got.Error.Kind)
+	if got.Error.Kind != "forbidden" {
+		t.Errorf("kind = %q, want forbidden", got.Error.Kind)
 	}
 	if got.Error.ConfiguredProperty != "555555555" {
 		t.Errorf("configuredProperty = %q", got.Error.ConfiguredProperty)
 	}
-	if len(got.Error.AvailableProperties) != 2 || got.Error.AvailableProperties[0].ID != "123456789" {
-		t.Errorf("availableProperties = %+v", got.Error.AvailableProperties)
+	if len(got.Error.PossibleCauses) < 2 {
+		t.Errorf("want the candidate causes enumerated, got %+v", got.Error.PossibleCauses)
+	}
+	if got.Error.ServiceAccount == "" {
+		t.Errorf("serviceAccount should be set so an agent can suggest granting it")
 	}
 	if !strings.Contains(got.Error.GoogleError.Message, "sufficient permissions") {
 		t.Errorf("googleError.message not carried through: %q", got.Error.GoogleError.Message)
 	}
 }
 
-// The wrong-property text form must list the candidate ids and must NOT tell the
-// author to add a viewer (the misdirection that cost time in the incident).
-func TestGA4WrongPropertyGuidanceText(t *testing.T) {
+// The text form must surface BOTH the wrong-id check and the access check (the old
+// wording named only access, which sent the author down the wrong path), plus
+// Google's own message.
+func TestForbiddenGuidanceTextNamesBothCauses(t *testing.T) {
 	ae := &google.APIError{Code: 403, Status: "PERMISSION_DENIED",
 		Message: "User does not have sufficient permissions for this property."}
-	props := []google.GA4Property{{ID: "123456789", Name: "example.com"}}
 	_, errOut := captureOutput(t, func() {
-		_ = ga4WrongPropertyGuidance(ae, "sa@example.iam.gserviceaccount.com", "555555555", props, false)
+		_ = forbiddenGuidance(ae, "sa@example.iam.gserviceaccount.com", "ga4", "555555555", false)
 	})
-	if !strings.Contains(errOut, "123456789") || !strings.Contains(errOut, "isn't one this service account can see") {
-		t.Errorf("text guidance missing candidate id / wrong-id framing:\n%s", errOut)
+	if !strings.Contains(errOut, "Property ID") {
+		t.Errorf("text should prompt checking the property id:\n%s", errOut)
 	}
-	if strings.Contains(errOut, "Add this email as a viewer") {
-		t.Errorf("wrong-id case must not give the viewer instruction:\n%s", errOut)
+	if !strings.Contains(errOut, "Viewer") {
+		t.Errorf("text should still offer the viewer/access path:\n%s", errOut)
+	}
+	if !strings.Contains(errOut, "555555555") {
+		t.Errorf("text should name the property that was tried:\n%s", errOut)
 	}
 	if !strings.Contains(errOut, "Google said:") {
 		t.Errorf("Google's raw message should be carried through:\n%s", errOut)
-	}
-}
-
-// A genuine access 403 keeps the viewer instruction and still surfaces Google's
-// own message (proposal B) without the synthetic fallback leaking through.
-func TestAccessGuidanceCarriesGoogleMessage(t *testing.T) {
-	ae := &google.APIError{Code: 403, Status: "PERMISSION_DENIED",
-		Message: "User does not have sufficient permissions for this property."}
-	_, errOut := captureOutput(t, func() {
-		_ = accessGuidance(ae, "sa@example.iam.gserviceaccount.com", "ga4", "123456789", false)
-	})
-	if !strings.Contains(errOut, "Add this email as a viewer") {
-		t.Errorf("access case should still give the viewer instruction:\n%s", errOut)
-	}
-	if !strings.Contains(errOut, "Google said: User does not have sufficient permissions") {
-		t.Errorf("Google's message should be appended:\n%s", errOut)
 	}
 }
 
@@ -189,7 +175,7 @@ func TestAccessGuidanceCarriesGoogleMessage(t *testing.T) {
 func TestEmitAPIErrorSkipsSyntheticMessage(t *testing.T) {
 	ae := &google.APIError{Code: 403, Message: "Google API error (HTTP 403)"}
 	_, errOut := captureOutput(t, func() {
-		_ = accessGuidance(ae, "sa@example.iam.gserviceaccount.com", "ga4", "1", false)
+		_ = forbiddenGuidance(ae, "sa@example.iam.gserviceaccount.com", "ga4", "1", false)
 	})
 	if strings.Contains(errOut, "Google said:") {
 		t.Errorf("synthetic message must not be echoed:\n%s", errOut)
