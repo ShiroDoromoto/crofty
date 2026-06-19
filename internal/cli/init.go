@@ -146,6 +146,15 @@ func runInit(args []string) error {
 		}
 	}
 
+	// Drop AGENTS.md so an assistant opening this folder is sent to `crofty
+	// agent` instead of treating it as a raw Hugo project. ensureAgentsGuide
+	// only creates the file when absent; an author's own AGENTS.md (possible
+	// with 'init .') is left untouched, and we advise instead below.
+	agentsStatus, err := ensureAgentsGuide(abs)
+	if err != nil {
+		return err
+	}
+
 	// Assign a workspace id and a sensible default deploy project name (the
 	// folder name); the Cloudflare project is created on first deploy.
 	ws, err := id.NewULID()
@@ -182,7 +191,14 @@ func runInit(args []string) error {
 	fmt.Println("the settings, the built pages. Back up that folder and you have it all.")
 	fmt.Println("    content/posts/     your posts (a sample 'welcome' is here to edit or delete)")
 	fmt.Println("    .crofty/           crofty's own settings (never your content, no secrets)")
+	if agentsStatus != guideForeign {
+		fmt.Println("    AGENTS.md          tells any AI assistant to run `crofty agent` first")
+	}
 	fmt.Println()
+	if agentsStatus == guideForeign {
+		fmt.Println(agentsForeignAdvice)
+		fmt.Println()
+	}
 	switch cfg.Deploy.Provider {
 	case "sftp", "ftps":
 		proto := strings.ToUpper(cfg.Deploy.Provider)

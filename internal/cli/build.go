@@ -33,6 +33,10 @@ func runBuild(args []string) error {
 		return err
 	}
 
+	// Backfill AGENTS.md for sites made before crofty wrote one. Idempotent and
+	// non-fatal, and it never touches an author's own AGENTS.md content.
+	noteAgentsGuide(proj.Root)
+
 	if err := buildSite(proj); err != nil {
 		return err
 	}
