@@ -10,6 +10,14 @@ import (
 	"github.com/ShiroDoromoto/crofty/internal/cli"
 )
 
+// version is injected at release time via -ldflags "-X main.version=…" — the
+// convention wharfy (and GoReleaser underneath it) uses. A plain `go build`
+// from source leaves it empty, so cli.Version keeps its "dev" default.
+var version string
+
 func main() {
+	if version != "" {
+		cli.Version = version
+	}
 	os.Exit(cli.Run(os.Args[1:]))
 }
