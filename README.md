@@ -53,8 +53,8 @@ The repos are served over HTTPS but are **not GPG-signed** (hence `trusted=yes` 
 `gpgcheck=0`): transport is encrypted, but there is no package-signature check.
 If you'd rather verify integrity yourself, grab the `.deb` / `.rpm` straight from
 the [releases page](https://github.com/ShiroDoromoto/crofty/releases) — each
-release ships a `checksums.txt` — and install it once (you then update by
-repeating this when a new release ships):
+release ships a `crofty_<version>_checksums.txt` — and install it once (you then
+update by repeating this when a new release ships):
 
 ```sh
 sudo dpkg -i crofty_*_linux_amd64.deb   # Debian/Ubuntu
