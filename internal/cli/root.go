@@ -10,9 +10,10 @@ import (
 	"github.com/ShiroDoromoto/crofty/internal/project"
 )
 
-// Version is the crofty CLI version. Releases inject the git tag at build time
-// via -ldflags -X (see .goreleaser.yaml), so the tag is the single source of
-// truth; plain `go build` from source reports "dev".
+// Version is the crofty CLI version and the single source the rest of the code
+// reads. Releases inject the git tag at build time: wharfy builds with
+// -ldflags "-X main.version=…", and main() copies that into Version (see
+// main.go). Plain `go build` from source leaves it as "dev".
 var Version = "dev"
 
 // errSilent lets a command signal a non-zero exit when it has already printed

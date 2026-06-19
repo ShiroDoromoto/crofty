@@ -1,0 +1,44 @@
+# wharfy.yaml — crofty release config. Unspecified values are inferred by wharfy
+# from the git remote and conventions (project=crofty, github=ShiroDoromoto/crofty,
+# license from LICENSE, homebrew tap=ShiroDoromoto/homebrew-crofty, etc).
+
+# Listing channels overrides the default set, so enumerate every owned channel:
+# the defaults plus apt/rpm (hosted Linux repos on Gemfury/fury.io).
+channels:
+  - homebrew
+  - scoop
+  - releases
+  - script
+  - goinstall
+  - apt
+  - rpm
+
+# crofty wraps Hugo to build/preview sites, so every channel pulls Hugo in —
+# otherwise `crofty build` greets a fresh install with "hugo not found".
+homebrew:
+  dependencies:
+    - hugo
+scoop:
+  # Hugo on Windows is the extended build, from scoop's main bucket.
+  dependencies:
+    - main/hugo-extended
+
+# apt/rpm push to fury.io (Gemfury) hosted repos; provider+user derives the
+# push/delivery URLs. The push token is read from the keychain (wharfy auth fury),
+# not written here. Hugo stays a SOFT dep on Linux (recommends/suggests, not
+# depends): distro Hugo is often outdated or the non-extended build, and crofty
+# prints a clear "hugo not found" error if it is missing.
+apt:
+  provider: fury
+  user: shirodoromoto
+  recommends:
+    - hugo
+  suggests:
+    - hugo
+rpm:
+  provider: fury
+  user: shirodoromoto
+  recommends:
+    - hugo
+  suggests:
+    - hugo
