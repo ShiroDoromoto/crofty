@@ -2,11 +2,87 @@ package cli
 
 import (
 	"bufio"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 )
 
 func reader(s string) *bufio.Reader { return bufio.NewReader(strings.NewReader(s)) }
+
+// underGit detects a git working tree at the root or any ancestor, so the build
+// hint only fires for sites actually tracked in git.
+func TestUnderGit(t *testing.T) {
+	t.Run("no git anywhere", func(t *testing.T) {
+		if underGit(t.TempDir()) {
+			t.Error("expected false with no .git present")
+		}
+	})
+	t.Run("git at root", func(t *testing.T) {
+		dir := t.TempDir()
+		if err := os.MkdirAll(filepath.Join(dir, ".git"), 0o755); err != nil {
+			t.Fatal(err)
+		}
+		if !underGit(dir) {
+			t.Error("expected true with .git at root")
+		}
+	})
+	t.Run("git at ancestor", func(t *testing.T) {
+		dir := t.TempDir()
+		if err := os.MkdirAll(filepath.Join(dir, ".git"), 0o755); err != nil {
+			t.Fatal(err)
+		}
+		sub := filepath.Join(dir, "site", "nested")
+		if err := os.MkdirAll(sub, 0o755); err != nil {
+			t.Fatal(err)
+		}
+		if !underGit(sub) {
+			t.Error("expected true with .git at an ancestor")
+		}
+	})
+}
+
+// ensureGitignore creates a minimal .gitignore for a fresh site but must never
+// clobber one an author already has (the 'init .' case).
+func TestEnsureGitignore(t *testing.T) {
+	t.Run("creates when absent", func(t *testing.T) {
+		dir := t.TempDir()
+		if err := ensureGitignore(dir); err != nil {
+			t.Fatalf("ensureGitignore: %v", err)
+		}
+		body, err := os.ReadFile(filepath.Join(dir, ".gitignore"))
+		if err != nil {
+			t.Fatalf("reading .gitignore: %v", err)
+		}
+		for _, want := range []string{"/dist/", "/.crofty/themes/"} {
+			if !strings.Contains(string(body), want) {
+				t.Errorf("generated .gitignore missing %q:\n%s", want, body)
+			}
+		}
+		if strings.Contains(string(body), "/.crofty/config.json") {
+			t.Errorf(".gitignore should keep .crofty/config.json tracked, got:\n%s", body)
+		}
+	})
+
+	t.Run("leaves an existing file untouched", func(t *testing.T) {
+		dir := t.TempDir()
+		path := filepath.Join(dir, ".gitignore")
+		const existing = "my-own-rules/\n"
+		if err := os.WriteFile(path, []byte(existing), 0o644); err != nil {
+			t.Fatal(err)
+		}
+		if err := ensureGitignore(dir); err != nil {
+			t.Fatalf("ensureGitignore: %v", err)
+		}
+		body, err := os.ReadFile(path)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if string(body) != existing {
+			t.Errorf("existing .gitignore was modified: got %q want %q", body, existing)
+		}
+	})
+}
 
 // chooseNames keeps the display title and the deploy/pages.dev slug separate.
 // Cover flags, interactive prompts, and folder-derived defaults.

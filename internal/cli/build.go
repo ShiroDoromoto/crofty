@@ -46,6 +46,7 @@ func runBuild(args []string) error {
 	contentDir := filepath.Join(proj.Root, "content")
 	warnDrafts(contentDir)
 	warnFutureDated(contentDir, time.Now())
+	noteGitignore(proj.Root)
 	contractNotice(proj.DistDir())
 	optionalSetupHint(proj.Root)
 	fmt.Println("next:")
@@ -168,6 +169,43 @@ func warnDrafts(contentDir string) {
 	fmt.Println("  Hugo excludes drafts. To publish one, remove 'draft: true' from its")
 	fmt.Println("  frontmatter (or set it to false) and rebuild.")
 	fmt.Println()
+}
+
+// noteGitignore nudges authors of sites made before crofty wrote a .gitignore:
+// if the site is under git but has no .gitignore, build output and the theme
+// cache would be committed. It only hints — it never writes the file itself, so
+// an author's choice of what to track stays theirs. Silent for non-git folders
+// and for anyone who already has a .gitignore.
+func noteGitignore(root string) {
+	if _, err := os.Stat(filepath.Join(root, ".gitignore")); err == nil {
+		return // already has one — nothing to say
+	}
+	if !underGit(root) {
+		return // not tracked in git — a .gitignore would be noise
+	}
+	fmt.Println()
+	fmt.Println("ℹ no .gitignore here. If you track this site in git, add:")
+	fmt.Println("    /dist/")
+	fmt.Println("    /.crofty/themes/")
+	fmt.Println("  so build output and the regenerated theme don't get committed")
+	fmt.Println("  (keep .crofty/config.json — the build needs it).")
+	fmt.Println()
+}
+
+// underGit reports whether root sits inside a git working tree, checking root
+// and each ancestor for a .git entry.
+func underGit(root string) bool {
+	dir := root
+	for {
+		if _, err := os.Stat(filepath.Join(dir, ".git")); err == nil {
+			return true
+		}
+		parent := filepath.Dir(dir)
+		if parent == dir {
+			return false
+		}
+		dir = parent
+	}
 }
 
 // futurePost is a content file Hugo will omit because its date is still ahead.
