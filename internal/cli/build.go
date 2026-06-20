@@ -171,25 +171,55 @@ func warnDrafts(contentDir string) {
 	fmt.Println()
 }
 
-// noteGitignore nudges authors of sites made before crofty wrote a .gitignore:
-// if the site is under git but has no .gitignore, build output and the theme
-// cache would be committed. It only hints — it never writes the file itself, so
-// an author's choice of what to track stays theirs. Silent for non-git folders
-// and for anyone who already has a .gitignore.
+// noteGitignore nudges authors whose git repo would commit the theme cache that
+// crofty regenerates on every build. It keys off what git actually ignores —
+// not merely whether a .gitignore file exists — so it also catches a repo whose
+// .gitignore lacks the /.crofty/themes/ rule, where the theme gets committed and
+// churns history on every build. It only hints and never edits anything itself.
 func noteGitignore(root string) {
-	if _, err := os.Stat(filepath.Join(root, ".gitignore")); err == nil {
-		return // already has one — nothing to say
+	switch themesIgnoreState(root) {
+	case themesTracked:
+		fmt.Println()
+		fmt.Println("⚠ .crofty/themes/ is committed to git, but crofty regenerates it on")
+		fmt.Println("  every build — so it churns your history. To stop tracking it:")
+		fmt.Println("    git rm -r --cached .crofty/themes/")
+		fmt.Println("    echo '/.crofty/themes/' >> .gitignore")
+		fmt.Println("  (.crofty/config.json stays tracked — the build needs it.)")
+		fmt.Println()
+	case themesUnignored:
+		fmt.Println()
+		fmt.Println("ℹ .crofty/themes/ isn't ignored by git. crofty regenerates it on every")
+		fmt.Println("  build; add this so it never gets committed:")
+		fmt.Println("    echo '/.crofty/themes/' >> .gitignore")
+		fmt.Println("  (keep .crofty/config.json — the build needs it.)")
+		fmt.Println()
 	}
-	if !underGit(root) {
-		return // not tracked in git — a .gitignore would be noise
+}
+
+// themesIgnoreState classifies how git treats .crofty/themes/ for a build hint.
+const (
+	themesOK        = ""          // not a git repo, git absent, or already ignored — say nothing
+	themesTracked   = "tracked"   // committed to git despite being a build artifact
+	themesUnignored = "unignored" // under git, not ignored, not yet tracked
+)
+
+// themesIgnoreState reports whether .crofty/themes/ — which crofty rewrites every
+// build — is safely ignored by git, already committed, or merely unignored. It
+// asks git directly (check-ignore / ls-files) so it sees the effective rules,
+// not just the presence of a .gitignore file. Returns themesOK when there is
+// nothing to nag about (no git, outside a repo, or already ignored).
+func themesIgnoreState(root string) string {
+	if !runner.Look("git") || !underGit(root) {
+		return themesOK
 	}
-	fmt.Println()
-	fmt.Println("ℹ no .gitignore here. If you track this site in git, add:")
-	fmt.Println("    /dist/")
-	fmt.Println("    /.crofty/themes/")
-	fmt.Println("  so build output and the regenerated theme don't get committed")
-	fmt.Println("  (keep .crofty/config.json — the build needs it).")
-	fmt.Println()
+	const themes = ".crofty/themes"
+	if _, err := runner.Capture(root, "git", "check-ignore", "-q", themes); err == nil {
+		return themesOK // git ignores it — healthy
+	}
+	if out, _ := runner.Capture(root, "git", "ls-files", themes); strings.TrimSpace(out) != "" {
+		return themesTracked // already committed — needs git rm --cached
+	}
+	return themesUnignored
 }
 
 // underGit reports whether root sits inside a git working tree, checking root

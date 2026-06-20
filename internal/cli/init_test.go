@@ -6,6 +6,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/ShiroDoromoto/crofty/internal/runner"
 )
 
 func reader(s string) *bufio.Reader { return bufio.NewReader(strings.NewReader(s)) }
@@ -38,6 +40,65 @@ func TestUnderGit(t *testing.T) {
 		}
 		if !underGit(sub) {
 			t.Error("expected true with .git at an ancestor")
+		}
+	})
+}
+
+// themesIgnoreState classifies how git treats .crofty/themes/ so the build hint
+// fires only when the regenerated theme would actually be committed — keyed off
+// git's effective rules, not just whether a .gitignore exists.
+func TestThemesIgnoreState(t *testing.T) {
+	gitInit := func(t *testing.T) string {
+		t.Helper()
+		dir := t.TempDir()
+		if out, err := runner.Capture(dir, "git", "init"); err != nil {
+			t.Skipf("git unavailable: %v (%s)", err, out)
+		}
+		if err := os.MkdirAll(filepath.Join(dir, ".crofty", "themes", "crofty"), 0o755); err != nil {
+			t.Fatal(err)
+		}
+		return dir
+	}
+
+	t.Run("not a git repo", func(t *testing.T) {
+		dir := t.TempDir()
+		if err := os.MkdirAll(filepath.Join(dir, ".crofty", "themes"), 0o755); err != nil {
+			t.Fatal(err)
+		}
+		if got := themesIgnoreState(dir); got != themesOK {
+			t.Errorf("got %q, want themesOK for a non-git folder", got)
+		}
+	})
+
+	t.Run("ignored by .gitignore", func(t *testing.T) {
+		dir := gitInit(t)
+		if err := os.WriteFile(filepath.Join(dir, ".gitignore"), []byte("/.crofty/themes/\n"), 0o644); err != nil {
+			t.Fatal(err)
+		}
+		if got := themesIgnoreState(dir); got != themesOK {
+			t.Errorf("got %q, want themesOK when the rule is present", got)
+		}
+	})
+
+	t.Run("under git but not ignored", func(t *testing.T) {
+		dir := gitInit(t) // no .gitignore at all
+		if got := themesIgnoreState(dir); got != themesUnignored {
+			t.Errorf("got %q, want themesUnignored", got)
+		}
+	})
+
+	t.Run("already committed", func(t *testing.T) {
+		dir := gitInit(t)
+		f := filepath.Join(dir, ".crofty", "themes", "crofty", "index.html")
+		if err := os.WriteFile(f, []byte("x"), 0o644); err != nil {
+			t.Fatal(err)
+		}
+		// Stage it (no commit needed — ls-files reads the index).
+		if out, err := runner.Capture(dir, "git", "add", ".crofty/themes"); err != nil {
+			t.Fatalf("git add: %v (%s)", err, out)
+		}
+		if got := themesIgnoreState(dir); got != themesTracked {
+			t.Errorf("got %q, want themesTracked", got)
 		}
 	})
 }
