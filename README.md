@@ -28,7 +28,14 @@ scoop bucket add crofty https://github.com/ShiroDoromoto/scoop-crofty
 scoop install crofty
 ```
 
-**Linux** — add the repository so updates arrive with `apt upgrade` / `dnf update`:
+**Linux** — quickest, installs the latest release to `/usr/local/bin`:
+
+```sh
+curl -fsSL https://crofty.site/install.sh | sh
+```
+
+Or add the repository so updates arrive with `apt upgrade` / `dnf update` — the
+`curl` install has no auto-update, but crofty tells you when a new release is out:
 
 ```sh
 # Debian/Ubuntu
