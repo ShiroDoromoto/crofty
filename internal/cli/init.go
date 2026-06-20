@@ -146,6 +146,13 @@ func runInit(args []string) error {
 		}
 	}
 
+	// Drop a minimal .gitignore so an author who runs `git init` here never
+	// commits build output or the regenerated theme cache. Only created when
+	// absent so an existing .gitignore (possible with 'init .') is untouched.
+	if err := ensureGitignore(abs); err != nil {
+		return err
+	}
+
 	// Drop AGENTS.md so an assistant opening this folder is sent to `crofty
 	// agent` instead of treating it as a raw Hugo project. ensureAgentsGuide
 	// only creates the file when absent; an author's own AGENTS.md (possible
@@ -191,6 +198,7 @@ func runInit(args []string) error {
 	fmt.Println("the settings, the built pages. Back up that folder and you have it all.")
 	fmt.Println("    content/posts/     your posts (a sample 'welcome' is here to edit or delete)")
 	fmt.Println("    .crofty/           crofty's own settings (never your content, no secrets)")
+	fmt.Println("    .gitignore         keeps build output and the theme cache out of git")
 	if agentsStatus != guideForeign {
 		fmt.Println("    AGENTS.md          tells any AI assistant to run `crofty agent` first")
 	}
@@ -506,6 +514,37 @@ func hugoConfig(name, lang string) string {
 		"  crofty:\n"+
 		"    specVersion: \"0\"\n", lang, name)
 }
+
+// ensureGitignore writes a minimal .gitignore so a `git init` in a fresh site
+// never commits build output or the regenerated theme cache. It only creates
+// the file when absent — an author's own .gitignore (possible with 'init .')
+// is left untouched.
+func ensureGitignore(abs string) error {
+	path := filepath.Join(abs, ".gitignore")
+	if _, err := os.Stat(path); err == nil {
+		return nil // already present — don't clobber the author's rules
+	} else if !os.IsNotExist(err) {
+		return err
+	}
+	return os.WriteFile(path, []byte(gitignoreBody), 0o644)
+}
+
+// gitignoreBody mirrors the convention crofty sites follow: ignore everything
+// crofty rebuilds, but keep .crofty/config.json (build/deploy need it; it holds
+// no secrets).
+const gitignoreBody = `# Build output — crofty rebuilds these; never commit them.
+/dist/
+/public/
+/resources/
+.hugo_build.lock
+
+# crofty tool state — commit .crofty/config.json (build needs it),
+# ignore the frozen theme (crofty re-materializes it each build).
+/.crofty/themes/
+
+# OS clutter
+.DS_Store
+`
 
 func indexContent(name string) string {
 	return fmt.Sprintf("---\n"+
