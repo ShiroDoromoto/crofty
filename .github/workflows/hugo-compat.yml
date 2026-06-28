@@ -39,6 +39,8 @@ jobs:
           set -euo pipefail
           site="$(mktemp -d)"
           cd "$site"
-          "$RUNNER_TEMP/crofty" init --lang en --title "Hugo Compat" --project hugo-compat
+          # Flags first, then the path ('.') — the flag parser stops at the
+          # first non-flag arg, and a bare path otherwise lands in ~/Documents.
+          "$RUNNER_TEMP/crofty" init --lang en --title "Hugo Compat" --project hugo-compat .
           "$RUNNER_TEMP/crofty" build
           "$RUNNER_TEMP/crofty" doctor

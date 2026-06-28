@@ -65,6 +65,8 @@ jobs:
           set -euo pipefail
           site="$(mktemp -d)"
           cd "$site"
-          "$RUNNER_TEMP/crofty" init --lang en --title "CI Smoke" --project ci-smoke
+          # Flags first, then the path ('.') — the flag parser stops at the
+          # first non-flag arg, and a bare path otherwise lands in ~/Documents.
+          "$RUNNER_TEMP/crofty" init --lang en --title "CI Smoke" --project ci-smoke .
           "$RUNNER_TEMP/crofty" build
           "$RUNNER_TEMP/crofty" doctor
