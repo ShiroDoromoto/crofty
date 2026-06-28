@@ -1,0 +1,42 @@
+name: Dependabot auto-merge
+
+# Keeps low-risk dependency bumps from rotting when the (solo, busy) maintainer
+# can't review every month — WITHOUT ever auto-distributing. It only enables
+# GitHub's native auto-merge, so a bump still merges only after the CI gate
+# (ci.yml) passes, and even then it just lands on main and rides the next
+# *intentional* wharfy release. Nothing reaches users automatically.
+#
+# Scope is deliberately narrow: only the `low-risk` Dependabot group (stdlib-
+# adjacent / utility deps, see dependabot.yml) and only patch/minor. Credential/
+# network/crypto deps and every major arrive as their own PR for manual review.
+#
+# Uses pull_request_target so the workflow gets a writable token on Dependabot's
+# PRs. It is safe here because it never checks out or runs the PR's code — it
+# only reads Dependabot's metadata and calls the gh API. Do not add a checkout
+# of the PR head to this job.
+
+on: pull_request_target
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  auto-merge:
+    runs-on: ubuntu-latest
+    if: github.actor == 'dependabot[bot]'
+    steps:
+      - name: Fetch Dependabot metadata
+        id: meta
+        uses: dependabot/fetch-metadata@v2
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Enable auto-merge for low-risk patch/minor bumps
+        if: >-
+          steps.meta.outputs.dependency-group == 'low-risk' &&
+          (steps.meta.outputs.update-type == 'version-update:semver-patch' ||
+           steps.meta.outputs.update-type == 'version-update:semver-minor')
+        run: gh pr merge --auto --squash "$PR_URL"
+        env:
+          PR_URL: ${{ github.event.pull_request.html_url }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
