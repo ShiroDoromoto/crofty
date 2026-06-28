@@ -20,5 +20,5 @@ socials:
 support:
   message:
     en: "If something here was worth your time, you can leave a tip."
-    ja: "ここに時間に見合うものがあったなら、投げ銭をどうぞ。"
+    ja: "ここに時間に見合うものがあったなら、チップをどうぞ。"
   stripe: "https://buy.stripe.com/test_00gexample"
