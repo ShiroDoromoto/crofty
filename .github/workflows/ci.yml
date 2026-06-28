@@ -1,0 +1,70 @@
+name: CI
+
+# The gate every change passes before it can be released. Two jobs:
+#   check — build/vet/gofmt/test, no Hugo needed (the tests parse, they don't
+#           shell out to hugo).
+#   smoke — scaffold a fresh site, build it with the embedded (frozen) theme on
+#           a pinned Hugo, and run `crofty doctor` so the output contract is the
+#           oracle. This is the "golden" gate: not a brittle byte-diff, but the
+#           project's own contract checker verifying the theme still produces a
+#           valid site. Hugo compatibility against *new* Hugo is tracked
+#           separately in hugo-compat.yml.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+env:
+  # Pinned, known-good extended Hugo for the deterministic gate. The scheduled
+  # hugo-compat workflow exercises the latest Hugo to catch regressions early.
+  HUGO_VERSION: 0.163.3
+
+jobs:
+  check:
+    name: build · vet · gofmt · test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+      - name: gofmt
+        run: |
+          unformatted=$(gofmt -l .)
+          if [ -n "$unformatted" ]; then
+            echo "These files are not gofmt-clean:"
+            echo "$unformatted"
+            exit 1
+          fi
+      - run: go build ./...
+      - run: go vet ./...
+      - run: go test ./...
+
+  smoke:
+    name: frozen theme builds & passes the output contract
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+      - uses: peaceiris/actions-hugo@v3
+        with:
+          hugo-version: ${{ env.HUGO_VERSION }}
+          extended: true
+      - name: build the crofty binary
+        run: go build -o "$RUNNER_TEMP/crofty" .
+      - name: scaffold, build, and check a fresh site
+        run: |
+          set -euo pipefail
+          site="$(mktemp -d)"
+          cd "$site"
+          "$RUNNER_TEMP/crofty" init --lang en --title "CI Smoke" --project ci-smoke
+          "$RUNNER_TEMP/crofty" build
+          "$RUNNER_TEMP/crofty" doctor

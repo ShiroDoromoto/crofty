@@ -1,0 +1,44 @@
+name: Hugo compatibility
+
+# Hugo is a RUNTIME dependency: crofty shells out to the `hugo` binary the user
+# installs, so it never appears in go.mod and Dependabot can't track it. The
+# upkeep question for Hugo isn't "bump a version" but "does a *new* Hugo still
+# build the frozen theme into a contract-valid site?" This job answers that on a
+# schedule by scaffolding a fresh site and building it on the latest Hugo. When
+# it goes red, a new Hugo broke us — fix the theme/invocation, then release
+# intentionally. (Declaring a min/max Hugo into the channel metadata is wharfy's
+# half; this is the detection half crofty owns.)
+
+on:
+  schedule:
+    - cron: "0 6 * * 1" # Mondays 06:00 UTC
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  latest-hugo:
+    name: frozen theme builds on the latest Hugo
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+      - uses: peaceiris/actions-hugo@v3
+        with:
+          hugo-version: latest
+          extended: true
+      - run: hugo version
+      - name: build the crofty binary
+        run: go build -o "$RUNNER_TEMP/crofty" .
+      - name: scaffold, build, and check a fresh site on the latest Hugo
+        run: |
+          set -euo pipefail
+          site="$(mktemp -d)"
+          cd "$site"
+          "$RUNNER_TEMP/crofty" init --lang en --title "Hugo Compat" --project hugo-compat
+          "$RUNNER_TEMP/crofty" build
+          "$RUNNER_TEMP/crofty" doctor
