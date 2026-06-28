@@ -14,6 +14,20 @@ import (
 	"golang.org/x/crypto/ssh/knownhosts"
 )
 
+// isolateHome points HOME — and, on Linux, XDG_CONFIG_HOME — at a fresh temp dir
+// so a test that touches crofty's global config dir (e.g. its known_hosts store)
+// stays hermetic. os.UserConfigDir prefers XDG_CONFIG_HOME on Linux, so setting
+// HOME alone leaks to the real ~/.config on CI runners that export it, letting
+// one test's pin pollute another. Returns the temp home for tests that also need
+// to seed ~/.ssh.
+func isolateHome(t *testing.T) string {
+	t.Helper()
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	t.Setenv("XDG_CONFIG_HOME", filepath.Join(home, ".config"))
+	return home
+}
+
 // End-to-end: sftpDeployer.Deploy must connect over a real SSH transport,
 // authenticate with a password, and recreate the dist/ tree under the remote
 // root. The server is an in-process SSH daemon serving the SFTP subsystem
@@ -178,8 +192,7 @@ func newTestHostKey(t *testing.T) ssh.PublicKey {
 // report, where the user had reached the server over sftp before but crofty
 // only consulted its own (empty) store and stalled at the y/N prompt.
 func TestTrustedInUserKnownHosts(t *testing.T) {
-	home := t.TempDir()
-	t.Setenv("HOME", home)
+	home := isolateHome(t)
 
 	const addr = "127.0.0.1:2222"
 	remote := &net.TCPAddr{IP: net.ParseIP("127.0.0.1"), Port: 2222}
@@ -206,7 +219,7 @@ func TestTrustedInUserKnownHosts(t *testing.T) {
 // With no ~/.ssh/known_hosts at all, the consult is a clean miss (false), not an
 // error — crofty falls back to its own TOFU store.
 func TestTrustedInUserKnownHosts_NoFile(t *testing.T) {
-	t.Setenv("HOME", t.TempDir())
+	isolateHome(t)
 	remote := &net.TCPAddr{IP: net.ParseIP("127.0.0.1"), Port: 2222}
 	if trustedInUserKnownHosts("127.0.0.1:2222", remote, newTestHostKey(t)) {
 		t.Error("with no known_hosts file the consult must return false")
@@ -217,7 +230,7 @@ func TestTrustedInUserKnownHosts_NoFile(t *testing.T) {
 // agent-driven deploy with no human to answer y/N doesn't stall. The pinned key
 // is recorded to crofty's own store and recognised on the next connection.
 func TestSFTPHostKeyCallback_AutoAccept(t *testing.T) {
-	t.Setenv("HOME", t.TempDir())
+	isolateHome(t)
 	const addr = "example.com:22"
 	remote := &net.TCPAddr{IP: net.ParseIP("203.0.113.7"), Port: 22}
 	key := newTestHostKey(t)
@@ -246,8 +259,7 @@ func TestSFTPHostKeyCallback_AutoAccept(t *testing.T) {
 // Honouring ~/.ssh/known_hosts must not write to crofty's own store: the user's
 // file stays the single source of truth and crofty records nothing.
 func TestSFTPHostKeyCallback_UserTrustedNotRecorded(t *testing.T) {
-	home := t.TempDir()
-	t.Setenv("HOME", home)
+	home := isolateHome(t)
 	const addr = "127.0.0.1:2222"
 	remote := &net.TCPAddr{IP: net.ParseIP("127.0.0.1"), Port: 2222}
 	key := newTestHostKey(t)

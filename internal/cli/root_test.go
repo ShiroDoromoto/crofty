@@ -34,7 +34,7 @@ func captureStderr(t *testing.T, fn func()) string {
 // TestPrintNoProjectHere_FirstTimer: with no known projects, the dead end points
 // a first-timer at `crofty init`.
 func TestPrintNoProjectHere_FirstTimer(t *testing.T) {
-	t.Setenv("HOME", t.TempDir())
+	isolateHome(t)
 
 	out := captureStderr(t, printNoProjectHere)
 
@@ -53,8 +53,7 @@ func TestPrintNoProjectHere_FirstTimer(t *testing.T) {
 // ran `crofty init` and forgot to cd) is pointed at it with a ready cd line, not
 // told to `crofty init` as the headline step.
 func TestPrintNoProjectHere_HasProject(t *testing.T) {
-	home := t.TempDir()
-	t.Setenv("HOME", home)
+	isolateHome(t)
 
 	base, err := project.DefaultBase()
 	if err != nil {
