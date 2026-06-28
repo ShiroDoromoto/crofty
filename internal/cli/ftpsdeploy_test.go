@@ -76,7 +76,7 @@ func (d *ftpsTestDriver) ClientConnected(ftpserver.ClientContext) (string, error
 	return "crofty test server", nil
 }
 func (d *ftpsTestDriver) ClientDisconnected(ftpserver.ClientContext) {}
-func (d *ftpsTestDriver) GetTLSConfig() (*tls.Config, error)        { return d.tlsConfig, nil }
+func (d *ftpsTestDriver) GetTLSConfig() (*tls.Config, error)         { return d.tlsConfig, nil }
 
 func (d *ftpsTestDriver) AuthUser(_ ftpserver.ClientContext, user, pass string) (ftpserver.ClientDriver, error) {
 	if user == d.user && pass == d.pass {

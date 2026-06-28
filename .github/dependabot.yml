@@ -1,0 +1,51 @@
+version: 2
+
+# Two dependency tracks are kept apart on purpose:
+#   - gomod: compiled into the binary. Tracked here.
+#   - Hugo: a RUNTIME dependency (crofty shells out to it), not a module, so
+#     Dependabot cannot see it. Its compatibility lives in
+#     .github/workflows/hugo-compat.yml instead.
+#
+# Distribution stays decoupled from merging: bumps merge into main behind the CI
+# gate and ride the next *intentional* wharfy release. Nothing here auto-distributes.
+updates:
+  - package-ecosystem: gomod
+    directory: /
+    schedule:
+      interval: monthly
+    open-pull-requests-limit: 10
+    commit-message:
+      prefix: chore(deps)
+    groups:
+      # Stdlib-adjacent and utility deps, patch+minor only. These are the
+      # candidates for *gated* auto-merge once branch protection requires the CI
+      # checks. Credential / network / crypto deps (golang.org/x/crypto,
+      # golang.org/x/net, go-keyring, ftpserverlib, jlaffaye/ftp, pkg/sftp) are
+      # deliberately NOT listed here, so each lands as its own PR for manual
+      # review. Major bumps are excluded too (groups carry patch+minor only),
+      # so every major also arrives as a standalone PR to review by hand.
+      low-risk:
+        applies-to: version-updates
+        patterns:
+          - golang.org/x/sys
+          - golang.org/x/text
+          - golang.org/x/term
+          - gopkg.in/yaml.v3
+          - github.com/spf13/afero
+          - lukechampine.com/blake3
+          - github.com/klauspost/cpuid/*
+        update-types:
+          - minor
+          - patch
+
+  # The actions pinned in the workflows above.
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: monthly
+    commit-message:
+      prefix: chore(ci)
+    groups:
+      actions:
+        patterns:
+          - "*"
