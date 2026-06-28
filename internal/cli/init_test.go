@@ -222,7 +222,7 @@ func TestChooseNames(t *testing.T) {
 func TestSanitizeName(t *testing.T) {
 	cases := map[string]string{
 		"My Cool Blog": "my-cool-blog",
-		"example.com":     "example-com",
+		"example.com":  "example-com",
 		"  Trim Me  ":  "trim-me",
 		"---":          "my-site",
 		"":             "my-site",
