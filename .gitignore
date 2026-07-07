@@ -28,3 +28,6 @@
 /examples/*/.crofty/
 /examples/*/.wrangler/
 /examples/*/.hugo_build.lock
+.amenbo
+AGENTS.md
+CLAUDE.md
