@@ -139,6 +139,12 @@ func upgradeHintFor(exe, goos string) string {
 		return "brew upgrade crofty"
 	case strings.Contains(low, "scoop"):
 		return "scoop update crofty"
+	case strings.Contains(low, `\appdata\local\`):
+		// per-user install.ps1 target (%LOCALAPPDATA%\<project>\bin): re-run the script
+		return "re-run: irm https://github.com/ShiroDoromoto/crofty/releases/latest/download/install.ps1 | iex"
+	case strings.Contains(low, "/.local/"):
+		// per-user install.sh target ($HOME/.local/bin): re-run the script
+		return "re-run: curl -fsSL https://crofty.site/install.sh | sh"
 	case goos == "linux" && strings.HasPrefix(exe, "/usr/"):
 		return "sudo apt update && sudo apt upgrade crofty   (or: sudo dnf update crofty)"
 	default:

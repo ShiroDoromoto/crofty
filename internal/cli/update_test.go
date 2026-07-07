@@ -53,6 +53,9 @@ func TestUpgradeHintFor(t *testing.T) {
 		{"/usr/bin/crofty", "linux", "apt"},
 		{"/home/me/go/bin/crofty", "linux", "releases"}, // go install -> fallback
 		{"/somewhere/odd/crofty", "darwin", "releases"}, // unknown -> fallback
+		{"/Users/me/.local/bin/crofty", "darwin", "install.sh"},                       // per-user script (macOS)
+		{"/home/me/.local/bin/crofty", "linux", "install.sh"},                         // per-user script (Linux)
+		{`C:\Users\me\AppData\Local\crofty\bin\crofty.exe`, "windows", "install.ps1"}, // per-user script (Windows)
 	}
 	for _, c := range cases {
 		if got := upgradeHintFor(c.exe, c.goos); !strings.Contains(got, c.wantContains) {
