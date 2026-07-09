@@ -1,8 +1,9 @@
 # packaging — unsigned click installers
 
-The double-click **fallback** for users whose AI agent can't install crofty over
-the shell. The primary path stays the install script (`install.sh` / `install.ps1`);
-these installers are for people who can only download-and-double-click.
+The **primary** way a person installs crofty: download, double-click, done. It is
+the one step we ask of someone who never opens a terminal — the assistant takes
+over from `crofty init` on. The install scripts (`install.sh` / `install.ps1`),
+Homebrew and Scoop remain, for people who do open one.
 
 - **macOS**: `macos/build-pkg.sh` → a universal `crofty.pkg` that installs the
   `crofty` binary to `/usr/local/bin` (on the default PATH). Standard installer

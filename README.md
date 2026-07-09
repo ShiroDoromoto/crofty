@@ -6,8 +6,9 @@ isn't one. Deploys go straight to your Cloudflare account over its API, with no
 Node or Wrangler in the loop.
 
 crofty is a plain CLI you can run yourself, but it's built so your AI can run it
-for you: a person installs it and does the first setup, then an assistant takes
-over. If you work that way, point your assistant at `crofty agent` first — it
+for you: a person double-clicks the installer, and an assistant takes it from
+there — `crofty init` included. If you work that way, point your assistant at
+`crofty agent` first — it
 prints crofty's whole command surface (every command with its flags and
 examples, the usual workflow, and the machine-readable state to read — `config`,
 `features`, `validate` and `doctor` all take `--json`) in one shot, with no
@@ -15,27 +16,43 @@ project needed. From there it can drive everything below.
 
 ## Install
 
-**macOS** ([Homebrew](https://brew.sh)):
+Download the installer and double-click it. That is the whole installation, and
+it is the only part meant for you rather than your assistant.
+
+- **macOS** — [crofty.pkg](https://github.com/ShiroDoromoto/crofty/releases/latest/download/crofty.pkg)
+- **Windows** — [crofty-setup.exe](https://github.com/ShiroDoromoto/crofty/releases/latest/download/crofty-setup.exe)
+
+Both carry [Hugo](https://gohugo.io) with them, so there is nothing to install
+first: when the installer finishes, `crofty build` works.
+
+**Your OS will warn you the first time. That is expected** — the installers are
+unsigned, deliberately (crofty pays neither Apple nor a certificate authority).
+Nothing you have to do here needs a terminal:
+
+- **macOS** — the first open is refused: "crofty.pkg cannot be opened because it
+  is from an unidentified developer." Open **System Settings → Privacy &
+  Security**, scroll to Security, and next to the message about crofty.pkg press
+  **Open Anyway**. The button only appears *after* the refusal, so let it happen
+  first. Confirm once more, and the installer runs.
+- **Windows** — SmartScreen says "Windows protected your PC". Press **More
+  info**, then **Run anyway**.
+
+Linux has no click installer — `apt` and `dnf` are a better one. See below.
+
+### If you'd rather use a terminal
+
+The installers are the shortest path, not the only one. crofty is also a single
+binary on the [releases page](https://github.com/ShiroDoromoto/crofty/releases),
+and these routes install it for you:
 
 ```sh
-brew install ShiroDoromoto/crofty/crofty
+curl -fsSL https://crofty.site/install.sh | sh                                          # macOS / Linux
+irm https://github.com/ShiroDoromoto/crofty/releases/latest/download/install.ps1 | iex  # Windows
+brew install ShiroDoromoto/crofty/crofty                                                # macOS (Homebrew)
+scoop bucket add crofty https://github.com/ShiroDoromoto/scoop-crofty && scoop install crofty   # Windows (Scoop)
 ```
 
-**Windows** ([Scoop](https://scoop.sh)):
-
-```sh
-scoop bucket add crofty https://github.com/ShiroDoromoto/scoop-crofty
-scoop install crofty
-```
-
-**Linux** — quickest, installs the latest release to `/usr/local/bin`:
-
-```sh
-curl -fsSL https://crofty.site/install.sh | sh
-```
-
-Or add the repository so updates arrive with `apt upgrade` / `dnf update` — the
-`curl` install has no auto-update, but crofty tells you when a new release is out:
+On Linux, add the repository so updates arrive with `apt upgrade` / `dnf update`:
 
 ```sh
 # Debian/Ubuntu
@@ -68,14 +85,14 @@ sudo dpkg -i crofty_*_linux_amd64.deb   # Debian/Ubuntu
 sudo rpm -i  crofty_*_linux_amd64.rpm   # Fedora/RHEL
 ```
 
-crofty wraps [Hugo](https://gohugo.io) at runtime for `build` and `preview`, and
-needs the **extended** build (the theme's stylesheets are SCSS).
+### Hugo
 
-The click installers (`crofty.pkg` / `crofty-setup.exe`, on the
-[releases page](https://github.com/ShiroDoromoto/crofty/releases)) carry that
-Hugo with them, so there is nothing to install first. They don't touch a `hugo`
-you already have: the bundled copy sits next to crofty, off your PATH, and
-crofty runs it in preference to whatever PATH happens to name.
+crofty wraps Hugo at runtime for `build` and `preview`, and needs the
+**extended** build (the theme's stylesheets are SCSS).
+
+Only the click installers bring their own. They don't touch a `hugo` you already
+have: the bundled copy sits next to crofty, off your PATH, and crofty runs it in
+preference to whatever PATH happens to name.
 
 Every other route expects a hugo on your PATH. Homebrew and Scoop pull one in as
 a package dependency; on Linux the `.deb`/`.rpm` only *recommends* hugo (distro
@@ -86,24 +103,19 @@ particular one, set `CROFTY_HUGO=/path/to/hugo`.
 
 ### Updating
 
-**macOS** — `brew upgrade` only compares against the formula Homebrew already
-has locally, so refresh the tap first to pick up a just-published release:
+crofty tells you when a release is out, and prints the one line that updates the
+copy you actually have. Run it again the way you installed it:
 
-```sh
-brew update && brew upgrade crofty
-```
-
-(Homebrew auto-refreshes taps roughly once a day, so `brew upgrade crofty` alone
-catches up eventually — `brew update` just pulls the latest version now.)
-
-**Windows** (Scoop):
-
-```sh
-scoop update && scoop update crofty
-```
-
-**Linux** — updates arrive with your package manager (`sudo apt update && sudo
-apt upgrade` / `sudo dnf update`).
+- **the installers** — download and double-click the new `.pkg` / `.exe`; it
+  replaces what's there. The OS warns about each download it hasn't seen, so
+  expect it again, and clear it the same way.
+- **the install scripts** — re-run the same `curl` / `irm` line
+- **Homebrew** — `brew update && brew upgrade crofty`. `brew upgrade` alone only
+  compares against the formula Homebrew already has locally; `brew update` pulls
+  the newest one now, and auto-refreshes about once a day regardless.
+- **Scoop** — `scoop update && scoop update crofty`
+- **Linux** — updates arrive with your package manager (`sudo apt update && sudo
+  apt upgrade` / `sudo dnf update`)
 
 ## Quick start
 
