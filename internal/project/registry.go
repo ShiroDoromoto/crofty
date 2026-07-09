@@ -108,7 +108,10 @@ func denyRegistryWrite(path string, err error) error {
 			Permission: "setting " + HomeEnv + " in your environment",
 		},
 		access.Choice{
-			Do: "leave it — the site itself is complete; crofty just won't find it from other folders, so cd into it first",
+			// True whether the site is already written (init reports this after
+			// the fact) or not yet (the preflight reports it before): registration
+			// is never what makes a site a site.
+			Do: "leave it — the registry only powers discovery; crofty won't find the site from other folders, so cd into it first",
 		},
 	)
 }

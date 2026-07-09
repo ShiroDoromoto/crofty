@@ -2,6 +2,7 @@ package cli
 
 import (
 	"encoding/json"
+	"net"
 	"os"
 	"strings"
 	"testing"
@@ -88,6 +89,76 @@ func TestPreviewStatusNotRunning(t *testing.T) {
 	}
 	if _, err := os.Stat(previewStatePath(proj)); !os.IsNotExist(err) {
 		t.Errorf("stale state file not cleaned up by status")
+	}
+}
+
+// A detached start waits for the port to answer rather than for a clock, so the
+// probe must say "yes" only while something is actually listening.
+func TestPreviewPortAnswers(t *testing.T) {
+	ln, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatalf("listen: %v", err)
+	}
+	port := ln.Addr().(*net.TCPAddr).Port
+
+	if !previewPortAnswers(port) {
+		t.Errorf("previewPortAnswers(%d) = false while listening; want true", port)
+	}
+	if err := ln.Close(); err != nil {
+		t.Fatal(err)
+	}
+	if previewPortAnswers(port) {
+		t.Errorf("previewPortAnswers(%d) = true after close; want false", port)
+	}
+}
+
+// A squatter on the port would answer the readiness probe while our own hugo
+// dies unseen, so a detached start has to refuse a taken port up front.
+func TestPreviewPortFree(t *testing.T) {
+	ln, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatalf("listen: %v", err)
+	}
+	defer ln.Close()
+	port := ln.Addr().(*net.TCPAddr).Port
+
+	err = previewPortFree(port)
+	if err == nil {
+		t.Fatalf("previewPortFree(%d) = nil while the port is taken; want an error", port)
+	}
+	if !strings.Contains(err.Error(), "already in use") || !strings.Contains(err.Error(), "--port") {
+		t.Errorf("error must name the problem and the way out; got: %v", err)
+	}
+
+	if err := ln.Close(); err != nil {
+		t.Fatal(err)
+	}
+	if err := previewPortFree(port); err != nil {
+		t.Errorf("previewPortFree(%d) after close = %v; want nil", port, err)
+	}
+}
+
+func TestIndentedLogTail(t *testing.T) {
+	proj := newPreviewProject(t)
+	path := previewLogPath(proj)
+
+	// No log at all is the case where hugo never even started; it must still read
+	// as prose rather than blowing up the error message.
+	if got := indentedLogTail(path, 3); !strings.Contains(got, "no log") {
+		t.Errorf("indentedLogTail(missing) = %q", got)
+	}
+
+	if err := os.WriteFile(path, []byte("one\ntwo\nthree\nfour\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	got := indentedLogTail(path, 2)
+	if strings.Contains(got, "two") {
+		t.Errorf("tail kept a line beyond the last 2: %q", got)
+	}
+	for _, want := range []string{"  three", "  four"} {
+		if !strings.Contains(got, want) {
+			t.Errorf("tail = %q; want it to contain %q (indented)", got, want)
+		}
 	}
 }
 

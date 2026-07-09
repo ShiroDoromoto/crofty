@@ -14,6 +14,11 @@ import (
 const (
 	processQueryInformation = 0x0400
 	stillActive             = 259
+
+	// detachedProcess gives the child no console of its own, so it neither steals
+	// this one nor flashes a window; createNewProcessGroup keeps a Ctrl-C in this
+	// console from reaching it.
+	detachedProcess = 0x00000008
 )
 
 // processAlive reports whether a process with this pid is still running by
@@ -50,4 +55,13 @@ func signalTerminate(pid int) {
 // escalation to model.
 func signalKill(pid int) {
 	signalTerminate(pid)
+}
+
+// detachedSysProcAttr detaches a background preview from this console. It is the
+// flag pair an agent would otherwise be reaching for `Start-Process` or
+// `cmd /c start` to get — and getting wrong.
+func detachedSysProcAttr() *syscall.SysProcAttr {
+	return &syscall.SysProcAttr{
+		CreationFlags: detachedProcess | syscall.CREATE_NEW_PROCESS_GROUP,
+	}
 }

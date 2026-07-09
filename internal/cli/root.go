@@ -7,7 +7,6 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/ShiroDoromoto/crofty/internal/access"
 	"github.com/ShiroDoromoto/crofty/internal/project"
 )
 
@@ -82,19 +81,19 @@ func dispatch(args []string) int {
 		if c.name == args[0] {
 			if err := c.run(args[1:]); err != nil {
 				var stray *project.StrayMarkerError
-				denied, isDenied := access.From(err)
+				walls, isWalls := deniedWalls(err)
 				switch {
 				case errors.Is(err, errSilent):
 					// command already printed its own report
-				case isDenied:
+				case isWalls:
 					// A permission wall is not a failure to report but a branch the
 					// author must consent to. Catching it here — rather than at each
 					// call site — means no command can leak a bare "Access is denied."
 					// for an agent to route around (D-1).
 					if wantsJSON(args[1:]) {
-						printDeniedJSON(os.Stdout, denied)
+						printDenialsJSON(os.Stdout, walls)
 					} else {
-						printDenied(os.Stderr, denied)
+						printDenials(os.Stderr, walls)
 					}
 				case errors.As(err, &stray):
 					// A .crofty/ with no config.json: the folder looks like a project

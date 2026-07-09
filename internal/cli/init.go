@@ -126,8 +126,9 @@ func runInit(args []string) error {
 
 	// Ask the filesystem before asking the author. crofty picks the folder for a
 	// bare name, so a wall there is crofty's problem to surface, not a surprise
-	// to spring after two prompts and a half-written site (D-1).
-	if err := project.EnsureCreatable(abs); err != nil {
+	// to spring after two prompts and a half-written site — and when init is
+	// stopping anyway, every permission it would need comes back at once (D-1).
+	if err := project.PreflightInit(abs); err != nil {
 		return err
 	}
 
@@ -564,9 +565,10 @@ const gitignoreBody = `# Build output — crofty rebuilds these; never commit th
 
 # crofty tool state — commit .crofty/config.json (build needs it),
 # ignore the frozen theme (crofty re-materializes it each build) and the
-# transient preview server state (machine-local; written while previewing).
+# transient preview server state and log (machine-local; written while previewing).
 /.crofty/themes/
 /.crofty/preview.json
+/.crofty/preview.log
 
 # OS clutter
 .DS_Store

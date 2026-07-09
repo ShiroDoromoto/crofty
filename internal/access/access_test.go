@@ -3,6 +3,7 @@ package access
 import (
 	"errors"
 	"io/fs"
+	"strings"
 	"testing"
 )
 
@@ -89,21 +90,63 @@ func TestPayload_StatesNeedsPermission(t *testing.T) {
 			{Do: "print instead", Command: "crofty theme eject --print"},
 		},
 	}
-	p := d.Payload()
+	r := Denials{d}.Report()
 
-	if p.Error != "permission_denied" {
-		t.Errorf("error = %q", p.Error)
+	if r.Error != "permission_denied" {
+		t.Errorf("error = %q", r.Error)
 	}
+	if r.AgentRule != AgentRule {
+		t.Error("the report must carry the norm the human text states")
+	}
+	if len(r.Walls) != 1 {
+		t.Fatalf("walls = %d, want 1", len(r.Walls))
+	}
+	p := r.Walls[0]
 	if p.Reason != "permission denied" {
 		t.Errorf("reason = %q", p.Reason)
-	}
-	if p.AgentRule != AgentRule {
-		t.Error("the payload must carry the norm the human text states")
 	}
 	if !p.Choices[0].NeedsPermission || p.Choices[0].Permission == "" {
 		t.Error("choice 1 needs the author's permission and must say so")
 	}
 	if p.Choices[1].NeedsPermission {
 		t.Error("choice 2 needs nothing from the author")
+	}
+}
+
+// One wall or several, the wire shape is a list — an agent that can read a
+// preflight's answer can read every other command's.
+func TestReport_ListsEveryWall(t *testing.T) {
+	site := &Denied{Op: "create the site", Path: "/docs", Err: fs.ErrPermission}
+	state := &Denied{Op: "record this project", Path: "/cfg", Err: fs.ErrPermission}
+
+	r := Denials{site, state}.Report()
+
+	if len(r.Walls) != 2 {
+		t.Fatalf("walls = %d, want 2", len(r.Walls))
+	}
+	if r.Walls[0].Path != "/docs" || r.Walls[1].Path != "/cfg" {
+		t.Errorf("walls came back in the wrong order: %+v", r.Walls)
+	}
+}
+
+// Denials is one error carrying several: a caller may return it, and errors.As
+// still finds a Denied for code that only knows about one.
+func TestDenials_UnwrapsToEachWall(t *testing.T) {
+	site := &Denied{Op: "create the site", Path: "/docs", Err: fs.ErrPermission}
+	state := &Denied{Op: "record this project", Path: "/cfg", Err: fs.ErrPermission}
+
+	var err error = Denials{site, state}
+
+	var d *Denied
+	if !errors.As(err, &d) || d != site {
+		t.Errorf("errors.As found %v, want the first wall", d)
+	}
+	if !errors.Is(err, fs.ErrPermission) {
+		t.Error("Denials must still read as a permission error")
+	}
+	for _, want := range []string{"/docs", "/cfg"} {
+		if !strings.Contains(err.Error(), want) {
+			t.Errorf("Error() should name %s: %s", want, err)
+		}
 	}
 }
