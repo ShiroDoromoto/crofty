@@ -306,7 +306,7 @@ func agentDetails() map[string]agentCmd {
 			},
 			Sub: []agentCmd{
 				{Name: "stop", Summary: "stop the preview running for this project — idempotent, so call it unconditionally when you're done showing the author"},
-				{Name: "status", Summary: "is a preview running? prints the URL, pid and auto-stop time; read --json before you start or stop one"},
+				{Name: "status", Summary: "is a preview running? prints the URL, pid and auto-stop time; read --json before you start or stop one. \"abandoned\": true means the server outlived the crofty process supervising it, so nothing will auto-stop it — stop it"},
 			},
 			Examples: []string{
 				"crofty preview                 # serves locally; blocks until Control-C or --timeout",

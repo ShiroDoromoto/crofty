@@ -4,7 +4,10 @@ package cli
 
 import (
 	"os"
+	"path/filepath"
 	"syscall"
+
+	"golang.org/x/sys/windows"
 )
 
 // Windows has no SIGTERM/SIGKILL and no signal-0 liveness probe, so these use
@@ -55,6 +58,23 @@ func signalTerminate(pid int) {
 // escalation to model.
 func signalKill(pid int) {
 	signalTerminate(pid)
+}
+
+// processName returns the executable name behind a pid, so a recycled pid can't
+// be mistaken for the preview it once was.
+func processName(pid int) (string, error) {
+	h, err := windows.OpenProcess(windows.PROCESS_QUERY_LIMITED_INFORMATION, false, uint32(pid))
+	if err != nil {
+		return "", err
+	}
+	defer windows.CloseHandle(h)
+
+	buf := make([]uint16, windows.MAX_PATH)
+	size := uint32(len(buf))
+	if err := windows.QueryFullProcessImageName(h, 0, &buf[0], &size); err != nil {
+		return "", err
+	}
+	return filepath.Base(windows.UTF16ToString(buf[:size])), nil
 }
 
 // detachedSysProcAttr detaches a background preview from this console. It is the

@@ -234,8 +234,16 @@ func runPreviewStart(args []string) error {
 // port. Both the blocking and the detached start go through here, so a detached
 // re-run can take back the port the previous one holds.
 func reapExistingPreview(statePath string) {
-	if old, _ := readPreviewState(statePath); old != nil && processAlive(old.CroftyPID) {
+	old, _ := readPreviewState(statePath)
+	wrapper, hugo := previewAlive(old)
+	switch {
+	case wrapper:
 		fmt.Printf("A preview is already running (pid %d, %s). Stopping it first.\n", old.CroftyPID, old.URL)
+		stopPreviewState(old)
+	case hugo:
+		// The wrapper died without taking hugo with it. Collect the orphan here
+		// rather than deleting the state and losing the pid that could end it.
+		fmt.Printf("An abandoned preview server is still running (pid %d, %s). Stopping it first.\n", old.HugoPID, old.URL)
 		stopPreviewState(old)
 	}
 	removePreviewState(statePath)
@@ -386,17 +394,46 @@ func runPreviewStop(args []string) error {
 	statePath := previewStatePath(proj)
 
 	st, _ := readPreviewState(statePath)
-	if st == nil || !processAlive(st.CroftyPID) {
+	wrapper, hugo := previewAlive(st)
+	if !wrapper && !hugo {
 		removePreviewState(statePath)
 		fmt.Println("No preview is running for this project.")
 		return nil
 	}
 
-	fmt.Printf("Stopping preview (pid %d, %s)...\n", st.CroftyPID, st.URL)
+	if wrapper {
+		fmt.Printf("Stopping preview (pid %d, %s)...\n", st.CroftyPID, st.URL)
+	} else {
+		fmt.Printf("Stopping an abandoned preview server (pid %d, %s)...\n", st.HugoPID, st.URL)
+	}
 	stopPreviewState(st)
 	removePreviewState(statePath)
 	fmt.Println("Stopped.")
 	return nil
+}
+
+// previewAlive answers, for a recorded preview, which of its two processes are
+// still running. Both halves matter: the wrapper owns the graceful teardown and
+// the auto-stop timer, but hugo is the thing holding the port, and it outlives a
+// wrapper that was killed rather than asked to stop. Treating "wrapper gone" as
+// "nothing is running" is what used to strand a hugo server for good — the state
+// file was deleted, and with it the only record of the pid to kill.
+func previewAlive(st *previewState) (wrapper, hugo bool) {
+	if st == nil {
+		return false, false
+	}
+	return processIs(st.CroftyPID, croftyExeName()), processIs(st.HugoPID, "hugo")
+}
+
+// croftyExeName is the name the wrapper runs under — this binary's own, since a
+// detached preview is this binary re-executed. Reading it rather than hardcoding
+// "crofty" means a renamed binary still recognizes the preview it started.
+func croftyExeName() string {
+	exe, err := os.Executable()
+	if err != nil {
+		return "crofty"
+	}
+	return strings.ToLower(filepath.Base(exe))
 }
 
 // stopPreviewState ends a recorded preview. It asks the wrapper to stop first
@@ -404,14 +441,20 @@ func runPreviewStop(args []string) error {
 // gone even if the wrapper had already died — the belt-and-braces that keeps a
 // hugo server from being orphaned.
 func stopPreviewState(st *previewState) {
-	terminatePID(st.CroftyPID)
-	terminatePID(st.HugoPID)
+	terminatePID(st.CroftyPID, croftyExeName())
+	terminatePID(st.HugoPID, "hugo")
 }
 
 // terminatePID sends SIGTERM to a live pid, waits briefly for it to exit, then
 // SIGKILLs if it's still there. A dead or zero pid is a no-op.
-func terminatePID(pid int) {
-	if pid <= 0 || !processAlive(pid) {
+//
+// want names the program the pid is supposed to be. A recorded pid can be stale
+// — the process died and the OS handed the number to something unrelated — so a
+// pid alone is never licence to kill. When the name can't be read, crofty leaves
+// the process alone: killing a stranger is worse than leaving a hugo running,
+// and the wrapper exits on its own once its hugo is gone anyway.
+func terminatePID(pid int, want string) {
+	if !processIs(pid, want) {
 		return
 	}
 	signalTerminate(pid)
@@ -424,11 +467,31 @@ func terminatePID(pid int) {
 	signalKill(pid)
 }
 
+// processIs reports whether pid is a live process whose program name contains
+// want — the guard against a recycled pid.
+func processIs(pid int, want string) bool {
+	if pid <= 0 || !processAlive(pid) {
+		return false
+	}
+	name, err := processName(pid)
+	if err != nil {
+		return false
+	}
+	return strings.Contains(strings.ToLower(name), want)
+}
+
 // previewReport is the machine-readable answer to "is a preview running?".
+//
+// Abandoned marks the case where hugo is still serving but the crofty process
+// that supervised it is gone: the site is up, and nothing will ever auto-stop it,
+// because the timer lived in that process. It is still running — reporting it as
+// stopped would hide the one thing the reader needs to act on.
 type previewReport struct {
 	Running   bool   `json:"running"`
+	Abandoned bool   `json:"abandoned,omitempty"`
 	URL       string `json:"url,omitempty"`
 	PID       int    `json:"pid,omitempty"`
+	HugoPID   int    `json:"hugoPid,omitempty"`
 	Port      int    `json:"port,omitempty"`
 	StartedAt string `json:"startedAt,omitempty"`
 	TimeoutAt string `json:"timeoutAt,omitempty"`
@@ -452,19 +515,29 @@ func runPreviewStatus(args []string) error {
 	statePath := previewStatePath(proj)
 
 	st, _ := readPreviewState(statePath)
+	wrapper, hugo := previewAlive(st)
 	rep := previewReport{}
-	if st != nil && processAlive(st.CroftyPID) {
+	switch {
+	case wrapper || hugo:
 		rep = previewReport{
 			Running:   true,
+			Abandoned: !wrapper,
 			URL:       st.URL,
-			PID:       st.CroftyPID,
 			Port:      st.Port,
 			StartedAt: st.StartedAt,
-			TimeoutAt: st.TimeoutAt,
 		}
-	} else if st != nil {
-		// Recorded but the process is gone (e.g. SIGKILL never cleaned up). Tidy
-		// the stale file so the next status is fast and honest.
+		if wrapper {
+			rep.PID = st.CroftyPID
+			// The auto-stop timer lives in the wrapper, so it is only a promise
+			// while the wrapper is there to keep it.
+			rep.TimeoutAt = st.TimeoutAt
+		}
+		if hugo {
+			rep.HugoPID = st.HugoPID
+		}
+	case st != nil:
+		// Recorded but both processes are gone (e.g. SIGKILL never cleaned up).
+		// Tidy the stale file so the next status is fast and honest.
 		removePreviewState(statePath)
 	}
 
@@ -477,6 +550,12 @@ func runPreviewStatus(args []string) error {
 	if !rep.Running {
 		fmt.Println("No preview is running for this project.")
 		fmt.Println("Start one with 'crofty preview'.")
+		return nil
+	}
+	if rep.Abandoned {
+		fmt.Printf("A preview server is still serving %s (pid %d), but the crofty process\n", rep.URL, rep.HugoPID)
+		fmt.Println("that supervised it is gone, so it will not auto-stop on its own.")
+		fmt.Println("Stop it with 'crofty preview stop'.")
 		return nil
 	}
 	fmt.Printf("Preview is running at %s (pid %d).\n", rep.URL, rep.PID)

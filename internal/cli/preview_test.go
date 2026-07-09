@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"net"
 	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -61,6 +62,32 @@ func TestProcessAlive(t *testing.T) {
 	// than being reported running (which would wedge the singleton reap).
 	if processAlive(0x7ffffffe) {
 		t.Error("processAlive(bogus pid) = true; want false")
+	}
+}
+
+// A recorded pid outlives the process it named: the OS reuses the number. So
+// liveness must ask what the process *is*, not merely whether something exists.
+func TestProcessIs(t *testing.T) {
+	self := strings.ToLower(filepath.Base(os.Args[0])) // the test binary
+	if !processIs(os.Getpid(), self) {
+		t.Errorf("processIs(self, %q) = false; want true", self)
+	}
+	if processIs(os.Getpid(), "hugo") {
+		t.Error("processIs(self, \"hugo\") = true; a live but unrelated pid must not read as hugo")
+	}
+	if processIs(0x7ffffffe, "hugo") || processIs(0, "hugo") {
+		t.Error("processIs(dead or zero pid) = true; want false")
+	}
+}
+
+// A preview whose processes are both gone reads as gone, rather than erroring or
+// reporting the pids it happens to remember.
+func TestPreviewAliveWhenNothingIsLeft(t *testing.T) {
+	if w, h := previewAlive(&previewState{CroftyPID: 0x7ffffffe, HugoPID: 0x7ffffffd}); w || h {
+		t.Errorf("previewAlive(dead) = (%v, %v); want (false, false)", w, h)
+	}
+	if w, h := previewAlive(nil); w || h {
+		t.Errorf("previewAlive(nil) = (%v, %v); want (false, false)", w, h)
 	}
 }
 
