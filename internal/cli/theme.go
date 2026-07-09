@@ -123,11 +123,7 @@ func runThemeSet(args []string) error {
 		return errSilent
 	}
 
-	cwd, err := os.Getwd()
-	if err != nil {
-		return err
-	}
-	proj, err := project.Find(cwd)
+	proj, err := findProject()
 	if err != nil {
 		return err
 	}
@@ -195,11 +191,7 @@ func runThemeEject(args []string) error {
 		return nil
 	}
 
-	cwd, err := os.Getwd()
-	if err != nil {
-		return err
-	}
-	proj, err := project.Find(cwd)
+	proj, err := findProject()
 	if err != nil {
 		return err
 	}

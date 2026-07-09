@@ -85,7 +85,7 @@ func runShare(args []string) error {
 	}
 	article := pos[0]
 
-	proj, err := currentProject()
+	proj, err := findProject()
 	if err != nil {
 		return err
 	}

@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/ShiroDoromoto/crofty/internal/project"
 )
@@ -88,6 +89,51 @@ func TestPreviewAliveWhenNothingIsLeft(t *testing.T) {
 	}
 	if w, h := previewAlive(nil); w || h {
 		t.Errorf("previewAlive(nil) = (%v, %v); want (false, false)", w, h)
+	}
+}
+
+// The auto-stop deadline is kept in preview.json precisely so it survives the
+// process that was supposed to enforce it.
+func TestPreviewExpired(t *testing.T) {
+	now := time.Date(2026, 7, 10, 12, 0, 0, 0, time.UTC)
+	at := func(s string) *previewState { return &previewState{TimeoutAt: s} }
+
+	cases := []struct {
+		name string
+		st   *previewState
+		want bool
+	}{
+		{"past the deadline", at("2026-07-10T11:59:59Z"), true},
+		{"exactly at the deadline", at("2026-07-10T12:00:00Z"), true},
+		{"before the deadline", at("2026-07-10T12:00:01Z"), false},
+		// --timeout 0: the author asked for a preview that runs until they stop it.
+		{"no deadline recorded", at(""), false},
+		// Never kill on a guess.
+		{"unparseable deadline", at("whenever"), false},
+		{"no state", nil, false},
+	}
+	for _, c := range cases {
+		if got := previewExpired(c.st, now); got != c.want {
+			t.Errorf("%s: previewExpired = %v, want %v", c.name, got, c.want)
+		}
+	}
+}
+
+// A state file whose processes are long gone is litter: the sweep clears it, so
+// status and stop don't have to reason about a preview that isn't there.
+func TestSweepExpiredPreviewClearsDeadState(t *testing.T) {
+	proj := newPreviewProject(t)
+	statePath := previewStatePath(proj)
+	st := &previewState{CroftyPID: 0x7ffffffe, HugoPID: 0x7ffffffd, Port: 1313, URL: "http://localhost:1313/",
+		TimeoutAt: time.Now().Add(time.Hour).Format(time.RFC3339)} // not even expired
+	if err := writePreviewState(statePath, st); err != nil {
+		t.Fatal(err)
+	}
+
+	sweepExpiredPreview(proj)
+
+	if _, err := os.Stat(statePath); !os.IsNotExist(err) {
+		t.Errorf("sweep left the state of a preview whose processes are gone: %v", err)
 	}
 }
 

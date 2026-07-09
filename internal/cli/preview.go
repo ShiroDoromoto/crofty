@@ -436,6 +436,51 @@ func croftyExeName() string {
 	return strings.ToLower(filepath.Base(exe))
 }
 
+// previewExpired reports whether a recorded preview is past the auto-stop time
+// it was started with. An empty TimeoutAt means `--timeout 0` — the author asked
+// for a preview that runs until they stop it, and that wish outlives the wrapper.
+// An unparseable time is treated as no deadline: crofty does not kill on a guess.
+func previewExpired(st *previewState, now time.Time) bool {
+	if st == nil || st.TimeoutAt == "" {
+		return false
+	}
+	deadline, err := time.Parse(time.RFC3339, st.TimeoutAt)
+	if err != nil {
+		return false
+	}
+	return !now.Before(deadline)
+}
+
+// sweepExpiredPreview is the backstop for a preview whose wrapper died before its
+// --timeout could fire. That timer lives in the wrapper's memory, so killing the
+// wrapper kills the promise with it, and hugo would serve until the machine went
+// down. The deadline itself, though, is written in preview.json — so any later
+// crofty run in this project can honour it.
+//
+// Every project command goes through findProject, which calls this: the sweep
+// costs one small file read, and in exchange no preview outlives its deadline for
+// longer than it takes the author (or their AI) to run crofty again. It says what
+// it did on stderr, since stdout may be JSON somebody is parsing.
+func sweepExpiredPreview(proj *project.Project) {
+	statePath := previewStatePath(proj)
+	st, err := readPreviewState(statePath)
+	if err != nil || st == nil {
+		return
+	}
+	wrapper, hugo := previewAlive(st)
+	if !wrapper && !hugo {
+		// Nothing left to stop; the record is litter.
+		removePreviewState(statePath)
+		return
+	}
+	if !previewExpired(st, time.Now()) {
+		return
+	}
+	fmt.Fprintf(os.Stderr, "crofty: stopped a preview that was past its auto-stop time (%s, %s).\n", st.TimeoutAt, st.URL)
+	stopPreviewState(st)
+	removePreviewState(statePath)
+}
+
 // stopPreviewState ends a recorded preview. It asks the wrapper to stop first
 // (SIGTERM, so it tears hugo down and cleans up), then makes sure hugo itself is
 // gone even if the wrapper had already died — the belt-and-braces that keeps a

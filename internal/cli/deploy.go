@@ -42,11 +42,7 @@ func runDeploy(args []string) error {
 		return err
 	}
 
-	cwd, err := os.Getwd()
-	if err != nil {
-		return err
-	}
-	proj, err := project.Find(cwd)
+	proj, err := findProject()
 	if err != nil {
 		return err
 	}

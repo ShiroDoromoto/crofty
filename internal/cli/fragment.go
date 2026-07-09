@@ -10,21 +10,12 @@ import (
 
 	"gopkg.in/yaml.v3"
 
-	"github.com/ShiroDoromoto/crofty/internal/project"
 	"github.com/ShiroDoromoto/crofty/internal/spec"
 )
 
 // This file holds the helpers `share` uses to compose a post's fragment — the
 // title, summary and canonical link. crofty composes fragments; it does not post
 // them. The body is never part of a fragment, by design.
-
-func currentProject() (*project.Project, error) {
-	cwd, err := os.Getwd()
-	if err != nil {
-		return nil, err
-	}
-	return project.Find(cwd)
-}
 
 // frontmatterChannels uses --to if given, else the post's crofty.targets.
 func frontmatterChannels(to string, fm spec.Frontmatter) ([]string, error) {

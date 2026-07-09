@@ -161,12 +161,22 @@ func printNoProjectHere() {
 
 // findProject locates the crofty project containing the current directory, the
 // common preamble for commands that operate on "the project here".
+//
+// It also collects a preview that is past its auto-stop time. Doing it here — on
+// the one path every project command takes — is what makes the timeout a promise
+// rather than a hope: the wrapper holding the timer can be killed, but the
+// deadline is on disk, and the next crofty run in this project honours it.
 func findProject() (*project.Project, error) {
 	cwd, err := os.Getwd()
 	if err != nil {
 		return nil, err
 	}
-	return project.Find(cwd)
+	proj, err := project.Find(cwd)
+	if err != nil {
+		return nil, err
+	}
+	sweepExpiredPreview(proj)
+	return proj, nil
 }
 
 // parseArgs parses a flag set while allowing flags and positional arguments to

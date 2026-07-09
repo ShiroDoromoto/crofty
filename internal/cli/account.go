@@ -43,7 +43,7 @@ func runConnect(args []string) error {
 		return err
 	}
 
-	proj, err := currentProject()
+	proj, err := findProject()
 	if err != nil {
 		return err
 	}
@@ -209,7 +209,7 @@ func runReset(args []string) error {
 			}
 		}
 	} else {
-		proj, err := currentProject()
+		proj, err := findProject()
 		if err != nil {
 			return err
 		}
