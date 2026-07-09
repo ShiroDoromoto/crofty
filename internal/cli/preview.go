@@ -12,8 +12,8 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/ShiroDoromoto/crofty/internal/hugobin"
 	"github.com/ShiroDoromoto/crofty/internal/project"
-	"github.com/ShiroDoromoto/crofty/internal/runner"
 	"github.com/ShiroDoromoto/crofty/internal/theme"
 )
 
@@ -117,9 +117,9 @@ func runPreviewStart(args []string) error {
 		return err
 	}
 
-	if !runner.Look("hugo") {
-		return fmt.Errorf("hugo not found on PATH.\n" +
-			"crofty wraps Hugo to build your site. Install it (e.g. 'brew install hugo'), then try again.")
+	hugoExe, err := hugobin.Resolve()
+	if err != nil {
+		return err
 	}
 
 	// Singleton: at most one preview per project. If one is already running,
@@ -152,7 +152,7 @@ func runPreviewStart(args []string) error {
 	// --disableFastRender makes every edit trigger a full rebuild: a touch slower,
 	// but edits (including assets) reliably appear — important when an agent writes
 	// a file and checks the result, where a stale render reads as a real failure.
-	cmd := exec.Command("hugo", "server",
+	cmd := exec.Command(hugoExe, "server",
 		"--source", proj.Root,
 		"--themesDir", proj.ThemesDir(),
 		"--theme", "crofty",

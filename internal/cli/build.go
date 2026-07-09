@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/ShiroDoromoto/crofty/internal/hugobin"
 	"github.com/ShiroDoromoto/crofty/internal/project"
 	"github.com/ShiroDoromoto/crofty/internal/runner"
 	"github.com/ShiroDoromoto/crofty/internal/spec"
@@ -60,9 +61,9 @@ func runBuild(args []string) error {
 // `crofty deploy` runs before publishing — so a deploy always ships the current
 // source, never a stale ./dist left behind after an edit.
 func buildSite(proj *project.Project) error {
-	if !runner.Look("hugo") {
-		return fmt.Errorf("hugo not found on PATH.\n" +
-			"crofty wraps Hugo to build your site. Install it (e.g. 'brew install hugo'), then run the command again.")
+	hugoExe, err := hugobin.Resolve()
+	if err != nil {
+		return err
 	}
 	// Materialize the bundled theme into .crofty/themes/crofty each build so the
 	// copy embedded in the binary stays the single source of truth.
@@ -82,7 +83,7 @@ func buildSite(proj *project.Project) error {
 	// Run Hugo against the project root. .crofty/ holds the theme and tool state
 	// and is never rendered into the output, so nothing from it can ride along
 	// to deploy.
-	if err := runner.Run(proj.Root, "hugo",
+	if err := runner.Run(proj.Root, hugoExe,
 		"--source", proj.Root,
 		"--themesDir", proj.ThemesDir(),
 		"--theme", "crofty",

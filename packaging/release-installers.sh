@@ -6,8 +6,11 @@
 #   macOS:   https://github.com/ShiroDoromoto/crofty/releases/latest/download/crofty.pkg
 #   Windows: https://github.com/ShiroDoromoto/crofty/releases/latest/download/crofty-setup.exe
 #
+# Both carry Hugo, so a person who double-clicks needs no prerequisite. The Hugo
+# is downloaded and checksum-verified by hugo.sh at build time.
+#
 # Run AFTER `wharfy release` (the release must exist) and BEFORE/around publish.
-# Requires: macOS host (lipo, pkgbuild, codesign) + makensis, and gh authed.
+# Requires: macOS host (lipo, pkgbuild, codesign, pkgutil) + makensis, and gh authed.
 #
 # Usage: packaging/release-installers.sh <version>   (from repo root; reads .wharfy/dist)
 set -eu
@@ -25,13 +28,15 @@ DARWIN_AMD="$(ls -d "$DIST"/crofty_darwin_amd64*/crofty 2>/dev/null | head -1)"
 : "${DARWIN_AMD:?darwin amd64 binary not found in $DIST — run 'wharfy build' first}"
 lipo -create "$DARWIN_ARM" "$DARWIN_AMD" -output "$OUT/crofty"
 codesign --force --sign - "$OUT/crofty"   # ad-hoc (certificate-free) so it runs on Apple Silicon
-"$HERE/macos/build-pkg.sh" "$VERSION" "$OUT/crofty" "$OUT/crofty.pkg"
+HUGO_MAC="$("$HERE/hugo.sh" darwin-universal "$OUT")"
+"$HERE/macos/build-pkg.sh" "$VERSION" "$OUT/crofty" "$HUGO_MAC" "$OUT/crofty.pkg"
 
 # --- Windows: amd64 NSIS installer -> %LOCALAPPDATA%\crofty\bin (covers the vast
-#     majority; rare win/arm64 users use the script or scoop) ---
+#     majority; rare win/arm64 users use the script) ---
 WIN_AMD="$(ls -d "$DIST"/crofty_windows_amd64*/crofty.exe 2>/dev/null | head -1)"
 : "${WIN_AMD:?windows amd64 binary not found in $DIST — run 'wharfy build' first}"
-"$HERE/windows/build-exe.sh" "$VERSION" "$WIN_AMD" "$OUT/crofty-setup.exe"
+HUGO_WIN="$("$HERE/hugo.sh" windows-amd64 "$OUT")"
+"$HERE/windows/build-exe.sh" "$VERSION" "$WIN_AMD" "$HUGO_WIN" "$OUT/crofty-setup.exe"
 
 # --- attach to the GitHub release (idempotent: --clobber replaces same-name) ---
 gh release upload "v$VERSION" "$OUT/crofty.pkg" "$OUT/crofty-setup.exe" --clobber

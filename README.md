@@ -68,13 +68,21 @@ sudo dpkg -i crofty_*_linux_amd64.deb   # Debian/Ubuntu
 sudo rpm -i  crofty_*_linux_amd64.rpm   # Fedora/RHEL
 ```
 
-crofty wraps [Hugo](https://gohugo.io) at runtime for `build` and `preview`.
-On macOS and Windows both installers pull it in for you — Homebrew as a formula
-dependency, Scoop as a manifest dependency (`hugo-extended` from the main
-bucket). On Linux the `.deb`/`.rpm` only *recommends* hugo (distro packages are
-often outdated or not the extended build), so install
-[hugo-extended](https://gohugo.io/installation/linux/) yourself —
-`crofty build` / `crofty preview` will tell you if it's missing from your PATH.
+crofty wraps [Hugo](https://gohugo.io) at runtime for `build` and `preview`, and
+needs the **extended** build (the theme's stylesheets are SCSS).
+
+The click installers (`crofty.pkg` / `crofty-setup.exe`, on the
+[releases page](https://github.com/ShiroDoromoto/crofty/releases)) carry that
+Hugo with them, so there is nothing to install first. They don't touch a `hugo`
+you already have: the bundled copy sits next to crofty, off your PATH, and
+crofty runs it in preference to whatever PATH happens to name.
+
+Every other route expects a hugo on your PATH. Homebrew and Scoop pull one in as
+a package dependency; on Linux the `.deb`/`.rpm` only *recommends* hugo (distro
+packages are often outdated or not the extended build), so install
+[hugo-extended](https://gohugo.io/installation/linux/) yourself — `crofty build`
+/ `crofty preview` will tell you if it's missing. To point crofty at a
+particular one, set `CROFTY_HUGO=/path/to/hugo`.
 
 ### Updating
 
