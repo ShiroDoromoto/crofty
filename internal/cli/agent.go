@@ -190,7 +190,7 @@ func agentBrief() brief {
 		},
 		Inspect: []string{
 			"crofty preview status --json — is a local preview running, and at what URL (so you reuse or stop it instead of starting a second)",
-			"crofty config --json     — this project now: title, languages, features on, theme, deploy target, footer credit",
+			"crofty config --json     — this project now: title, languages, features on, theme, deploy target, footer credit, and crofty's state directory (where it is, whether crofty may write there)",
 			"crofty features --json   — every capability and the exact one-liner to turn it on",
 			"crofty validate --json   — check content against the spec (the gate before build)",
 			"crofty doctor --json     — check the built ./dist against the output contract (the gate before deploy)",
@@ -205,7 +205,7 @@ func agentBrief() brief {
 			"`draft: true` or a future `date` keeps a post off the built site; `crofty build` lists what it left out. Run `crofty validate` before build and `crofty doctor` before deploy.",
 			"crofty runs Hugo for `build` and `preview`. The click installers (.pkg / .exe) carry the Hugo crofty was tested against, and crofty prefers that copy over anything on PATH; every other install uses `hugo` from PATH, which must be the extended build. If build fails on the wrong Hugo, the author can name one with `CROFTY_HUGO=/path/to/hugo` — theirs to set, not yours.",
 			"When crofty says it needs the author's permission, that is a branch, not a failure. It prints what it tried to do, the path, and the choices (each marked when it needs permission) — in --json too. Do NOT invent a workaround: never change environment variables, move files, or elevate privileges to get around it. Show the choices to the author and let them pick.",
-			"crofty keeps one state folder outside the project — the registry of where the author's projects are. `CROFTY_HOME` moves it, and crofty offers that as a choice when the OS config folder is locked down. It is the author's to set, never yours. A site whose registration failed is still a whole site: cd into it and every command works.",
+			"crofty keeps one state folder outside the project — the registry of where the author's projects are. `CROFTY_HOME` moves it, and crofty offers that as a choice when the OS config folder is locked down. It is the author's to set, never yours. A site whose registration failed is still a whole site: cd into it and every command works. Read where that folder is, and whether crofty may write there, from `crofty config --json` → state — you never have to learn it by writing.",
 			"The optional \"Made with crofty\" footer line is opt-in and only ever set by the author. crofty asks once, neutrally, on the first interactive deploy. A deploy you run is non-interactive, so it stays off — never turn it on yourself; only set `crofty credit on` if the author asks. Read the current choice (on|off|\"\") from `crofty config --json` → footerCredit.",
 		},
 	}
@@ -250,7 +250,7 @@ func agentDetails() map[string]agentCmd {
 			Examples: []string{"crofty agent", "crofty agent --json"},
 		},
 		"config": {
-			Flags:    []agentFlag{{"--json", "the current configuration as JSON (includes deploy provider/host/path)"}},
+			Flags:    []agentFlag{{"--json", "the current configuration as JSON (includes deploy provider/host/path, and state.dir/state.writable for crofty's own state directory)"}},
 			Examples: []string{"crofty config", "crofty config --json"},
 		},
 		"add": {
