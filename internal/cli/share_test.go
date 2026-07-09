@@ -29,7 +29,7 @@ func shareProject(t *testing.T, description string) (root, article string) {
 	t.Helper()
 	root = t.TempDir()
 	write(t, filepath.Join(root, "hugo.yaml"), "baseURL: \"https://example.com/\"\ntitle: T\n")
-	mkdir(t, filepath.Join(root, ".crofty"))
+	mkProject(t, root)
 	postDir := filepath.Join(root, "content", "posts", "hello")
 	mkdir(t, postDir)
 	article = filepath.Join(postDir, "index.md")

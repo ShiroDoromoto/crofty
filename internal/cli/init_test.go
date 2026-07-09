@@ -234,3 +234,37 @@ func TestSanitizeName(t *testing.T) {
 		}
 	}
 }
+
+// The bug from the field: a user parked crofty at .crofty/bin/crofty.exe, and
+// `crofty init .` mistook the folder for an existing project, fell into the
+// configure path, and exited 0 without writing a site. The marker is
+// .crofty/config.json, so init must scaffold here — and leave the user's own
+// files under .crofty/ alone (D-2).
+func TestInitDot_StrayMarkerDirIsNotAProject(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)                                // keep the project registry out of the real one
+	t.Setenv("XDG_CONFIG_HOME", filepath.Join(home, "c")) // ...on Linux too
+
+	site := t.TempDir()
+	parked := filepath.Join(site, ".crofty", "bin", "crofty.exe")
+	if err := os.MkdirAll(filepath.Dir(parked), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(parked, []byte("binary"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	t.Chdir(site)
+
+	if err := runInit([]string{"--lang", "en", "--title", "T", "--project", "t", "."}); err != nil {
+		t.Fatalf("init .: %v", err)
+	}
+
+	for _, rel := range []string{"hugo.yaml", filepath.Join(".crofty", "config.json")} {
+		if _, err := os.Stat(filepath.Join(site, rel)); err != nil {
+			t.Errorf("init . did not create %s: %v", rel, err)
+		}
+	}
+	if _, err := os.Stat(parked); err != nil {
+		t.Errorf("init . clobbered the user's own file under .crofty/: %v", err)
+	}
+}

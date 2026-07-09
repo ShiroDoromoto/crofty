@@ -91,7 +91,7 @@ func KnownProjects() []string {
 		if err != nil || seen[abs] {
 			return
 		}
-		if fi, err := os.Stat(filepath.Join(abs, MarkerDir)); err != nil || !fi.IsDir() {
+		if !IsProject(abs) {
 			return
 		}
 		seen[abs] = true

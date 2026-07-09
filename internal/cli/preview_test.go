@@ -3,7 +3,6 @@ package cli
 import (
 	"encoding/json"
 	"os"
-	"path/filepath"
 	"strings"
 	"testing"
 
@@ -11,12 +10,12 @@ import (
 )
 
 // newPreviewProject makes a minimal crofty project rooted at a temp dir and
-// returns it. Only the .crofty marker is needed for the preview state paths and
+// returns it. Only the config file is needed for the preview state paths and
 // findProject to resolve.
 func newPreviewProject(t *testing.T) *project.Project {
 	t.Helper()
 	dir := t.TempDir()
-	mkdir(t, filepath.Join(dir, project.MarkerDir))
+	mkProject(t, dir)
 	return &project.Project{Root: dir}
 }
 

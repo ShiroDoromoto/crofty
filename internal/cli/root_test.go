@@ -60,9 +60,8 @@ func TestPrintNoProjectHere_HasProject(t *testing.T) {
 		t.Fatal(err)
 	}
 	projRoot := filepath.Join(base, "myproj")
-	if err := os.MkdirAll(filepath.Join(projRoot, project.MarkerDir), 0o755); err != nil {
-		t.Fatal(err)
-	}
+	mkdir(t, projRoot)
+	mkProject(t, projRoot)
 
 	out := captureStderr(t, printNoProjectHere)
 
@@ -74,5 +73,19 @@ func TestPrintNoProjectHere_HasProject(t *testing.T) {
 	}
 	if strings.Contains(out, "no crofty project here yet") {
 		t.Errorf("should not show the first-timer message when a project exists; got:\n%s", out)
+	}
+}
+
+// A .crofty/ with no config.json must not be reported as "no project here" —
+// the folder looks like a project to the person standing in it, so the message
+// names the half-state and the one command that resolves it (D-2).
+func TestPrintStrayMarker(t *testing.T) {
+	out := captureStderr(t, func() {
+		printStrayMarker(&project.StrayMarkerError{Dir: "/tmp/site"})
+	})
+	for _, want := range []string{"/tmp/site", ".crofty/config.json", "crofty init ."} {
+		if !strings.Contains(out, want) {
+			t.Errorf("message should mention %q; got:\n%s", want, out)
+		}
 	}
 }

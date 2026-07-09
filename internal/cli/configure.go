@@ -27,6 +27,11 @@ func profilePath(root string) string {
 // prompts and never writes — it prints the current state and exactly where to
 // set things, leaving the edit to the author or their AI (same as init).
 func runConfigure(proj *project.Project) error {
+	// init only lands here when the target is already a project. Say that out
+	// loud: an `init` that quietly does something else is how "it succeeded but
+	// there's no site" happens (D-2).
+	fmt.Println("This is already a crofty project — configuring it instead of creating a new site.")
+	fmt.Println()
 	fmt.Println("Configure (optional settings — your content is untouched):")
 	fmt.Println()
 	fmt.Println("📁 ", proj.Root)

@@ -10,14 +10,17 @@ import (
 	"path/filepath"
 )
 
-// MarkerDir is the per-project crofty working directory. Its presence marks a
-// project root. It holds tool state (and, later, keys) and is never part of the
-// rendered output, so secrets cannot ride along to deploy.
+// MarkerDir is the per-project crofty working directory. It holds tool state
+// (and, later, keys) and is never part of the rendered output, so secrets cannot
+// ride along to deploy. Its mere presence does NOT mark a project root: anyone
+// may drop a file under it (e.g. .crofty/bin/crofty.exe), and a folder must not
+// become a project because of someone else's file.
 const MarkerDir = ".crofty"
 
 // ConfigFile holds crofty-specific settings as JSON inside MarkerDir. Hugo's own
 // config (hugo.yaml) stays standard and untouched so the project remains a
-// plain, ejectable Hugo project.
+// plain, ejectable Hugo project. crofty writes this file itself, which is why it
+// — not MarkerDir — is the marker of a project root (D-2).
 const ConfigFile = "config.json"
 
 // Config is the crofty-specific project config. Hugo settings (baseURL, title)
@@ -87,23 +90,53 @@ type Project struct {
 	Root string
 }
 
-// ErrNotFound is returned when no MarkerDir is found walking up from a start dir.
-var ErrNotFound = errors.New("not inside a crofty project (no .crofty/ found in this or any parent directory)")
+// ErrNotFound is returned when no project root is found walking up from a start dir.
+var ErrNotFound = errors.New("not inside a crofty project (no .crofty/config.json found in this or any parent directory)")
 
-// Find walks up from start looking for the MarkerDir, so build and deploy work
-// from any subdirectory of a project.
+// StrayMarkerError says a .crofty/ directory exists without the config.json that
+// would make it a project root. It wraps ErrNotFound — such a folder is not a
+// project — but names the directory so the caller can explain the half-state
+// instead of pretending nothing is there.
+type StrayMarkerError struct{ Dir string }
+
+func (e *StrayMarkerError) Error() string {
+	return fmt.Sprintf("%s has a %s/ directory but no %s — it is not a crofty project",
+		e.Dir, MarkerDir, ConfigFile)
+}
+
+func (e *StrayMarkerError) Unwrap() error { return ErrNotFound }
+
+// IsProject reports whether dir is a crofty project root, i.e. holds the config
+// file crofty itself writes.
+func IsProject(dir string) bool {
+	fi, err := os.Stat(filepath.Join(dir, MarkerDir, ConfigFile))
+	return err == nil && fi.Mode().IsRegular()
+}
+
+// Find walks up from start looking for a project root, so build and deploy work
+// from any subdirectory of a project. When nothing is found but a stray MarkerDir
+// was passed on the way, the error names it: that folder looks like a project to
+// a human and silence there is the worst answer.
 func Find(start string) (*Project, error) {
 	dir, err := filepath.Abs(start)
 	if err != nil {
 		return nil, err
 	}
+	stray := ""
 	for {
-		marker := filepath.Join(dir, MarkerDir)
-		if fi, err := os.Stat(marker); err == nil && fi.IsDir() {
+		if IsProject(dir) {
 			return &Project{Root: dir}, nil
+		}
+		if stray == "" {
+			if fi, err := os.Stat(filepath.Join(dir, MarkerDir)); err == nil && fi.IsDir() {
+				stray = dir
+			}
 		}
 		parent := filepath.Dir(dir)
 		if parent == dir {
+			if stray != "" {
+				return nil, &StrayMarkerError{Dir: stray}
+			}
 			return nil, ErrNotFound
 		}
 		dir = parent

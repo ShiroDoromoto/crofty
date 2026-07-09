@@ -73,7 +73,7 @@ func runInit(args []string) error {
 		if proj, ferr := project.Find(cwd); ferr == nil {
 			return runConfigure(proj)
 		}
-	} else if target, rerr := resolveInitTarget(rest[0]); rerr == nil && isExistingProject(target) {
+	} else if target, rerr := resolveInitTarget(rest[0]); rerr == nil && project.IsProject(target) {
 		return runConfigure(&project.Project{Root: target})
 	}
 
@@ -98,7 +98,7 @@ func runInit(args []string) error {
 		if err != nil {
 			return err
 		}
-		if isExistingProject(abs) {
+		if project.IsProject(abs) {
 			return fmt.Errorf("%s is already a crofty project.\n"+
 				"  To build it:     cd %s && crofty build\n"+
 				"  Or make another: crofty init <name>", abs, abs)
@@ -115,7 +115,7 @@ func runInit(args []string) error {
 			if err != nil {
 				return err
 			}
-			if !isExistingProject(abs) {
+			if !project.IsProject(abs) {
 				break
 			}
 			fmt.Printf("  '%s' already exists — pick another name.\n", name)
@@ -264,12 +264,6 @@ func resolveInitTarget(arg string) (string, error) {
 		return "", err
 	}
 	return filepath.Join(base, arg), nil
-}
-
-// isExistingProject reports whether abs already holds a crofty project.
-func isExistingProject(abs string) bool {
-	fi, err := os.Stat(filepath.Join(abs, project.MarkerDir))
-	return err == nil && fi.IsDir()
 }
 
 // looksLikePath reports whether arg should be treated as a filesystem path

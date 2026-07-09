@@ -80,9 +80,16 @@ func dispatch(args []string) int {
 	for _, c := range commands() {
 		if c.name == args[0] {
 			if err := c.run(args[1:]); err != nil {
+				var stray *project.StrayMarkerError
 				switch {
 				case errors.Is(err, errSilent):
 					// command already printed its own report
+				case errors.As(err, &stray):
+					// A .crofty/ with no config.json: the folder looks like a project
+					// to a human but crofty never made one here. Say so, and say how
+					// to make it real — this case is checked before ErrNotFound
+					// because StrayMarkerError wraps it.
+					printStrayMarker(stray)
 				case errors.Is(err, project.ErrNotFound):
 					// Turn the dead end into a doorway, but pick the doorway from the
 					// registry: someone who just ran `crofty init` and forgot to cd has
@@ -101,6 +108,17 @@ func dispatch(args []string) int {
 	fmt.Fprintf(os.Stderr, "crofty: unknown command %q\n\n", args[0])
 	usage()
 	return 2
+}
+
+// printStrayMarker explains the half-state: a .crofty/ directory that crofty
+// never initialized (someone put a file under it — a downloaded binary, say).
+// Naming the directory matters because it is often a parent, not the cwd.
+func printStrayMarker(e *project.StrayMarkerError) {
+	fmt.Fprintf(os.Stderr, "\n%s has a %s/ directory, but no %s/%s — so it is not a crofty project.\n",
+		e.Dir, project.MarkerDir, project.MarkerDir, project.ConfigFile)
+	fmt.Fprintln(os.Stderr, "\ncrofty writes that file itself, on init. To make this folder a project:")
+	fmt.Fprintf(os.Stderr, "\n    cd %s && crofty init .\n", e.Dir)
+	fmt.Fprintf(os.Stderr, "\n(If you only stored files under %s/ yourself, move them elsewhere first.)\n", project.MarkerDir)
 }
 
 // printNoProjectHere handles the "ran a project command outside any project"
