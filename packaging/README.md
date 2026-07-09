@@ -11,6 +11,10 @@ these installers are for people who can only download-and-double-click.
   that installs per-user to `%LOCALAPPDATA%\crofty\bin` and adds it to the user
   PATH (no admin).
 
+Both are **unsigned by choice** — no Apple Developer ID, no code-signing cert, no
+P12. First open shows an OS warning (Gatekeeper / SmartScreen); the user picks
+"Open Anyway" / "Run anyway". The agent guides them through it.
+
 ## The bundled Hugo
 
 Both installers carry Hugo (extended), fetched and checksum-verified at build
@@ -33,10 +37,6 @@ along next to the binary in both installers.
 
 Bump `HUGO_VERSION` in `hugo.sh` deliberately. The weekly `hugo-compat.yml` run is
 what tells us a newer Hugo still builds a contract-clean site.
-
-Both are **unsigned by choice** — no Apple Developer ID, no code-signing cert, no
-P12. First open shows an OS warning (Gatekeeper / SmartScreen); the user picks
-"Open Anyway" / "Run anyway". The agent guides them through it.
 
 ## Distribution
 

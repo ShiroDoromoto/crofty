@@ -2,11 +2,16 @@ package cli
 
 import (
 	"bufio"
+	"bytes"
+	"io/fs"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 
+	"github.com/ShiroDoromoto/crofty/internal/access"
+	"github.com/ShiroDoromoto/crofty/internal/project"
 	"github.com/ShiroDoromoto/crofty/internal/runner"
 )
 
@@ -241,9 +246,7 @@ func TestSanitizeName(t *testing.T) {
 // .crofty/config.json, so init must scaffold here — and leave the user's own
 // files under .crofty/ alone (D-2).
 func TestInitDot_StrayMarkerDirIsNotAProject(t *testing.T) {
-	home := t.TempDir()
-	t.Setenv("HOME", home)                                // keep the project registry out of the real one
-	t.Setenv("XDG_CONFIG_HOME", filepath.Join(home, "c")) // ...on Linux too
+	t.Setenv(project.HomeEnv, t.TempDir()) // keep the project registry out of the real one
 
 	site := t.TempDir()
 	parked := filepath.Join(site, ".crofty", "bin", "crofty.exe")
@@ -266,5 +269,64 @@ func TestInitDot_StrayMarkerDirIsNotAProject(t *testing.T) {
 	}
 	if _, err := os.Stat(parked); err != nil {
 		t.Errorf("init . clobbered the user's own file under .crofty/: %v", err)
+	}
+}
+
+// The registry is a convenience for discovery, not the site. When crofty cannot
+// write it — a sandbox that refuses the OS config dir — init must still leave a
+// working site behind and exit 0, instead of reporting "Access is denied." over
+// a site that exists (D-1).
+func TestInit_SurvivesAnUnwritableRegistry(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("chmod does not deny writes on windows")
+	}
+	if os.Geteuid() == 0 {
+		t.Skip("root writes through a read-only directory")
+	}
+	locked := filepath.Join(t.TempDir(), "state")
+	if err := os.Mkdir(locked, 0o500); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv(project.HomeEnv, filepath.Join(locked, "crofty"))
+
+	site := t.TempDir()
+	t.Chdir(site)
+
+	if err := runInit([]string{"--lang", "en", "--title", "T", "--project", "t", "."}); err != nil {
+		t.Fatalf("init failed over an unwritable registry: %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(site, ".crofty", "config.json")); err != nil {
+		t.Errorf("init did not write the site: %v", err)
+	}
+}
+
+// What init could not do is reported as a fork the author picks from, so the AI
+// reading it asks instead of rewriting the author's environment (D-1).
+func TestReportRegisterFailure_ShowsTheChoices(t *testing.T) {
+	var buf bytes.Buffer
+	err := access.Deny("record this project", "/state/projects.json",
+		&fs.PathError{Op: "open", Path: "/state/projects.json", Err: fs.ErrPermission},
+		access.Choice{Do: "keep crofty's state somewhere it may write", Permission: "setting " + project.HomeEnv},
+	)
+
+	reportRegisterFailure(&buf, err)
+
+	out := buf.String()
+	for _, want := range []string{"written and whole", "keep crofty's state somewhere it may write", access.AgentRule} {
+		if !strings.Contains(out, want) {
+			t.Errorf("report is missing %q:\n%s", want, out)
+		}
+	}
+}
+
+// Anything that is not a permission wall is still worth a line — and still not
+// a failed init.
+func TestReportRegisterFailure_PlainErrorStaysANote(t *testing.T) {
+	var buf bytes.Buffer
+
+	reportRegisterFailure(&buf, fs.ErrInvalid)
+
+	if !strings.Contains(buf.String(), "Nothing is missing from the site") {
+		t.Errorf("plain error did not reassure the reader:\n%s", buf.String())
 	}
 }

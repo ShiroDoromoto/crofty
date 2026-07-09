@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"flag"
 	"fmt"
+	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -14,6 +15,7 @@ import (
 
 	"golang.org/x/term"
 
+	"github.com/ShiroDoromoto/crofty/internal/access"
 	"github.com/ShiroDoromoto/crofty/internal/id"
 	"github.com/ShiroDoromoto/crofty/internal/project"
 )
@@ -182,10 +184,11 @@ func runInit(args []string) error {
 	}
 
 	// Record the location globally so later sessions (and agents started
-	// elsewhere) can find this project via a bare `crofty` (07 O3).
-	if err := project.RegisterProject(abs); err != nil {
-		return err
-	}
+	// elsewhere) can find this project via a bare `crofty` (07 O3). The site is
+	// already written and whole at this point; the registry only powers
+	// discovery. Failing here would report "Access is denied." over a site that
+	// exists — so it is reported after the success, as a choice (D-1).
+	registerErr := project.RegisterProject(abs)
 
 	// crofty chose the location, not the user — announce the absolute path
 	// loudly so neither the author nor their agent is left guessing where it is.
@@ -249,7 +252,27 @@ func runInit(args []string) error {
 	printAnalyticsGuidance()
 	fmt.Println()
 	printSupportGuidance()
+
+	// Last, so it is the thing the author (or their agent) is left holding.
+	reportRegisterFailure(os.Stderr, registerErr)
 	return nil
+}
+
+// reportRegisterFailure tells the author what init could not record, without
+// pretending the init failed. A permission wall is rendered as the same fork
+// every other command shows; anything else is a one-line note, since the site is
+// whole either way.
+func reportRegisterFailure(w io.Writer, err error) {
+	if err == nil {
+		return
+	}
+	fmt.Fprintln(w, "\nThe site above is written and whole. One thing crofty could not do:")
+	if d, ok := access.From(err); ok {
+		printDenied(w, d)
+		return
+	}
+	fmt.Fprintf(w, "  it could not record this project for discovery: %v\n", err)
+	fmt.Fprintln(w, "  Nothing is missing from the site; cd into it to work on it.")
 }
 
 // resolveInitTarget turns an init argument into an absolute project directory: a
