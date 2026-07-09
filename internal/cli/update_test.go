@@ -50,7 +50,7 @@ func TestUpgradeHintFor(t *testing.T) {
 		{"/opt/homebrew/Cellar/crofty/0.9.0/bin/crofty", "darwin", "brew upgrade"},
 		{"/usr/local/Cellar/crofty/0.9.0/bin/crofty", "darwin", "brew upgrade"},
 		{`C:\Users\me\scoop\apps\crofty\current\crofty.exe`, "windows", "scoop update"},
-		{"/usr/bin/crofty", "linux", "apt"},
+		{"/usr/bin/crofty", "linux", ".deb/.rpm"},                                     // distro package, no repo behind it
 		{"/home/me/go/bin/crofty", "linux", "releases"},                               // go install -> fallback
 		{"/somewhere/odd/crofty", "darwin", "releases"},                               // unknown -> fallback
 		{"/Users/me/.local/bin/crofty", "darwin", "install.sh"},                       // per-user script (macOS)

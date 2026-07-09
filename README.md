@@ -37,7 +37,7 @@ Nothing you have to do here needs a terminal:
 - **Windows** — SmartScreen says "Windows protected your PC". Press **More
   info**, then **Run anyway**.
 
-Linux has no click installer — `apt` and `dnf` are a better one. See below.
+Linux has no click installer. Take the `.deb` / `.rpm` below, or the script.
 
 ### If you'd rather use a terminal
 
@@ -52,38 +52,23 @@ brew install ShiroDoromoto/crofty/crofty                                        
 scoop bucket add crofty https://github.com/ShiroDoromoto/scoop-crofty && scoop install crofty   # Windows (Scoop)
 ```
 
-On Linux, add the repository so updates arrive with `apt upgrade` / `dnf update`:
+On Linux, every release also ships a `.deb` and an `.rpm` on the
+[releases page](https://github.com/ShiroDoromoto/crofty/releases). Download the
+one for your architecture and install it:
 
 ```sh
-# Debian/Ubuntu
-echo "deb [trusted=yes] https://apt.fury.io/shirodoromoto/ * *" \
-  | sudo tee /etc/apt/sources.list.d/crofty.list
-sudo apt update && sudo apt install crofty
+sudo apt install ./crofty_*_linux_amd64.deb   # Debian/Ubuntu
+sudo dnf install ./crofty_*_linux_amd64.rpm   # Fedora/RHEL
 ```
 
-```sh
-# Fedora/RHEL
-sudo tee /etc/yum.repos.d/crofty.repo >/dev/null <<'EOF'
-[crofty]
-name=crofty
-baseurl=https://yum.fury.io/shirodoromoto/
-enabled=1
-gpgcheck=0
-EOF
-sudo dnf install crofty
-```
+There is no apt/yum repository, so `apt upgrade` will not carry crofty forward:
+when crofty tells you a new release is out, download the new package and install
+it over this one. That is the trade we chose. A hosted repo is only worth having
+if it is GPG-signed, and signing it would have meant handing a third party our
+private key — for a repository whose sole job is to save you one download.
 
-The repos are served over HTTPS but are **not GPG-signed** (hence `trusted=yes` /
-`gpgcheck=0`): transport is encrypted, but there is no package-signature check.
-If you'd rather verify integrity yourself, grab the `.deb` / `.rpm` straight from
-the [releases page](https://github.com/ShiroDoromoto/crofty/releases) — each
-release ships a `crofty_<version>_checksums.txt` — and install it once (you then
-update by repeating this when a new release ships):
-
-```sh
-sudo dpkg -i crofty_*_linux_amd64.deb   # Debian/Ubuntu
-sudo rpm -i  crofty_*_linux_amd64.rpm   # Fedora/RHEL
-```
+Each release ships a `crofty_<version>_checksums.txt` if you want to verify what
+you downloaded.
 
 ### Hugo
 
@@ -114,8 +99,9 @@ copy you actually have. Run it again the way you installed it:
   compares against the formula Homebrew already has locally; `brew update` pulls
   the newest one now, and auto-refreshes about once a day regardless.
 - **Scoop** — `scoop update && scoop update crofty`
-- **Linux** — updates arrive with your package manager (`sudo apt update && sudo
-  apt upgrade` / `sudo dnf update`)
+- **the `.deb` / `.rpm`** — download the new one and install it over the old
+  (`sudo apt install ./crofty_*.deb` / `sudo dnf install ./crofty_*.rpm`). There
+  is no repository to upgrade from.
 
 ## Quick start
 

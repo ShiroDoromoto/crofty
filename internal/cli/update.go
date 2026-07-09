@@ -19,7 +19,7 @@ import (
 
 // The update notifier nudges a user on a stale binary toward the upgrade command
 // for however they installed crofty. It exists because crofty is distributed
-// through package managers (Homebrew, Scoop, apt/yum) that do NOT silently
+// through routes (installers, Homebrew, Scoop, .deb/.rpm) that do NOT silently
 // auto-upgrade an installed binary: without a nudge, someone who installed once
 // can sit on an old version forever, never learning a fix or feature shipped.
 // We deliberately do NOT self-update the binary — that would fight the package
@@ -146,7 +146,9 @@ func upgradeHintFor(exe, goos string) string {
 		// per-user install.sh target ($HOME/.local/bin): re-run the script
 		return "re-run: curl -fsSL https://crofty.site/install.sh | sh"
 	case goos == "linux" && strings.HasPrefix(exe, "/usr/"):
-		return "sudo apt update && sudo apt upgrade crofty   (or: sudo dnf update crofty)"
+		// Installed from the .deb/.rpm. There is no apt/yum repo behind them, so
+		// `apt upgrade` will never see the new version: name the package.
+		return "install the new .deb/.rpm from https://github.com/ShiroDoromoto/crofty/releases over this one"
 	default:
 		return "download the latest from https://github.com/ShiroDoromoto/crofty/releases"
 	}
