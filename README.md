@@ -216,7 +216,8 @@ state folder — a list of where your projects are, so it can find them from any
 directory. It lives in your OS's config folder; set `CROFTY_HOME` to keep it
 somewhere else, which is what to do if that folder is locked down. If crofty
 cannot write it, your site is still complete; only the finding-it-from-anywhere
-part is off.
+part is off. `crofty config` says where that folder is and whether crofty may
+write there, so you never have to find out by running something that writes.
 
 ## Build from source
 

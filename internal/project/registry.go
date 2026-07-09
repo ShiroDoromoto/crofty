@@ -32,10 +32,13 @@ func DefaultBase() (string, error) {
 // agent never to invent on its own (D-1). So it offers a door instead.
 const HomeEnv = "CROFTY_HOME"
 
+// envHome is the state directory the author asked for, if any.
+func envHome() string { return os.Getenv(HomeEnv) }
+
 // GlobalDir is crofty's per-user state directory (it holds the project
 // registry). Removing it is part of a clean uninstall (`crofty reset --all`).
 func GlobalDir() (string, error) {
-	if home := os.Getenv(HomeEnv); home != "" {
+	if home := envHome(); home != "" {
 		return filepath.Abs(home)
 	}
 	cfg, err := os.UserConfigDir()

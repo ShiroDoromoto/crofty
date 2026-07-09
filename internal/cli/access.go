@@ -29,7 +29,7 @@ func deniedWalls(err error) (access.Denials, bool) {
 // against is that AI helpfully rewriting the author's environment (D-1).
 func printDenied(w io.Writer, d *access.Denied) {
 	fmt.Fprintln(w, "\ncrofty needs your permission.")
-	printWall(w, d)
+	printWall(w, d.Payload())
 	fmt.Fprintf(w, "\nIf you are an AI running crofty for someone: %s\n", access.AgentRule)
 }
 
@@ -43,25 +43,26 @@ func printDenials(w io.Writer, ds access.Denials) {
 	}
 	fmt.Fprintf(w, "\ncrofty needs your permission — %d walls, before it starts.\n", len(ds))
 	for _, d := range ds {
-		printWall(w, d)
+		printWall(w, d.Payload())
 	}
 	fmt.Fprintf(w, "\nIf you are an AI running crofty for someone: %s\n", access.AgentRule)
 }
 
 // printWall is one wall: what crofty tried, where, what it was told, and the
-// ways on.
-func printWall(w io.Writer, d *access.Denied) {
-	fmt.Fprintf(w, "\n  it tried to:  %s\n", d.Op)
-	if d.Path != "" {
-		fmt.Fprintf(w, "  the path:     %s\n", d.Path)
+// ways on. It renders the same value --json emits, so the two cannot drift —
+// which is why `crofty config` can show a wall it did not fail on.
+func printWall(w io.Writer, p access.Payload) {
+	fmt.Fprintf(w, "\n  it tried to:  %s\n", p.Op)
+	if p.Path != "" {
+		fmt.Fprintf(w, "  the path:     %s\n", p.Path)
 	}
-	fmt.Fprintf(w, "  it was told:  %s\n", access.Reason(d.Err))
+	fmt.Fprintf(w, "  it was told:  %s\n", p.Reason)
 
-	if len(d.Choices) == 0 {
+	if len(p.Choices) == 0 {
 		fmt.Fprintln(w, "\ncrofty stopped here rather than work around it.")
 	} else {
 		fmt.Fprintln(w, "\nHow to go on — crofty won't choose this for you:")
-		for i, c := range d.Choices {
+		for i, c := range p.Choices {
 			fmt.Fprintf(w, "\n  %d. %s\n", i+1, c.Do)
 			if c.Permission != "" {
 				fmt.Fprintf(w, "     needs your permission: %s\n", c.Permission)

@@ -2,7 +2,14 @@
 
 package cli
 
-import "syscall"
+import (
+	"fmt"
+	"os/exec"
+	"path/filepath"
+	"strconv"
+	"strings"
+	"syscall"
+)
 
 // processAlive reports whether a process with this pid currently exists. Signal
 // 0 performs the existence/permission check without delivering a signal; EPERM
@@ -28,6 +35,22 @@ func signalKill(pid int) {
 	if pid > 0 {
 		_ = syscall.Kill(pid, syscall.SIGKILL)
 	}
+}
+
+// processName returns the program name of a running pid. `ps -o comm=` is the
+// one spelling that works on both macOS (a full path) and Linux (a bare, and on
+// old kernels truncated, name), so the caller matches on a substring. An empty
+// answer means the process is gone.
+func processName(pid int) (string, error) {
+	out, err := exec.Command("ps", "-p", strconv.Itoa(pid), "-o", "comm=").Output()
+	if err != nil {
+		return "", err
+	}
+	name := strings.TrimSpace(string(out))
+	if name == "" {
+		return "", fmt.Errorf("no process %d", pid)
+	}
+	return filepath.Base(name), nil
 }
 
 // detachedSysProcAttr puts a detached preview in its own session, so a Control-C
