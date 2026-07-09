@@ -5,6 +5,8 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
+
+	"github.com/ShiroDoromoto/crofty/internal/access"
 )
 
 // DefaultBase is the OS-standard, user-visible folder where crofty creates a
@@ -22,9 +24,19 @@ func DefaultBase() (string, error) {
 	return filepath.Join(home, "Documents", "Crofty"), nil
 }
 
+// HomeEnv names the environment variable that relocates crofty's state
+// directory. Sandboxed environments (notably Windows ones) can refuse writes to
+// the OS config dir; without this the only way past would be to rewrite
+// %APPDATA% itself, which is exactly the kind of workaround crofty tells an
+// agent never to invent on its own (D-1). So it offers a door instead.
+const HomeEnv = "CROFTY_HOME"
+
 // GlobalDir is crofty's per-user state directory (it holds the project
 // registry). Removing it is part of a clean uninstall (`crofty reset --all`).
 func GlobalDir() (string, error) {
+	if home := os.Getenv(HomeEnv); home != "" {
+		return filepath.Abs(home)
+	}
 	cfg, err := os.UserConfigDir()
 	if err != nil {
 		return "", err
@@ -57,6 +69,10 @@ func readRegistry(path string) registry {
 
 // RegisterProject records an absolute project path in the global registry so
 // later sessions can discover it. It is idempotent and holds no secrets.
+//
+// A permission wall here comes back as an access.Denied carrying the ways on,
+// because registration is a convenience, not the site: callers are expected to
+// say what could not be recorded and carry on (see init).
 func RegisterProject(abs string) error {
 	path, err := registryPath()
 	if err != nil {
@@ -70,13 +86,30 @@ func RegisterProject(abs string) error {
 	}
 	reg.Projects = append(reg.Projects, abs)
 	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
-		return err
+		return denyRegistryWrite(path, err)
 	}
 	b, err := json.MarshalIndent(reg, "", "  ")
 	if err != nil {
 		return err
 	}
-	return os.WriteFile(path, append(b, '\n'), 0o644)
+	return denyRegistryWrite(path, os.WriteFile(path, append(b, '\n'), 0o644))
+}
+
+// denyRegistryWrite names the two honest ways past a wall on the registry: move
+// crofty's state somewhere writable, or accept that discovery is off. Naming
+// them keeps an agent from inventing a worse one — rewriting %APPDATA%, or
+// dropping the registry inside the project where crofty would never read it.
+func denyRegistryWrite(path string, err error) error {
+	return access.Deny("record this project so crofty can find it from anywhere", path, err,
+		access.Choice{
+			Do:         "keep crofty's state somewhere it may write, then run the command again",
+			Command:    HomeEnv + "=<a folder crofty may write to> crofty init …",
+			Permission: "setting " + HomeEnv + " in your environment",
+		},
+		access.Choice{
+			Do: "leave it — the site itself is complete; crofty just won't find it from other folders, so cd into it first",
+		},
+	)
 }
 
 // KnownProjects returns existing crofty project roots, merging the global

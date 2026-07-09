@@ -205,6 +205,13 @@ milestone.
 
 The bundled theme is static and ships no JavaScript or trackers.
 
+Your sites hold everything of yours. Apart from them, crofty keeps one small
+state folder — a list of where your projects are, so it can find them from any
+directory. It lives in your OS's config folder; set `CROFTY_HOME` to keep it
+somewhere else, which is what to do if that folder is locked down. If crofty
+cannot write it, your site is still complete; only the finding-it-from-anywhere
+part is off.
+
 ## Build from source
 
 Requires Go 1.25+ (and [Hugo](https://gohugo.io) to run it).
