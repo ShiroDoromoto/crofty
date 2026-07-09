@@ -129,7 +129,7 @@ func agentBrief() brief {
 			"ask the author what they're making first, and show them the range — crofty is not blog-only (a portfolio, a shop, a band site, a small-business site, a link-in-bio… see \"Site pages\" → kinds). Their answer shapes what you scaffold and what goes in the nav.",
 			"crofty init — create the project (a folder the author fully owns). Ask which language(s) they write in, not just one: crofty is multilingual, so if they write in more than one (e.g. ja + en) set them all up now rather than defaulting to a single language — `crofty init --lang <primary>` then `crofty lang add <code>` for each other.",
 			"write Markdown — a blog post at content/posts/<slug>/index.md, or a page / collection (see \"Site pages\")",
-			"crofty preview — see it locally in a browser (no account). It blocks, so if you background it to keep working, END it with `crofty preview stop` when the author is done looking (check with `crofty preview status --json`); it also auto-stops after --timeout (default 30m) and only one runs per project, so a forgotten preview can't pile up. Once the author sees it, offer to change the look: the layout is frozen so it can't break, but the design is theirs — a ready-made preset (`crofty theme set quiet-paper` / `terminal`), then individual tokens (colour / type / reading-width via `crofty theme tokens`), and `crofty theme eject` as the full escape hatch. Don't assume the default is final.",
+			"crofty preview — see it locally in a browser (no account). Bare `crofty preview` blocks, so to keep working use `crofty preview --detach`: it backgrounds the server itself and returns once the URL answers (never background it yourself with shell tricks). Then END it with `crofty preview stop` when the author is done looking (check with `crofty preview status --json`); it also auto-stops after --timeout (default 30m) and only one runs per project, so a forgotten preview can't pile up. Once the author sees it, offer to change the look: the layout is frozen so it can't break, but the design is theirs — a ready-made preset (`crofty theme set quiet-paper` / `terminal`), then individual tokens (colour / type / reading-width via `crofty theme tokens`), and `crofty theme eject` as the full escape hatch. Don't assume the default is final.",
 			"crofty deploy — build the current site and publish it to the configured backend: Cloudflare Pages by default, or the author's own server over SFTP/FTPS (set at `crofty init --provider …` or switched later with `crofty connect --provider …`). deploy builds first, so a stale ./dist can't ship; `crofty build` alone is just to inspect ./dist.",
 		},
 		Commands: cmds,
@@ -201,7 +201,7 @@ func agentBrief() brief {
 			"crofty owns the files it writes (content stubs, render hooks, assets/css/custom.css) but never rewrites hugo.yaml — for config changes it prints the exact lines for the author to paste.",
 			"\"Frozen theme\" means the layout is a guardrail (it can't be broken), not that the design is fixed — the look is the author's. Offer it, leading with the safe options: presets (`crofty theme set`) → tokens (`crofty theme tokens`) → a full eject (`crofty theme eject --full`) for anyone who wants to own the CSS. crofty stays a CLI, not a GUI theme editor.",
 			"crofty builds a full site, not just a blog — see \"Site pages\" for fixed pages (about/contact/legal) and collections (products/gallery/discography), and how to wire them into the nav. Contact and commerce stay external embeds.",
-			"`crofty preview` runs a blocking local server. If you background it to keep working, you own ending it: `crofty preview stop` when the author is done (idempotent — safe even if none is running), `crofty preview status --json` to check. It also auto-stops after --timeout (default 30m), and starting a second reaps the first, so only one ever runs per project. Prefer stopping it explicitly over leaving it to the timeout.",
+			"`crofty preview` runs a blocking local server; `crofty preview --detach` starts the same server in the background and returns once it answers, writing its output to .crofty/preview.log. Use --detach rather than backgrounding crofty yourself — no `&`, no `start`, no `Start-Process`. Either way you own ending it: `crofty preview stop` when the author is done (idempotent — safe even if none is running), `crofty preview status --json` to check. It also auto-stops after --timeout (default 30m), and starting a second reaps the first, so only one ever runs per project. Prefer stopping it explicitly over leaving it to the timeout.",
 			"`draft: true` or a future `date` keeps a post off the built site; `crofty build` lists what it left out. Run `crofty validate` before build and `crofty doctor` before deploy.",
 			"crofty runs Hugo for `build` and `preview`. The click installers (.pkg / .exe) carry the Hugo crofty was tested against, and crofty prefers that copy over anything on PATH; every other install uses `hugo` from PATH, which must be the extended build. If build fails on the wrong Hugo, the author can name one with `CROFTY_HUGO=/path/to/hugo` — theirs to set, not yours.",
 			"When crofty says it needs the author's permission, that is a branch, not a failure. It prints what it tried to do, the path, and the choices (each marked when it needs permission) — in --json too. Do NOT invent a workaround: never change environment variables, move files, or elevate privileges to get around it. Show the choices to the author and let them pick.",
@@ -300,6 +300,7 @@ func agentDetails() map[string]agentCmd {
 		},
 		"preview": {
 			Flags: []agentFlag{
+				{"--detach", "serve in the background and return once the URL answers — use this instead of backgrounding crofty yourself; output goes to .crofty/preview.log"},
 				{"--timeout <dur>", "auto-stop after this long (default 30m; 0 = run until stopped) — a backstop so a preview you background never lingers"},
 				{"--port <n>", "local port to serve on (default 1313)"},
 			},
@@ -309,6 +310,7 @@ func agentDetails() map[string]agentCmd {
 			},
 			Examples: []string{
 				"crofty preview                 # serves locally; blocks until Control-C or --timeout",
+				"crofty preview --detach        # serves in the background; returns once the URL answers",
 				"crofty preview stop            # end a preview you started in the background",
 				"crofty preview status --json   # check whether one is already running",
 			},

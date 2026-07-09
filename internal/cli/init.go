@@ -564,9 +564,10 @@ const gitignoreBody = `# Build output — crofty rebuilds these; never commit th
 
 # crofty tool state — commit .crofty/config.json (build needs it),
 # ignore the frozen theme (crofty re-materializes it each build) and the
-# transient preview server state (machine-local; written while previewing).
+# transient preview server state and log (machine-local; written while previewing).
 /.crofty/themes/
 /.crofty/preview.json
+/.crofty/preview.log
 
 # OS clutter
 .DS_Store

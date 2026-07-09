@@ -29,3 +29,10 @@ func signalKill(pid int) {
 		_ = syscall.Kill(pid, syscall.SIGKILL)
 	}
 }
+
+// detachedSysProcAttr puts a detached preview in its own session, so a Control-C
+// in the terminal that launched it — which goes to the whole foreground process
+// group — doesn't reach it, and closing that terminal doesn't hang up on it.
+func detachedSysProcAttr() *syscall.SysProcAttr {
+	return &syscall.SysProcAttr{Setsid: true}
+}
