@@ -48,8 +48,6 @@ and these routes install it for you:
 ```sh
 curl -fsSL https://crofty.site/install.sh | sh                                          # macOS / Linux
 irm https://github.com/ShiroDoromoto/crofty/releases/latest/download/install.ps1 | iex  # Windows
-brew install ShiroDoromoto/crofty/crofty                                                # macOS (Homebrew)
-scoop bucket add crofty https://github.com/ShiroDoromoto/scoop-crofty && scoop install crofty   # Windows (Scoop)
 ```
 
 On Linux, every release also ships a `.deb` and an `.rpm` on the
@@ -79,12 +77,11 @@ Only the click installers bring their own. They don't touch a `hugo` you already
 have: the bundled copy sits next to crofty, off your PATH, and crofty runs it in
 preference to whatever PATH happens to name.
 
-Every other route expects a hugo on your PATH. Homebrew and Scoop pull one in as
-a package dependency; on Linux the `.deb`/`.rpm` only *recommends* hugo (distro
-packages are often outdated or not the extended build), so install
-[hugo-extended](https://gohugo.io/installation/linux/) yourself — `crofty build`
-/ `crofty preview` will tell you if it's missing. To point crofty at a
-particular one, set `CROFTY_HUGO=/path/to/hugo`.
+Every other route expects a hugo on your PATH. On Linux the `.deb`/`.rpm` only
+*recommends* hugo (distro packages are often outdated or not the extended
+build), so install [hugo-extended](https://gohugo.io/installation/linux/)
+yourself — `crofty build` / `crofty preview` will tell you if it's missing. To
+point crofty at a particular one, set `CROFTY_HUGO=/path/to/hugo`.
 
 ### Updating
 
@@ -95,13 +92,23 @@ copy you actually have. Run it again the way you installed it:
   replaces what's there. The OS warns about each download it hasn't seen, so
   expect it again, and clear it the same way.
 - **the install scripts** — re-run the same `curl` / `irm` line
-- **Homebrew** — `brew update && brew upgrade crofty`. `brew upgrade` alone only
-  compares against the formula Homebrew already has locally; `brew update` pulls
-  the newest one now, and auto-refreshes about once a day regardless.
-- **Scoop** — `scoop update && scoop update crofty`
 - **the `.deb` / `.rpm`** — download the new one and install it over the old
   (`sudo apt install ./crofty_*.deb` / `sudo dnf install ./crofty_*.rpm`). There
   is no repository to upgrade from.
+
+### If you installed with Homebrew or Scoop
+
+crofty no longer ships to either. The tap and the bucket are archived at their
+last release, so `brew upgrade` and `scoop update` will quietly find nothing.
+Move to one of the routes above:
+
+```sh
+brew uninstall crofty && brew untap ShiroDoromoto/crofty   # macOS
+scoop uninstall crofty && scoop bucket rm crofty           # Windows
+```
+
+Then install the `.pkg` / `.exe`, or run the install script. Nothing you wrote
+is touched — crofty keeps no state inside its own install directory.
 
 ## Quick start
 

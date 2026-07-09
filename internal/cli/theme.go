@@ -273,7 +273,7 @@ func ejectFull(proj *project.Project, force bool) error {
 	}
 	fmt.Println()
 	fmt.Println("These override the bundled theme. Note: an ejected theme no longer")
-	fmt.Println("tracks improvements from 'brew upgrade' — that's the trade for full control.")
+	fmt.Println("tracks the improvements a new crofty brings — that's the trade for full control.")
 	fmt.Println()
 	fmt.Println("next:")
 	fmt.Println("  crofty preview     # see your changes locally")
