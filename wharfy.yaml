@@ -29,16 +29,17 @@ scoop:
 # be worth having, and the only host we had (Gemfury) signs by holding our private
 # key — a repo nobody asked for, at that price, is not worth keeping. The .deb and
 # .rpm on the releases page install the same package; crofty says when a new one
-# is out. Hugo stays a SOFT dep on Linux (recommends/suggests, not depends):
-# distro Hugo is often outdated or the non-extended build, and crofty prints a
-# clear "hugo not found" error if it is missing.
+# is out.
+#
+# On Linux Hugo is only *suggested* — never recommended, never depended on. Both
+# apt and dnf install recommends by default, and the Hugo a distro ships is often
+# outdated or the plain build, which crofty cannot use (the theme's stylesheets
+# are SCSS) and cannot tell apart from a good one. A Hugo that lands on PATH and
+# then fails the build is worse than no Hugo at all: the author installs
+# hugo-extended themselves, and `crofty build` says so when it is missing.
 apt:
-  recommends:
-    - hugo
   suggests:
     - hugo
 rpm:
-  recommends:
-    - hugo
   suggests:
     - hugo

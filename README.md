@@ -80,8 +80,9 @@ have: the bundled copy sits next to crofty, off your PATH, and crofty runs it in
 preference to whatever PATH happens to name.
 
 Every other route expects a hugo on your PATH. Homebrew and Scoop pull one in as
-a package dependency; on Linux the `.deb`/`.rpm` only *recommends* hugo (distro
-packages are often outdated or not the extended build), so install
+a package dependency; on Linux the `.deb`/`.rpm` only *suggest* hugo, so neither
+apt nor dnf installs one (distro packages are often outdated or not the extended
+build, and one that fails the build is worse than none). Install
 [hugo-extended](https://gohugo.io/installation/linux/) yourself — `crofty build`
 / `crofty preview` will tell you if it's missing. To point crofty at a
 particular one, set `CROFTY_HUGO=/path/to/hugo`.
