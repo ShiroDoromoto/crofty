@@ -26,8 +26,7 @@ Both carry [Hugo](https://gohugo.io) with them, so there is nothing to install
 first: when the installer finishes, `crofty build` works.
 
 **Your OS will warn you the first time. That is expected** — the installers are
-unsigned, deliberately (crofty pays neither Apple nor a certificate authority).
-Nothing you have to do here needs a terminal:
+unsigned. Nothing you have to do here needs a terminal:
 
 - **macOS** — the first open is refused: "crofty.pkg cannot be opened because it
   is from an unidentified developer." Open **System Settings → Privacy &
