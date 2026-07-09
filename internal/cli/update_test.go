@@ -53,12 +53,14 @@ func TestUpgradeHintFor(t *testing.T) {
 		{"/opt/homebrew/Cellar/crofty/0.9.0/bin/crofty", "darwin", []string{"brew uninstall", "no longer ships to Homebrew"}},
 		{"/usr/local/Cellar/crofty/0.9.0/bin/crofty", "darwin", []string{"brew uninstall", "no longer ships to Homebrew"}},
 		{`C:\Users\me\scoop\apps\crofty\current\crofty.exe`, "windows", []string{"scoop uninstall", "no longer ships to Scoop"}},
-		{"/usr/bin/crofty", "linux", []string{".deb/.rpm"}},                                     // distro package, no repo behind it
-		{"/home/me/go/bin/crofty", "linux", []string{"releases"}},                               // go install -> fallback
-		{"/somewhere/odd/crofty", "darwin", []string{"releases"}},                               // unknown -> fallback
-		{"/Users/me/.local/bin/crofty", "darwin", []string{"install.sh"}},                       // per-user script (macOS)
-		{"/home/me/.local/bin/crofty", "linux", []string{"install.sh"}},                         // per-user script (Linux)
-		{`C:\Users\me\AppData\Local\crofty\bin\crofty.exe`, "windows", []string{"install.ps1"}}, // per-user script (Windows)
+		{"/usr/bin/crofty", "linux", []string{".deb/.rpm"}},               // distro package, no repo behind it
+		{"/home/me/go/bin/crofty", "linux", []string{"releases"}},         // go install -> fallback
+		{"/somewhere/odd/crofty", "darwin", []string{"releases"}},         // unknown -> fallback
+		{"/Users/me/.local/bin/crofty", "darwin", []string{"install.sh"}}, // per-user script (macOS)
+		{"/home/me/.local/bin/crofty", "linux", []string{"install.sh"}},   // per-user script (Linux)
+		// %LOCALAPPDATA%\crofty\bin holds both the click installer's copy and
+		// install.ps1's, so the hint names the installer, which fixes either.
+		{`C:\Users\me\AppData\Local\crofty\bin\crofty.exe`, "windows", []string{"crofty-setup.exe"}},
 	}
 	for _, c := range cases {
 		got := upgradeHintFor(c.exe, c.goos)
@@ -66,6 +68,11 @@ func TestUpgradeHintFor(t *testing.T) {
 			if !strings.Contains(got, want) {
 				t.Errorf("upgradeHintFor(%q, %q) = %q; want it to contain %q", c.exe, c.goos, got, want)
 			}
+		}
+		// `irm ... | iex` failed in schannel on a real Windows box. No hint may
+		// route an update back through it, whatever the binary's path.
+		if strings.Contains(got, "iex") {
+			t.Errorf("upgradeHintFor(%q, %q) = %q; must not send an update through 'irm | iex'", c.exe, c.goos, got)
 		}
 	}
 }

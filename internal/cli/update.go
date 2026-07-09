@@ -143,8 +143,13 @@ func upgradeHintFor(exe, goos string) string {
 	case strings.Contains(low, "scoop"):
 		return "run 'scoop uninstall crofty', then install from https://crofty.site — crofty no longer ships to Scoop"
 	case strings.Contains(low, `\appdata\local\`):
-		// per-user install.ps1 target (%LOCALAPPDATA%\<project>\bin): re-run the script
-		return "re-run: irm https://github.com/ShiroDoromoto/crofty/releases/latest/download/install.ps1 | iex"
+		// Both Windows routes land in %LOCALAPPDATA%\crofty\bin — the click
+		// installer and install.ps1 — so the path cannot tell them apart. Name the
+		// installer: it overwrites this binary in place either way, and it is the
+		// route that works. What we must not say is "re-run irm ... | iex": on a
+		// real Windows box that pipeline died inside schannel, and an update notice
+		// that sends someone back through a known failure is worse than silence.
+		return "install crofty-setup.exe from https://github.com/ShiroDoromoto/crofty/releases/latest/download/crofty-setup.exe over this one"
 	case strings.Contains(low, "/.local/"):
 		// per-user install.sh target ($HOME/.local/bin): re-run the script
 		return "re-run: curl -fsSL https://crofty.site/install.sh | sh"
