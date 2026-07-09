@@ -8,6 +8,8 @@ import (
 	"path/filepath"
 	"sort"
 
+	"github.com/ShiroDoromoto/crofty/internal/access"
+	"github.com/ShiroDoromoto/crofty/internal/project"
 	"github.com/ShiroDoromoto/crofty/internal/theme"
 )
 
@@ -46,6 +48,7 @@ func runConfig(args []string) error {
 		Features:        featureState(proj.Root, cfg),
 		Theme:           themeState(proj.Root),
 		Support:         supportProviders(proj.Root),
+		State:           stateDirState(),
 	}
 	if deploy != nil {
 		state.Provider = deploy.Deploy.Provider
@@ -81,6 +84,48 @@ type siteConfig struct {
 	Theme           string          `json:"theme"`                // default | preset | tokens | full-eject
 	Support         []string        `json:"support"`              // patronage providers configured
 	FooterCredit    string          `json:"footerCredit"`         // on | off | "" (undecided)
+	State           stateDir        `json:"state"`                // where crofty keeps its own state, and whether it may write there
+}
+
+// stateDir reports crofty's own state directory: where it is, who chose it, and
+// whether crofty may write there. It rides on `config` rather than `doctor`
+// because doctor grades a built ./dist — an agent that wants to know whether it
+// is behind a permission wall should not have to run a build to find out. Asking
+// used to mean running init and reading the warning afterwards (#13, #25).
+//
+// An unwritable state directory never fails the command that reports it: the
+// registry only powers discovery. Wall carries the ways on, so an agent reads
+// the same choices here that init would have shown it (D-1).
+type stateDir struct {
+	Dir       string          `json:"dir"`
+	Env       string          `json:"env"`                 // the variable that relocates it
+	FromEnv   bool            `json:"fromEnv"`             // Env chose Dir, rather than the OS config dir
+	Writable  bool            `json:"writable"`            // crofty probed it, rather than reading the mode bits
+	Reason    string          `json:"reason,omitempty"`    // why not, when unwritable
+	Wall      *access.Payload `json:"wall,omitempty"`      // the choices, when the reason is a permission wall
+	AgentRule string          `json:"agentRule,omitempty"` // stated where an agent meets the wall
+}
+
+// stateDirState probes the state directory. A directory crofty cannot even name
+// (no OS config dir, no CROFTY_HOME) is reported as unwritable with the reason,
+// because a config report that omits the answer is worse than an ugly one.
+func stateDirState() stateDir {
+	s := stateDir{Env: project.HomeEnv}
+	status, err := project.State()
+	if err != nil {
+		s.Reason = err.Error()
+		return s
+	}
+	s.Dir, s.FromEnv, s.Writable = status.Dir, status.FromEnv, status.Writable()
+	if status.Err == nil {
+		return s
+	}
+	s.Reason = access.Reason(status.Err)
+	if d, ok := access.From(status.Err); ok {
+		p := d.Payload()
+		s.Wall, s.AgentRule = &p, access.AgentRule
+	}
+	return s
 }
 
 // siteTitle is the display title: the top-level title, or — on a multilingual
@@ -207,8 +252,43 @@ func printConfig(s siteConfig) {
 	fmt.Printf("  analytics   %s\n", noneIfEmpty(s.Analytics))
 	fmt.Printf("  support     %s\n", noneIfEmpty(s.Support))
 	fmt.Printf("  credit      %s\n", creditLabel(s.FooterCredit))
+	fmt.Printf("  state       %s\n", stateLabel(s.State))
+	printStateWall(s.State)
 	fmt.Println()
 	fmt.Println("Turn things on with 'crofty add <feature>' / 'crofty lang add <code>'.")
+}
+
+// stateLabel says where crofty's state is and, in the same breath, whether it
+// may write there — the two facts are never useful apart.
+func stateLabel(s stateDir) string {
+	where := s.Dir
+	if where == "" {
+		where = "(crofty cannot tell)"
+	}
+	if s.FromEnv {
+		where += " (" + s.Env + ")"
+	}
+	if s.Writable {
+		return where
+	}
+	return where + " — crofty may not write here"
+}
+
+// printStateWall shows the ways past a wall on the state directory, without
+// dressing it up as a failure: everything but discovery works without it.
+func printStateWall(s stateDir) {
+	if s.Writable || s.Reason == "" {
+		return
+	}
+	fmt.Println()
+	fmt.Println("  crofty cannot record your projects, so it won't find them from other folders.")
+	fmt.Println("  Everything else works — cd into a project and carry on.")
+	if s.Wall == nil {
+		fmt.Printf("\n  it was told:  %s\n", s.Reason)
+		return
+	}
+	printWall(os.Stdout, *s.Wall)
+	fmt.Printf("\nIf you are an AI running crofty for someone: %s\n", access.AgentRule)
 }
 
 // --- small helpers --------------------------------------------------------
