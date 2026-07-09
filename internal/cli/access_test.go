@@ -66,18 +66,42 @@ func TestPrintDeniedJSON_MatchesTheHumanText(t *testing.T) {
 	var buf bytes.Buffer
 	printDeniedJSON(&buf, deniedFixture())
 
-	var p access.Payload
-	if err := json.Unmarshal(buf.Bytes(), &p); err != nil {
+	var r access.Report
+	if err := json.Unmarshal(buf.Bytes(), &r); err != nil {
 		t.Fatalf("not valid JSON: %v", err)
 	}
-	if p.Error != "permission_denied" || p.Path != "/site/assets/css/custom.css" {
-		t.Errorf("payload = %+v", p)
+	if r.Error != "permission_denied" || len(r.Walls) != 1 {
+		t.Fatalf("report = %+v", r)
+	}
+	p := r.Walls[0]
+	if p.Path != "/site/assets/css/custom.css" {
+		t.Errorf("wall = %+v", p)
 	}
 	if len(p.Choices) != 2 || !p.Choices[0].NeedsPermission || p.Choices[1].NeedsPermission {
 		t.Errorf("choices did not survive the round trip: %+v", p.Choices)
 	}
-	if p.AgentRule != access.AgentRule {
+	if r.AgentRule != access.AgentRule {
 		t.Error("--json must carry the norm too — an agent only reads this one")
+	}
+}
+
+// Two walls are one message: one header, one rule, both paths — because the
+// author is meant to grant everything and run the command once.
+func TestPrintDenials_AsksForEverythingAtOnce(t *testing.T) {
+	var buf bytes.Buffer
+	printDenials(&buf, access.Denials{
+		deniedFixture(),
+		{Op: "record this project", Path: "/cfg/crofty", Err: fs.ErrPermission},
+	})
+	out := buf.String()
+
+	for _, want := range []string{"/site/assets/css/custom.css", "/cfg/crofty"} {
+		if !strings.Contains(out, want) {
+			t.Errorf("both walls must be shown; %s is missing:\n%s", want, out)
+		}
+	}
+	if n := strings.Count(out, access.AgentRule); n != 1 {
+		t.Errorf("the rule is stated %d times, want once", n)
 	}
 }
 

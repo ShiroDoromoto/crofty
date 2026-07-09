@@ -17,6 +17,7 @@ import (
 	"errors"
 	"io/fs"
 	"os"
+	"strings"
 )
 
 // AgentRule is the norm this package exists to enforce, stated in the one place
@@ -85,6 +86,31 @@ func From(err error) (*Denied, bool) {
 	return &Denied{Op: opOf(err), Path: pathOf(err), Err: err}, true
 }
 
+// Denials is every wall a command found before it started work. A command that
+// looks ahead (init's preflight) can find more than one, and the author should
+// be asked for all of them at once: granting one permission, running the command
+// again and being asked for the next is the experience crofty is trying to
+// avoid. As an error it is one error, so a caller may just return it.
+type Denials []*Denied
+
+func (ds Denials) Error() string {
+	msgs := make([]string, 0, len(ds))
+	for _, d := range ds {
+		msgs = append(msgs, d.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// Unwrap lets errors.Is/As see every wall, so a caller that only knows about one
+// Denied still finds one.
+func (ds Denials) Unwrap() []error {
+	errs := make([]error, 0, len(ds))
+	for _, d := range ds {
+		errs = append(errs, d)
+	}
+	return errs
+}
+
 // Reason is the OS's own words, without the "open /some/path:" preamble that
 // fs.PathError repeats — crofty prints the path on its own line.
 func Reason(err error) string {
@@ -128,16 +154,23 @@ func pathOf(err error) string {
 
 // --- the wire shape -------------------------------------------------------
 
-// Payload is the --json rendering of a Denied. It exists so the machine-readable
-// output is derived from the same value the human text is, and so needsPermission
-// is stated outright rather than left for a reader to infer from an empty field.
+// Report is the --json rendering of a permission wall, or of several found at
+// once. The walls are always a list, so an agent parsing crofty's answer never
+// has to handle two shapes; the rule is stated once, where it belongs.
+type Report struct {
+	Error     string    `json:"error"` // always "permission_denied"
+	AgentRule string    `json:"agentRule"`
+	Walls     []Payload `json:"walls"`
+}
+
+// Payload is one wall on the wire. It exists so the machine-readable output is
+// derived from the same value the human text is, and so needsPermission is
+// stated outright rather than left for a reader to infer from an empty field.
 type Payload struct {
-	Error     string          `json:"error"` // always "permission_denied"
-	Op        string          `json:"op"`
-	Path      string          `json:"path"`
-	Reason    string          `json:"reason"`
-	AgentRule string          `json:"agentRule"`
-	Choices   []PayloadChoice `json:"choices"`
+	Op      string          `json:"op"`
+	Path    string          `json:"path"`
+	Reason  string          `json:"reason"`
+	Choices []PayloadChoice `json:"choices"`
 }
 
 // PayloadChoice is one Choice on the wire.
@@ -159,11 +192,18 @@ func (d *Denied) Payload() Payload {
 		})
 	}
 	return Payload{
-		Error:     "permission_denied",
-		Op:        d.Op,
-		Path:      d.Path,
-		Reason:    Reason(d.Err),
-		AgentRule: AgentRule,
-		Choices:   choices,
+		Op:      d.Op,
+		Path:    d.Path,
+		Reason:  Reason(d.Err),
+		Choices: choices,
 	}
+}
+
+// Report renders every wall under one rule.
+func (ds Denials) Report() Report {
+	walls := make([]Payload, 0, len(ds))
+	for _, d := range ds {
+		walls = append(walls, d.Payload())
+	}
+	return Report{Error: "permission_denied", AgentRule: AgentRule, Walls: walls}
 }

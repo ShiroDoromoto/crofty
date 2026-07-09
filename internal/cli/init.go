@@ -126,8 +126,9 @@ func runInit(args []string) error {
 
 	// Ask the filesystem before asking the author. crofty picks the folder for a
 	// bare name, so a wall there is crofty's problem to surface, not a surprise
-	// to spring after two prompts and a half-written site (D-1).
-	if err := project.EnsureCreatable(abs); err != nil {
+	// to spring after two prompts and a half-written site — and when init is
+	// stopping anyway, every permission it would need comes back at once (D-1).
+	if err := project.PreflightInit(abs); err != nil {
 		return err
 	}
 
