@@ -13,8 +13,10 @@ import (
 // happily start editing layouts and running `hugo` by hand — exactly what
 // crofty owns and would overwrite. This file is the funnel: it does one thing,
 // point the assistant at `crofty agent`, which is always current with the
-// installed version. We deliberately keep no command list or rules here — those
-// drift; the redirect does not.
+// installed version. We deliberately keep no command list here — that drifts;
+// the redirect does not. The one rule that does live here is the one an
+// assistant needs before it has run anything: when crofty asks for permission,
+// ask the author rather than working around it (D-1).
 const (
 	agentsFileName  = "AGENTS.md"
 	agentsBeginMark = "<!-- crofty:begin (managed block — edit outside it) -->"
@@ -37,7 +39,10 @@ func agentsBlock() string {
 		"# This site is managed by crofty\n\n" +
 		"This is a crofty site (https://crofty.site), not a plain Hugo project.\n\n" +
 		"**Before doing anything, run `crofty agent`.** It tells you everything:\n" +
-		"the commands, the workflow, and how to work with this site.\n" +
+		"the commands, the workflow, and how to work with this site.\n\n" +
+		"If crofty says it needs the author's permission, stop and ask them.\n" +
+		"It will print the choices. Don't work around it — don't change environment\n" +
+		"variables, move files, or elevate privileges to get past it.\n" +
 		agentsEndMark + "\n"
 }
 

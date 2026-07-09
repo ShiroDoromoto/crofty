@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/ShiroDoromoto/crofty/internal/access"
 	"github.com/ShiroDoromoto/crofty/internal/project"
 	"github.com/ShiroDoromoto/crofty/internal/theme"
 )
@@ -221,10 +222,10 @@ func ejectTokens(proj *project.Project, force bool) error {
 		}
 	}
 	if err := os.MkdirAll(filepath.Dir(target), 0o755); err != nil {
-		return err
+		return denyTokenWrite(target, err)
 	}
 	if err := os.WriteFile(target, []byte(theme.CustomCSS), 0o644); err != nil {
-		return err
+		return denyTokenWrite(target, err)
 	}
 
 	fmt.Println("✓ wrote", theme.CustomCSSPath)
@@ -236,6 +237,24 @@ func ejectTokens(proj *project.Project, force bool) error {
 	fmt.Println("  crofty preview     # see your changes locally")
 	fmt.Println("  crofty theme eject --full   # later, to edit layouts and markup too")
 	return nil
+}
+
+// denyTokenWrite turns a read-only project folder into a choice. The tokens are
+// plain CSS, so there is a real way on that costs the author nothing — --print
+// hands them the block to paste. Naming it here keeps an agent from inventing a
+// worse one, like writing the file somewhere crofty never reads (D-1).
+func denyTokenWrite(target string, err error) error {
+	return access.Deny("write the design tokens to "+theme.CustomCSSPath, target, err,
+		access.Choice{
+			Do:         "let crofty write into the project folder, then run the command again",
+			Command:    "crofty theme eject",
+			Permission: "write access to " + filepath.Dir(target),
+		},
+		access.Choice{
+			Do:      "print the tokens instead and paste them into your own CSS — writes nothing",
+			Command: "crofty theme eject --print",
+		},
+	)
 }
 
 // ejectFull writes the entire theme into the project so layouts and markup can
