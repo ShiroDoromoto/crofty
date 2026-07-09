@@ -1,29 +1,25 @@
 # wharfy.yaml — crofty release config. Unspecified values are inferred by wharfy
 # from the git remote and conventions (project=crofty, github=ShiroDoromoto/crofty,
-# license from LICENSE, homebrew tap=ShiroDoromoto/homebrew-crofty, etc).
+# license from LICENSE, etc).
 
 # Listing channels overrides the default set, so enumerate every owned channel:
-# the defaults plus apt/rpm, which here mean "build a .deb and an .rpm" and
-# nothing more — no repo is configured, so `wharfy publish` skips them and the
-# packages ship as release assets.
+# the defaults minus homebrew/scoop, plus apt/rpm, which here mean "build a .deb
+# and an .rpm" and nothing more — no repo is configured, so `wharfy publish`
+# skips them and the packages ship as release assets.
+#
+# No homebrew, no scoop. Both existed to be the terminal user's route, and to
+# drag Hugo in as a package dependency. install.sh / install.ps1 serve the first
+# purpose; the click installers now bundle Hugo, which retires the second. What
+# was left was two tap repos to keep. They stay on GitHub, archived, with a
+# notice on the last formula: `crofty update` sends anyone still there to the
+# installers. Do not re-add these channels — a release would overwrite that
+# notice.
 channels:
-  - homebrew
-  - scoop
   - releases
   - script
   - goinstall
   - apt
   - rpm
-
-# crofty wraps Hugo to build/preview sites, so every channel pulls Hugo in —
-# otherwise `crofty build` greets a fresh install with "hugo not found".
-homebrew:
-  dependencies:
-    - hugo
-scoop:
-  # Hugo on Windows is the extended build, from scoop's main bucket.
-  dependencies:
-    - main/hugo-extended
 
 # No `provider:` on purpose. A hosted apt/yum repo would have to be GPG-signed to
 # be worth having, and the only host we had (Gemfury) signs by holding our private

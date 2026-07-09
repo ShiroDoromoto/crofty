@@ -2,8 +2,8 @@
 
 The **primary** way a person installs crofty: download, double-click, done. It is
 the one step we ask of someone who never opens a terminal — the assistant takes
-over from `crofty init` on. The install scripts (`install.sh` / `install.ps1`),
-Homebrew and Scoop remain, for people who do open one.
+over from `crofty init` on. The install scripts (`install.sh` / `install.ps1`)
+remain, for people who do open one.
 
 - **macOS**: `macos/build-pkg.sh` → a universal `crofty.pkg` that installs the
   `crofty` binary to `/usr/local/bin` (on the default PATH). Standard installer

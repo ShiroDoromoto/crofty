@@ -77,7 +77,7 @@ func TestResolveFindsBundled(t *testing.T) {
 	}
 }
 
-// Without a bundled copy — how brew, apt and the install script all leave it —
+// Without a bundled copy — how apt and the install script both leave it —
 // crofty falls back to PATH.
 func TestResolveFallsBackToPath(t *testing.T) {
 	onPath := writeExec(t, filepath.Join(t.TempDir(), "hugo"))

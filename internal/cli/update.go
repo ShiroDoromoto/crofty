@@ -19,7 +19,7 @@ import (
 
 // The update notifier nudges a user on a stale binary toward the upgrade command
 // for however they installed crofty. It exists because crofty is distributed
-// through routes (installers, Homebrew, Scoop, .deb/.rpm) that do NOT silently
+// through routes (installers, scripts, .deb/.rpm) that do NOT silently
 // auto-upgrade an installed binary: without a nudge, someone who installed once
 // can sit on an old version forever, never learning a fix or feature shipped.
 // We deliberately do NOT self-update the binary — that would fight the package
@@ -135,10 +135,13 @@ func upgradeHint() string {
 func upgradeHintFor(exe, goos string) string {
 	low := strings.ToLower(exe)
 	switch {
+	// crofty no longer ships to Homebrew or Scoop, so the tap and the bucket are
+	// frozen: `brew upgrade` would find nothing and say nothing. Whoever installed
+	// that way has to leave, and this notice is the one place they hear about it.
 	case strings.Contains(low, "/cellar/") || strings.Contains(low, "/homebrew/"):
-		return "brew upgrade crofty"
+		return "run 'brew uninstall crofty', then install from https://crofty.site — crofty no longer ships to Homebrew"
 	case strings.Contains(low, "scoop"):
-		return "scoop update crofty"
+		return "run 'scoop uninstall crofty', then install from https://crofty.site — crofty no longer ships to Scoop"
 	case strings.Contains(low, `\appdata\local\`):
 		// per-user install.ps1 target (%LOCALAPPDATA%\<project>\bin): re-run the script
 		return "re-run: irm https://github.com/ShiroDoromoto/crofty/releases/latest/download/install.ps1 | iex"

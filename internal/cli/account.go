@@ -265,7 +265,7 @@ func runReset(args []string) error {
 	fmt.Println()
 	fmt.Println("✓ Removed. Your writing is untouched.")
 	if *all {
-		fmt.Println("  You can now 'brew uninstall crofty' for a clean removal.")
+		fmt.Println("  Only the crofty program is left — remove it the way you installed it.")
 	}
 	return nil
 }
