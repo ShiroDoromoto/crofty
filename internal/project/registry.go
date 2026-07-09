@@ -14,14 +14,15 @@ import (
 // directory: a first-timer (and their agent, started in some arbitrary dir)
 // can't be assumed to know or control where the shell is, so projects go to one
 // predictable, announced place instead (see 07 O2).
+//
+// It is ~/Documents/Crofty, for whatever the OS says Documents is —
+// documentsDir answers that per-OS (documents_windows.go, documents_other.go).
 func DefaultBase() (string, error) {
-	home, err := os.UserHomeDir()
+	docs, err := documentsDir()
 	if err != nil {
 		return "", err
 	}
-	// macOS/Linux: ~/Documents/Crofty. On Windows UserHomeDir is %USERPROFILE%,
-	// so this lands in Documents there too; refine per-OS later.
-	return filepath.Join(home, "Documents", "Crofty"), nil
+	return filepath.Join(docs, "Crofty"), nil
 }
 
 // HomeEnv names the environment variable that relocates crofty's state

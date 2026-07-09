@@ -124,6 +124,13 @@ func runInit(args []string) error {
 		}
 	}
 
+	// Ask the filesystem before asking the author. crofty picks the folder for a
+	// bare name, so a wall there is crofty's problem to surface, not a surprise
+	// to spring after two prompts and a half-written site (D-1).
+	if err := project.EnsureCreatable(abs); err != nil {
+		return err
+	}
+
 	// Display title and project (deploy) name are two different things: the title
 	// is free text shown on the site (a Japanese name is fine), while the project
 	// name becomes the public address <name>.pages.dev and must be URL-safe. We
