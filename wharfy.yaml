@@ -3,7 +3,9 @@
 # license from LICENSE, homebrew tap=ShiroDoromoto/homebrew-crofty, etc).
 
 # Listing channels overrides the default set, so enumerate every owned channel:
-# the defaults plus apt/rpm (hosted Linux repos on Gemfury/fury.io).
+# the defaults plus apt/rpm, which here mean "build a .deb and an .rpm" and
+# nothing more — no repo is configured, so `wharfy publish` skips them and the
+# packages ship as release assets.
 channels:
   - homebrew
   - scoop
@@ -23,21 +25,19 @@ scoop:
   dependencies:
     - main/hugo-extended
 
-# apt/rpm push to fury.io (Gemfury) hosted repos; provider+user derives the
-# push/delivery URLs. The push token is read from the keychain (wharfy auth fury),
-# not written here. Hugo stays a SOFT dep on Linux (recommends/suggests, not
-# depends): distro Hugo is often outdated or the non-extended build, and crofty
-# prints a clear "hugo not found" error if it is missing.
+# No `provider:` on purpose. A hosted apt/yum repo would have to be GPG-signed to
+# be worth having, and the only host we had (Gemfury) signs by holding our private
+# key — a repo nobody asked for, at that price, is not worth keeping. The .deb and
+# .rpm on the releases page install the same package; crofty says when a new one
+# is out. Hugo stays a SOFT dep on Linux (recommends/suggests, not depends):
+# distro Hugo is often outdated or the non-extended build, and crofty prints a
+# clear "hugo not found" error if it is missing.
 apt:
-  provider: fury
-  user: shirodoromoto
   recommends:
     - hugo
   suggests:
     - hugo
 rpm:
-  provider: fury
-  user: shirodoromoto
   recommends:
     - hugo
   suggests:
