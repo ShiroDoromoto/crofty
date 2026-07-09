@@ -57,9 +57,8 @@ Cut a release from a macOS host with `makensis` and `gh` installed:
 git tag vX.Y.Z && git push origin vX.Y.Z
 export GITHUB_TOKEN=…                      # release upload
 wharfy build                              # cross-compile → .wharfy/dist
-wharfy release --yes                      # GitHub release: archives, deb/rpm, install.sh/ps1, latest.json
+wharfy release --yes                      # GitHub release: archives, install.sh/ps1, latest.json
 packaging/release-installers.sh X.Y.Z     # build .pkg/.exe from .wharfy/dist and gh-upload them
-export FURY_TOKEN=…                        # from your secret store, for apt/rpm publish
 wharfy publish --yes                      # push owned channels
 ```
 

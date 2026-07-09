@@ -2,10 +2,10 @@
 # from the git remote and conventions (project=crofty, github=ShiroDoromoto/crofty,
 # license from LICENSE, etc).
 
-# Listing channels overrides the default set, so enumerate every owned channel:
-# the defaults minus homebrew/scoop, plus apt/rpm, which here mean "build a .deb
-# and an .rpm" and nothing more — no repo is configured, so `wharfy publish`
-# skips them and the packages ship as release assets.
+# Listing channels overrides the default set, so enumerate every owned channel.
+# Three of them, and each has a reason no other one covers: the click installers
+# and the raw binaries ride on `releases`, `script` is the terminal user's route
+# on every OS, and `goinstall` is for people who already have a Go toolchain.
 #
 # No homebrew, no scoop. Both existed to be the terminal user's route, and to
 # drag Hugo in as a package dependency. install.sh / install.ps1 serve the first
@@ -14,28 +14,14 @@
 # notice on the last formula: `crofty update` sends anyone still there to the
 # installers. Do not re-add these channels — a release would overwrite that
 # notice.
+#
+# No apt, no rpm either. Once we declined to host a signed repo (a repo whose
+# only job is to save one download is not worth handing a third party our private
+# key), `apt upgrade` could never carry crofty forward, and the packages stopped
+# pulling Hugo in as well. What remained was two artifacts nobody built in CI and
+# nobody ran — install.sh puts the same binary on PATH, on every distro, and
+# `crofty update` walks the last .deb/.rpm users out.
 channels:
   - releases
   - script
   - goinstall
-  - apt
-  - rpm
-
-# No `provider:` on purpose. A hosted apt/yum repo would have to be GPG-signed to
-# be worth having, and the only host we had (Gemfury) signs by holding our private
-# key — a repo nobody asked for, at that price, is not worth keeping. The .deb and
-# .rpm on the releases page install the same package; crofty says when a new one
-# is out.
-#
-# On Linux Hugo is only *suggested* — never recommended, never depended on. Both
-# apt and dnf install recommends by default, and the Hugo a distro ships is often
-# outdated or the plain build, which crofty cannot use (the theme's stylesheets
-# are SCSS) and cannot tell apart from a good one. A Hugo that lands on PATH and
-# then fails the build is worse than no Hugo at all: the author installs
-# hugo-extended themselves, and `crofty build` says so when it is missing.
-apt:
-  suggests:
-    - hugo
-rpm:
-  suggests:
-    - hugo

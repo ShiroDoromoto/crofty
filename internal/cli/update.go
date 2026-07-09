@@ -19,11 +19,12 @@ import (
 
 // The update notifier nudges a user on a stale binary toward the upgrade command
 // for however they installed crofty. It exists because crofty is distributed
-// through routes (installers, scripts, .deb/.rpm) that do NOT silently
+// through routes (click installers, install scripts) that do NOT silently
 // auto-upgrade an installed binary: without a nudge, someone who installed once
 // can sit on an old version forever, never learning a fix or feature shipped.
-// We deliberately do NOT self-update the binary — that would fight the package
-// manager's bookkeeping; we only print the one command to run.
+// We deliberately do NOT self-update the binary — the installers are unsigned and
+// crofty does not own the file once a package manager has placed it; we only
+// print the one command to run.
 //
 // It is quiet by construction: it never runs for source builds (Version=="dev"),
 // it can be turned off with CROFTY_NO_UPDATE_CHECK, it talks to the network at
@@ -153,10 +154,14 @@ func upgradeHintFor(exe, goos string) string {
 	case strings.Contains(low, "/.local/"):
 		// per-user install.sh target ($HOME/.local/bin): re-run the script
 		return "re-run: curl -fsSL https://crofty.site/install.sh | sh"
+	case strings.HasPrefix(low, "/usr/local/"):
+		// system-wide install.sh target (PREFIX=/usr/local): re-run it the same way
+		return "re-run: curl -fsSL https://crofty.site/install.sh | sudo PREFIX=/usr/local sh"
 	case goos == "linux" && strings.HasPrefix(exe, "/usr/"):
-		// Installed from the .deb/.rpm. There is no apt/yum repo behind them, so
-		// `apt upgrade` will never see the new version: name the package.
-		return "install the new .deb/.rpm from https://github.com/ShiroDoromoto/crofty/releases over this one"
+		// /usr/bin on Linux means the old .deb/.rpm, which crofty no longer builds.
+		// No repo ever stood behind them, so nothing will tell these users to move:
+		// this notice is the only place they hear it.
+		return "run 'sudo apt remove crofty' (or 'sudo dnf remove crofty'), then install from https://crofty.site — crofty no longer ships a .deb/.rpm"
 	default:
 		return "download the latest from https://github.com/ShiroDoromoto/crofty/releases"
 	}

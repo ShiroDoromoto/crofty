@@ -53,11 +53,15 @@ func TestUpgradeHintFor(t *testing.T) {
 		{"/opt/homebrew/Cellar/crofty/0.9.0/bin/crofty", "darwin", []string{"brew uninstall", "no longer ships to Homebrew"}},
 		{"/usr/local/Cellar/crofty/0.9.0/bin/crofty", "darwin", []string{"brew uninstall", "no longer ships to Homebrew"}},
 		{`C:\Users\me\scoop\apps\crofty\current\crofty.exe`, "windows", []string{"scoop uninstall", "no longer ships to Scoop"}},
-		{"/usr/bin/crofty", "linux", []string{".deb/.rpm"}},               // distro package, no repo behind it
-		{"/home/me/go/bin/crofty", "linux", []string{"releases"}},         // go install -> fallback
-		{"/somewhere/odd/crofty", "darwin", []string{"releases"}},         // unknown -> fallback
-		{"/Users/me/.local/bin/crofty", "darwin", []string{"install.sh"}}, // per-user script (macOS)
-		{"/home/me/.local/bin/crofty", "linux", []string{"install.sh"}},   // per-user script (Linux)
+		// The .deb/.rpm are a dead channel too, and no repo ever stood behind them,
+		// so this hint is the only thing that tells those users to leave.
+		{"/usr/bin/crofty", "linux", []string{"apt remove", "no longer ships a .deb/.rpm"}},
+		{"/home/me/go/bin/crofty", "linux", []string{"releases"}},           // go install -> fallback
+		{"/somewhere/odd/crofty", "darwin", []string{"releases"}},           // unknown -> fallback
+		{"/Users/me/.local/bin/crofty", "darwin", []string{"install.sh"}},   // per-user script (macOS)
+		{"/home/me/.local/bin/crofty", "linux", []string{"install.sh"}},     // per-user script (Linux)
+		{"/usr/local/bin/crofty", "linux", []string{"install.sh", "sudo"}},  // PREFIX=/usr/local script
+		{"/usr/local/bin/crofty", "darwin", []string{"install.sh", "sudo"}}, // same, and not the .deb hint
 		// %LOCALAPPDATA%\crofty\bin holds both the click installer's copy and
 		// install.ps1's, so the hint names the installer, which fixes either.
 		{`C:\Users\me\AppData\Local\crofty\bin\crofty.exe`, "windows", []string{"crofty-setup.exe"}},

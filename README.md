@@ -36,7 +36,7 @@ unsigned. Nothing you have to do here needs a terminal:
 - **Windows** — SmartScreen says "Windows protected your PC". Press **More
   info**, then **Run anyway**.
 
-Linux has no click installer. Take the `.deb` / `.rpm` below, or the script.
+Linux has no click installer. Use the install script below.
 
 ### If you'd rather use a terminal
 
@@ -49,23 +49,23 @@ curl -fsSL https://crofty.site/install.sh | sh                                  
 irm https://github.com/ShiroDoromoto/crofty/releases/latest/download/install.ps1 | iex  # Windows
 ```
 
-On Linux, every release also ships a `.deb` and an `.rpm` on the
-[releases page](https://github.com/ShiroDoromoto/crofty/releases). Download the
-one for your architecture and install it:
+The script drops crofty in `~/.local/bin` and touches nothing else. For a
+system-wide install, name the prefix: `curl -fsSL https://crofty.site/install.sh
+| sudo PREFIX=/usr/local sh`.
 
-```sh
-sudo apt install ./crofty_*_linux_amd64.deb   # Debian/Ubuntu
-sudo dnf install ./crofty_*_linux_amd64.rpm   # Fedora/RHEL
-```
-
-There is no apt/yum repository, so `apt upgrade` will not carry crofty forward:
-when crofty tells you a new release is out, download the new package and install
-it over this one. That is the trade we chose. A hosted repo is only worth having
-if it is GPG-signed, and signing it would have meant handing a third party our
-private key — for a repository whose sole job is to save you one download.
+There is no apt/yum repository and no `.deb` / `.rpm`. A hosted repo is only
+worth having if it is GPG-signed, and signing it would have meant handing a third
+party our private key — for a repository whose sole job is to save you one
+download. Without one, a `.deb` was just a slower way to copy a single binary
+onto your PATH.
 
 Each release ships a `crofty_<version>_checksums.txt` if you want to verify what
 you downloaded.
+
+**To uninstall**, delete the binary — `rm ~/.local/bin/crofty` (or
+`/usr/local/bin/crofty`). crofty keeps no state inside its own install
+directory, and your sites are yours: they live where `crofty init` put them, and
+nothing removes them but you.
 
 ### Hugo
 
@@ -76,12 +76,12 @@ Only the click installers bring their own. They don't touch a `hugo` you already
 have: the bundled copy sits next to crofty, off your PATH, and crofty runs it in
 preference to whatever PATH happens to name.
 
-Every other route expects a hugo on your PATH. On Linux the `.deb`/`.rpm` only
-*suggest* hugo, so neither apt nor dnf installs one (distro packages are often
-outdated or not the extended build, and one that fails the build is worse than
-none). Install [hugo-extended](https://gohugo.io/installation/linux/) yourself
-— `crofty build` / `crofty preview` will tell you if it's missing. To point
-crofty at a particular one, set `CROFTY_HUGO=/path/to/hugo`.
+Every other route expects a hugo on your PATH, and none of them installs one for
+you — a distro's hugo is often outdated or not the extended build, and one that
+fails the build is worse than none. Install
+[hugo-extended](https://gohugo.io/installation/) yourself; `crofty build` /
+`crofty preview` will tell you if it's missing. To point crofty at a particular
+one, set `CROFTY_HUGO=/path/to/hugo`.
 
 ### Updating
 
@@ -92,19 +92,19 @@ copy you actually have. Run it again the way you installed it:
   replaces what's there. The OS warns about each download it hasn't seen, so
   expect it again, and clear it the same way.
 - **the install scripts** — re-run the same `curl` / `irm` line
-- **the `.deb` / `.rpm`** — download the new one and install it over the old
-  (`sudo apt install ./crofty_*.deb` / `sudo dnf install ./crofty_*.rpm`). There
-  is no repository to upgrade from.
 
-### If you installed with Homebrew or Scoop
+### If you installed with Homebrew, Scoop, or a `.deb` / `.rpm`
 
-crofty no longer ships to either. The tap and the bucket are archived at their
-last release, so `brew upgrade` and `scoop update` will quietly find nothing.
-Move to one of the routes above:
+crofty ships to none of them any more. The tap and the bucket are archived at
+their last release, so `brew upgrade` and `scoop update` quietly find nothing;
+the packages never had a repository behind them at all. Leave, then come back by
+one of the routes above:
 
 ```sh
 brew uninstall crofty && brew untap ShiroDoromoto/crofty   # macOS
 scoop uninstall crofty && scoop bucket rm crofty           # Windows
+sudo apt remove crofty                                     # Debian/Ubuntu
+sudo dnf remove crofty                                     # Fedora/RHEL
 ```
 
 Then install the `.pkg` / `.exe`, or run the install script. Nothing you wrote
