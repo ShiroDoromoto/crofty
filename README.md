@@ -36,18 +36,36 @@ unsigned. Nothing you have to do here needs a terminal:
 - **Windows** — SmartScreen says "Windows protected your PC". Press **More
   info**, then **Run anyway**.
 
-Linux has no click installer. Use the install script below.
+Linux has no click installer. Take the archive below.
+
+### The archive, on any OS
+
+crofty is one file. The
+[releases page](https://github.com/ShiroDoromoto/crofty/releases) carries it for
+every OS, and your browser is enough to get it:
+
+1. Download the archive that matches your machine —
+   `crofty_<version>_windows_amd64.zip`, `crofty_<version>_linux_arm64.tar.gz`,
+   and so on.
+2. Unpack it. Inside is a single `crofty` binary.
+3. Move it wherever you keep such programs. Putting that directory on your PATH
+   saves you typing; it is not required, since a full path runs just as well.
+
+Don't unpack it into a `.crofty/` directory. That name belongs to crofty's own
+per-site state, and `crofty init` writes there.
 
 ### If you'd rather use a terminal
-
-The installers are the shortest path, not the only one. crofty is also a single
-binary on the [releases page](https://github.com/ShiroDoromoto/crofty/releases),
-and these routes install it for you:
 
 ```sh
 curl -fsSL https://crofty.site/install.sh | sh                                          # macOS / Linux
 irm https://github.com/ShiroDoromoto/crofty/releases/latest/download/install.ps1 | iex  # Windows
 ```
+
+These are shortcuts for when they work. Both fetch through your system's TLS
+stack, and on Windows that stack sometimes declines to supply a credential at
+all (`SEC_E_NO_CREDENTIALS`) — the download dies before crofty is anywhere in
+the picture. Nothing here can fix that machine; the archive above simply goes
+through your browser instead, and arrives.
 
 The script drops crofty in `~/.local/bin` and touches nothing else. For a
 system-wide install, name the prefix: `curl -fsSL https://crofty.site/install.sh
