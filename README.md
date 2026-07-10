@@ -71,12 +71,6 @@ The script drops crofty in `~/.local/bin` and touches nothing else. For a
 system-wide install, name the prefix: `curl -fsSL https://crofty.site/install.sh
 | sudo PREFIX=/usr/local sh`.
 
-There is no apt/yum repository and no `.deb` / `.rpm`. A hosted repo is only
-worth having if it is GPG-signed, and signing it would have meant handing a third
-party our private key — for a repository whose sole job is to save you one
-download. Without one, a `.deb` was just a slower way to copy a single binary
-onto your PATH.
-
 Each release ships a `crofty_<version>_checksums.txt` if you want to verify what
 you downloaded.
 
@@ -113,10 +107,8 @@ copy you actually have. Run it again the way you installed it:
 
 ### If you installed with Homebrew, Scoop, or a `.deb` / `.rpm`
 
-crofty ships to none of them any more. The tap and the bucket are archived at
-their last release, so `brew upgrade` and `scoop update` quietly find nothing;
-the packages never had a repository behind them at all. Leave, then come back by
-one of the routes above:
+Those routes no longer receive updates. Leave, then come back by one of the
+routes above:
 
 ```sh
 brew uninstall crofty && brew untap ShiroDoromoto/crofty   # macOS
