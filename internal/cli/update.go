@@ -14,6 +14,7 @@ import (
 
 	"golang.org/x/term"
 
+	"github.com/ShiroDoromoto/crofty/internal/hugobin"
 	"github.com/ShiroDoromoto/crofty/internal/project"
 )
 
@@ -127,13 +128,15 @@ func upgradeHint() string {
 			exe = resolved
 		}
 	}
-	return upgradeHintFor(exe, runtime.GOOS)
+	return upgradeHintFor(exe, runtime.GOOS, hugobin.Bundled(exe, runtime.GOOS))
 }
 
 // upgradeHintFor maps a resolved binary path (and OS) to the right upgrade
 // command. Split out from upgradeHint so the classification is testable without
-// depending on where the test binary happens to live.
-func upgradeHintFor(exe, goos string) string {
+// depending on where the test binary happens to live — which is also why the
+// one fact it needs from the filesystem, whether a click installer's Hugo sits
+// next to the binary, arrives as an argument rather than being looked up here.
+func upgradeHintFor(exe, goos string, bundledHugo bool) string {
 	low := strings.ToLower(exe)
 	switch {
 	// crofty no longer ships to Homebrew or Scoop, so the tap and the bucket are
@@ -155,6 +158,14 @@ func upgradeHintFor(exe, goos string) string {
 		// per-user install.sh target ($HOME/.local/bin): re-run the script
 		return "re-run: curl -fsSL https://crofty.site/install.sh | sh"
 	case strings.HasPrefix(low, "/usr/local/"):
+		// Both macOS routes land in /usr/local/bin, so the path alone cannot tell
+		// them apart — the bundled Hugo can, because only the .pkg leaves one. Send
+		// .pkg users back to the .pkg: they came in without opening a terminal, and
+		// install.sh replaces the binary only, leaving the .pkg's Hugo behind for
+		// hugobin.Resolve to keep preferring over PATH forever after.
+		if goos == "darwin" && bundledHugo {
+			return "install crofty.pkg from https://github.com/ShiroDoromoto/crofty/releases/latest/download/crofty.pkg over this one"
+		}
 		// system-wide install.sh target (PREFIX=/usr/local): re-run it the same way
 		return "re-run: curl -fsSL https://crofty.site/install.sh | sudo PREFIX=/usr/local sh"
 	case goos == "linux" && strings.HasPrefix(exe, "/usr/"):

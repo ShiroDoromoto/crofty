@@ -77,6 +77,28 @@ func TestResolveFindsBundled(t *testing.T) {
 	}
 }
 
+// Bundled is what tells the two macOS install routes apart in the update
+// notice, so it has to answer for a tree that has no bundled copy — the install
+// script's — as confidently as for one that does.
+func TestBundled(t *testing.T) {
+	for _, goos := range []string{"darwin", "linux", "windows"} {
+		t.Run(goos, func(t *testing.T) {
+			if exe := bundledLayout(t, goos); !Bundled(exe, goos) {
+				t.Errorf("Bundled(%q, %q) = false, want true", exe, goos)
+			}
+			bare := writeExec(t, filepath.Join(t.TempDir(), "bin", "crofty"))
+			if Bundled(bare, goos) {
+				t.Errorf("Bundled(%q, %q) = true, want false", bare, goos)
+			}
+		})
+	}
+	// A crofty that cannot locate itself has no tree to inspect, and must not
+	// claim one.
+	if Bundled("", "darwin") {
+		t.Error(`Bundled("", "darwin") = true, want false`)
+	}
+}
+
 // Without a bundled copy — how apt and the install script both leave it —
 // crofty falls back to PATH.
 func TestResolveFallsBackToPath(t *testing.T) {

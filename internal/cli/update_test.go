@@ -46,28 +46,34 @@ func TestParseVersion(t *testing.T) {
 func TestUpgradeHintFor(t *testing.T) {
 	cases := []struct {
 		exe, goos    string
+		bundledHugo  bool
 		wantContains []string
 	}{
 		// Homebrew and Scoop are dead channels: their taps are frozen, so the hint
 		// must send people out rather than back to an upgrade that does nothing.
-		{"/opt/homebrew/Cellar/crofty/0.9.0/bin/crofty", "darwin", []string{"brew uninstall", "no longer ships to Homebrew"}},
-		{"/usr/local/Cellar/crofty/0.9.0/bin/crofty", "darwin", []string{"brew uninstall", "no longer ships to Homebrew"}},
-		{`C:\Users\me\scoop\apps\crofty\current\crofty.exe`, "windows", []string{"scoop uninstall", "no longer ships to Scoop"}},
+		{"/opt/homebrew/Cellar/crofty/0.9.0/bin/crofty", "darwin", false, []string{"brew uninstall", "no longer ships to Homebrew"}},
+		{"/usr/local/Cellar/crofty/0.9.0/bin/crofty", "darwin", false, []string{"brew uninstall", "no longer ships to Homebrew"}},
+		{`C:\Users\me\scoop\apps\crofty\current\crofty.exe`, "windows", false, []string{"scoop uninstall", "no longer ships to Scoop"}},
 		// The .deb/.rpm are a dead channel too, and no repo ever stood behind them,
 		// so this hint is the only thing that tells those users to leave.
-		{"/usr/bin/crofty", "linux", []string{"apt remove", "no longer ships a .deb/.rpm"}},
-		{"/home/me/go/bin/crofty", "linux", []string{"releases"}},           // go install -> fallback
-		{"/somewhere/odd/crofty", "darwin", []string{"releases"}},           // unknown -> fallback
-		{"/Users/me/.local/bin/crofty", "darwin", []string{"install.sh"}},   // per-user script (macOS)
-		{"/home/me/.local/bin/crofty", "linux", []string{"install.sh"}},     // per-user script (Linux)
-		{"/usr/local/bin/crofty", "linux", []string{"install.sh", "sudo"}},  // PREFIX=/usr/local script
-		{"/usr/local/bin/crofty", "darwin", []string{"install.sh", "sudo"}}, // same, and not the .deb hint
+		{"/usr/bin/crofty", "linux", false, []string{"apt remove", "no longer ships a .deb/.rpm"}},
+		{"/home/me/go/bin/crofty", "linux", false, []string{"releases"}},          // go install -> fallback
+		{"/somewhere/odd/crofty", "darwin", false, []string{"releases"}},          // unknown -> fallback
+		{"/Users/me/.local/bin/crofty", "darwin", false, []string{"install.sh"}},  // per-user script (macOS)
+		{"/home/me/.local/bin/crofty", "linux", false, []string{"install.sh"}},    // per-user script (Linux)
+		{"/usr/local/bin/crofty", "linux", false, []string{"install.sh", "sudo"}}, // PREFIX=/usr/local script
+		// The two macOS routes share /usr/local/bin and are told apart by the Hugo
+		// only the .pkg leaves behind. Sending a .pkg user to install.sh would ask
+		// someone who never opened a terminal to run `curl | sudo sh`, and would
+		// strand the bundled Hugo at the version it was installed at.
+		{"/usr/local/bin/crofty", "darwin", false, []string{"install.sh", "sudo"}},
+		{"/usr/local/bin/crofty", "darwin", true, []string{"crofty.pkg"}},
 		// %LOCALAPPDATA%\crofty\bin holds both the click installer's copy and
 		// install.ps1's, so the hint names the installer, which fixes either.
-		{`C:\Users\me\AppData\Local\crofty\bin\crofty.exe`, "windows", []string{"crofty-setup.exe"}},
+		{`C:\Users\me\AppData\Local\crofty\bin\crofty.exe`, "windows", false, []string{"crofty-setup.exe"}},
 	}
 	for _, c := range cases {
-		got := upgradeHintFor(c.exe, c.goos)
+		got := upgradeHintFor(c.exe, c.goos, c.bundledHugo)
 		for _, want := range c.wantContains {
 			if !strings.Contains(got, want) {
 				t.Errorf("upgradeHintFor(%q, %q) = %q; want it to contain %q", c.exe, c.goos, got, want)
@@ -78,6 +84,12 @@ func TestUpgradeHintFor(t *testing.T) {
 		if strings.Contains(got, "iex") {
 			t.Errorf("upgradeHintFor(%q, %q) = %q; must not send an update through 'irm | iex'", c.exe, c.goos, got)
 		}
+	}
+
+	// The .pkg hint has to replace the script hint, not accompany it: two routes
+	// in one line is how the bundled Hugo gets stranded.
+	if got := upgradeHintFor("/usr/local/bin/crofty", "darwin", true); strings.Contains(got, "install.sh") {
+		t.Errorf("upgradeHintFor(.pkg install) = %q; a .pkg user must not be pointed at install.sh", got)
 	}
 }
 
