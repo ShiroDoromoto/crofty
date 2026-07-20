@@ -31,14 +31,21 @@ import (
 // it can be turned off with CROFTY_NO_UPDATE_CHECK, it talks to the network at
 // most once a day (cached), it fails silently when offline, and the human line
 // only prints to an interactive terminal — scripts, pipes and agents get the
-// same fact through the `updateAvailable` field of `crofty agent --json`
-// instead, never as noise on stderr.
+// same fact through the `updateAvailable` / `releaseNotesURL` fields of
+// `crofty agent --json` instead, never as noise on stderr.
 
 const (
 	updateRepoAPI   = "https://api.github.com/repos/ShiroDoromoto/crofty/releases/latest"
 	updateCacheFile = "update-check.json"
 	updateInterval  = 24 * time.Hour
 	updateTimeout   = 1500 * time.Millisecond
+
+	// releaseNotesURL is where an upgrade nudge sends someone to find out what
+	// actually changed. crofty never updates itself, so every upgrade starts as a
+	// decision the author makes — and "a newer version exists" is not enough to
+	// make one on. It points at crofty.site rather than the GitHub releases page
+	// because that one reads: it has both languages, and patches folded in.
+	releaseNotesURL = "https://crofty.site/releases/"
 )
 
 // updateCache is the on-disk record of the last successful network check.
@@ -84,8 +91,8 @@ func maybeNotifyUpdate() {
 	if !newer {
 		return
 	}
-	fmt.Fprintf(os.Stderr, "\ncrofty %s is available (you have %s).\nUpdate with: %s\n",
-		latest, Version, upgradeHint())
+	fmt.Fprintf(os.Stderr, "\ncrofty %s is available (you have %s).\nWhat changed: %s\nUpdate with: %s\n",
+		latest, Version, releaseNotesURL, upgradeHint())
 }
 
 // fetchLatestRelease asks GitHub for the latest *stable* release tag (the

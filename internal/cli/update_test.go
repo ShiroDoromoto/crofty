@@ -3,6 +3,7 @@ package cli
 import (
 	"strings"
 	"testing"
+	"time"
 )
 
 func TestSemverLess(t *testing.T) {
@@ -90,6 +91,49 @@ func TestUpgradeHintFor(t *testing.T) {
 	// in one line is how the bundled Hugo gets stranded.
 	if got := upgradeHintFor("/usr/local/bin/crofty", "darwin", true); strings.Contains(got, "install.sh") {
 		t.Errorf("upgradeHintFor(.pkg install) = %q; a .pkg user must not be pointed at install.sh", got)
+	}
+}
+
+// staleBinary makes updateInfo() report an upgrade without touching the network:
+// a private state dir holding a cache that was just written, and a Version older
+// than what it names.
+func staleBinary(t *testing.T, latest string) {
+	t.Helper()
+	t.Setenv("CROFTY_HOME", t.TempDir())
+	t.Setenv("CROFTY_NO_UPDATE_CHECK", "")
+	old := Version
+	Version = "0.0.1"
+	t.Cleanup(func() { Version = old })
+	if err := writeUpdateCache(updateCache{CheckedAt: time.Now().Unix(), Latest: latest}); err != nil {
+		t.Fatal(err)
+	}
+}
+
+// "A newer version exists" is not something an author can act on. crofty never
+// updates itself, so the notice has to carry where the changes are written up,
+// or it is a nudge with no way to judge it.
+func TestUpdateNoticeCarriesReleaseNotes(t *testing.T) {
+	staleBinary(t, "9.9.9")
+
+	b := agentBrief()
+	if !b.UpdateAvailable {
+		t.Fatal("agentBrief().UpdateAvailable = false; the cache says 9.9.9 is out")
+	}
+	if b.ReleaseNotesURL != releaseNotesURL {
+		t.Errorf("agentBrief().ReleaseNotesURL = %q, want %q", b.ReleaseNotesURL, releaseNotesURL)
+	}
+
+	out, _ := captureStdout(t, func() error { printAgentBrief(b); return nil })
+	if !strings.Contains(out, releaseNotesURL) {
+		t.Errorf("crofty agent output does not name %s:\n%s", releaseNotesURL, out)
+	}
+}
+
+// On a current binary there is nothing to read up on, so the field stays out of
+// the JSON rather than pointing at notes for a version already installed.
+func TestReleaseNotesURLAbsentWhenCurrent(t *testing.T) {
+	if got := agentBrief().ReleaseNotesURL; got != "" {
+		t.Errorf("agentBrief().ReleaseNotesURL = %q on a dev build; want it empty", got)
 	}
 }
 

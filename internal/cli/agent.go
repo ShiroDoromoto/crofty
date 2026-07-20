@@ -73,13 +73,17 @@ type brief struct {
 	// UpdateAvailable lets the AI driving crofty notice a stale binary and tell
 	// the author to upgrade — the machine-readable counterpart to the stderr
 	// nudge a human sees (which is suppressed for non-interactive/agent runs).
-	UpdateAvailable bool       `json:"updateAvailable"`
-	LatestVersion   string     `json:"latestVersion,omitempty"` // newest release, when one is known
-	Workflow        []string   `json:"workflow"`                // the usual order of operations
-	Commands        []agentCmd `json:"commands"`                // every command, from commands()
-	Pages           pageGuide  `json:"pages"`                   // how to build site pages beyond the blog
-	Inspect         []string   `json:"inspect"`                 // machine-readable state surfaces to read
-	Notes           []string   `json:"notes"`                   // the handful of rules an agent must know
+	UpdateAvailable bool   `json:"updateAvailable"`
+	LatestVersion   string `json:"latestVersion,omitempty"` // newest release, when one is known
+	// ReleaseNotesURL is where the changes are written up, so the AI can tell the
+	// author what an upgrade would bring instead of only that one exists. Present
+	// only when there is an upgrade to weigh.
+	ReleaseNotesURL string     `json:"releaseNotesURL,omitempty"`
+	Workflow        []string   `json:"workflow"` // the usual order of operations
+	Commands        []agentCmd `json:"commands"` // every command, from commands()
+	Pages           pageGuide  `json:"pages"`    // how to build site pages beyond the blog
+	Inspect         []string   `json:"inspect"`  // machine-readable state surfaces to read
+	Notes           []string   `json:"notes"`    // the handful of rules an agent must know
 }
 
 // pageGuide teaches the AI that crofty builds a whole site, not just a blog, and
@@ -119,12 +123,19 @@ func agentBrief() brief {
 	}
 
 	latest, newer := updateInfo()
+	// The notes URL rides along only when there is an upgrade to weigh; on a
+	// current binary it would be a link to nothing the author needs to read.
+	notesURL := ""
+	if newer {
+		notesURL = releaseNotesURL
+	}
 
 	return brief{
 		Crofty:          "write Markdown; build and deploy a static site you own (a Hugo site with a frozen theme, published to Cloudflare Pages, or to your own server over SFTP/FTPS).",
 		Version:         Version,
 		UpdateAvailable: newer,
 		LatestVersion:   latest,
+		ReleaseNotesURL: notesURL,
 		Workflow: []string{
 			"ask the author what they're making first, and show them the range — crofty is not blog-only (a portfolio, a shop, a band site, a small-business site, a link-in-bio… see \"Site pages\" → kinds). Their answer shapes what you scaffold and what goes in the nav.",
 			"crofty init — create the project (a folder the author fully owns). Ask which language(s) they write in, not just one: crofty is multilingual, so if they write in more than one (e.g. ja + en) set them all up now rather than defaulting to a single language — `crofty init --lang <primary>` then `crofty lang add <code>` for each other.",
@@ -412,7 +423,8 @@ func printAgentBrief(b brief) {
 	fmt.Println("crofty —", b.Crofty)
 	fmt.Println("version:", b.Version)
 	if b.UpdateAvailable {
-		fmt.Printf("update:  crofty %s is available — tell the author to run: %s\n", b.LatestVersion, upgradeHint())
+		fmt.Printf("update:  crofty %s is available — tell the author what changed (%s), then to run: %s\n",
+			b.LatestVersion, b.ReleaseNotesURL, upgradeHint())
 	}
 	fmt.Println()
 	fmt.Println("For an AI operating crofty on the author's behalf. This is the whole command")
