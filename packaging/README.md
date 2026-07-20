@@ -51,21 +51,27 @@ Pro-only. So the installers are attached to the GitHub Release as **extra assets
 
 ## Release procedure
 
-Cut a release from a macOS host with `makensis` and `gh` installed:
+These are built in public CI, not on a laptop: pushing a tag runs
+`.github/workflows/release.yml` on a macOS runner (the `.pkg` needs
+`pkgbuild`/`lipo`/`codesign`, which exist nowhere else), and that workflow calls
+`release-installers.sh` right after `wharfy build`, since the script reads the
+binaries wharfy just produced in `.wharfy/dist`. The tag only produces a
+*prerelease*; `promote.yml`, dispatched by hand, is what ships it.
 
 ```sh
-git tag vX.Y.Z && git push origin vX.Y.Z
-export GITHUB_TOKEN=…                      # release upload
-wharfy build                              # cross-compile → .wharfy/dist
-wharfy release --yes                      # GitHub release: archives, install.sh/ps1, latest.json
-packaging/release-installers.sh X.Y.Z     # build .pkg/.exe from .wharfy/dist and gh-upload them
-wharfy publish --yes                      # push owned channels
+packaging/release-installers.sh X.Y.Z [outdir]   # from repo root, after `wharfy build`
 ```
 
-`release-installers.sh` builds a universal `.pkg` (arm64+amd64, ad-hoc signed) and
-the amd64 `.exe`, each with its Hugo, then attaches both to the release with
-`--clobber`. Rare win/arm64 users fall back to the install script. The `.pkg` runs
-about 47 MB and the `.exe` about 28 MB — Hugo is most of that.
+It builds a universal `.pkg` (arm64+amd64, ad-hoc signed) and the amd64 `.exe`,
+each with its Hugo, then attaches both to the release with `--clobber`. Rare
+win/arm64 users fall back to the install script. The `.pkg` runs about 47 MB and
+the `.exe` about 28 MB — Hugo is most of that. Passing `outdir` keeps the two
+files after the upload, which is how CI attests their build provenance: wharfy
+never sees these assets, and provenance covering only part of a release is
+rejected by `wharfy verify`.
+
+Running it by hand needs a macOS host with `makensis` and `gh` — and is only for
+when CI is down, because a laptop build carries no provenance at all.
 
 ## Known limitation
 

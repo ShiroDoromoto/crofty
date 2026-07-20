@@ -12,14 +12,23 @@
 # Run AFTER `wharfy release` (the release must exist) and BEFORE/around publish.
 # Requires: macOS host (lipo, pkgbuild, codesign, pkgutil) + makensis, and gh authed.
 #
-# Usage: packaging/release-installers.sh <version>   (from repo root; reads .wharfy/dist)
+# Usage: packaging/release-installers.sh <version> [outdir]   (from repo root; reads .wharfy/dist)
+#
+# With an outdir the installers are left there for the caller to use — CI attests
+# their build provenance, which needs the files it just built, not a re-download.
+# Without one they are built in a temp dir and thrown away after the upload.
 set -eu
 
-VERSION="${1:?usage: release-installers.sh <version>}"
+VERSION="${1:?usage: release-installers.sh <version> [outdir]}"
 DIST=".wharfy/dist"
 HERE="$(cd "$(dirname "$0")" && pwd)"
-OUT="$(mktemp -d)"
-trap 'rm -rf "$OUT"' EXIT
+if [ "${2-}" = "" ]; then
+  OUT="$(mktemp -d)"
+  trap 'rm -rf "$OUT"' EXIT
+else
+  OUT="$2"
+  mkdir -p "$OUT"
+fi
 
 # --- macOS: one universal (arm64 + amd64) .pkg installing to /usr/local/bin ---
 DARWIN_ARM="$(ls -d "$DIST"/crofty_darwin_arm64*/crofty 2>/dev/null | head -1)"

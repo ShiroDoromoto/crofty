@@ -1,0 +1,57 @@
+name: Promote & publish
+
+# The distribution step, and the only one. release.yml leaves a prerelease that
+# nobody is served; this makes it the latest release and writes the channels.
+# It is dispatched by hand on purpose — never on a push, never on a merge.
+#
+# Nothing is rebuilt here. promote flips one flag on the release GitHub already
+# holds, and publish reads the asset names and checksums off the release itself
+# (artifacts.json), so the bytes that go out are the bytes that were verified.
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'version to ship, without the leading v (e.g. 0.19.0)'
+        required: true
+
+permissions:
+  contents: write
+
+jobs:
+  promote:
+    runs-on: ubuntu-latest   # nothing is built, so the cheap runner is the right one
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: v${{ inputs.version }}   # pin the version by checking out its tag
+          fetch-depth: 0
+
+      # publish reuses the artifacts the release already carries, so nothing is
+      # compiled here — but wharfy's Go path shells out to goreleaser and it must
+      # be on PATH regardless.
+      - uses: goreleaser/goreleaser-action@v6
+        with:
+          install-only: true
+
+      # wharfy's own install.sh — its Linux route. (release.yml is on macOS and
+      # uses brew there, since it needs a tap for makensis anyway.)
+      - name: install wharfy
+        run: |
+          curl -fsSL https://github.com/ShiroDoromoto/wharfy/releases/latest/download/install.sh | sh
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+
+      - name: make it the latest release
+        run: wharfy promote
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: write the channels (releases / script / goinstall)
+        run: wharfy publish --yes
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: verify each channel from the consumer side
+        run: wharfy verify --version "${{ inputs.version }}"
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

@@ -1,0 +1,88 @@
+name: Release
+
+# Build what we distribute in public. crofty is open source, so the bytes users
+# install should be built where anyone can watch it happen — and only a build
+# that runs here can carry build provenance: the attestation is signed with the
+# OIDC identity GitHub Actions hands this workflow, so a laptop build attaches
+# nothing at all.
+#
+# A tag push does NOT distribute. Everything here lands on a *prerelease*: the
+# assets are downloadable from their public URLs (install them, run them, on a
+# real machine), while releases/latest/download/ and latest.json keep serving the
+# previous version. Users are untouched until promote.yml is dispatched by hand.
+# That is the "merge is not distribution" rule of CLAUDE.md, expressed as two
+# workflows instead of as a paragraph someone has to remember.
+
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: write       # create the release and upload its assets
+  id-token: write       # keyless signing identity for build provenance
+  attestations: write   # store the provenance on this repository
+
+jobs:
+  release:
+    # macOS, and not by preference: the click installer is a .pkg, and
+    # pkgbuild/lipo/codesign/pkgutil exist nowhere else. makensis (Windows
+    # installer) runs here too, and release-installers.sh reads .wharfy/dist —
+    # the binaries wharfy just built — so build and installers share one job.
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0   # wharfy takes the version from the git tag; a shallow clone carries none
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - uses: goreleaser/goreleaser-action@v6
+        with:
+          install-only: true   # wharfy's Go build path shells out to it
+
+      - name: install wharfy and makensis
+        run: brew install makensis shirodoromoto/wharfy/wharfy
+
+      - name: version from the tag
+        run: echo "VERSION=${GITHUB_REF_NAME#v}" >> "$GITHUB_ENV"
+
+      - name: build every os/arch
+        run: wharfy build
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: upload the release (prerelease — users still get the old version)
+        run: wharfy release --prerelease --yes
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      # The click installers are extra assets on the same release: declaring them
+      # to wharfy as `bundle:` would switch it to BYO mode and stop the Go
+      # cross-build the CLI channels live on. See packaging/README.md.
+      - name: build the click installers and attach them
+        run: packaging/release-installers.sh "$VERSION" dist/installers
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      # wharfy attests what it uploads itself; these two it never saw, and
+      # provenance that covers only some artifacts is worse than none — verify
+      # fails it. Attest the exact bytes we just uploaded.
+      - uses: actions/attest-build-provenance@v2
+        with:
+          subject-path: |
+            dist/installers/crofty.pkg
+            dist/installers/crofty-setup.exe
+
+      - name: verify the prerelease from the consumer side
+        run: wharfy verify --version "$VERSION"
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: what happens next
+        run: |
+          echo "v$VERSION is up as a prerelease. Nobody has it yet."
+          echo "Check the real artifacts (Windows installer on the dogfood box, .pkg on a Mac),"
+          echo "then run the 'Promote & publish' workflow with version=$VERSION to ship it."
