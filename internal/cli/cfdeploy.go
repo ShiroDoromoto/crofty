@@ -201,7 +201,7 @@ func cfContentType(name string) string {
 // deployment's canonical URL. progress receives short human lines so deploy.go
 // can print them. The bundle's assets become the deployment's files; its parts
 // become fields on the deployment itself.
-func cfDeployBundle(token, accountID, project, branch string, b deployBundle, progress func(string)) (string, error) {
+func cfDeployBundle(token, accountID, project, branch string, b deployBundle, worker workerOptions, progress func(string)) (string, error) {
 	dir := b.assetsDir
 	scan, err := cfScanDir(dir, cfParts())
 	if err != nil {
@@ -215,6 +215,14 @@ func cfDeployBundle(token, accountID, project, branch string, b deployBundle, pr
 		progress("  so whatever is serving those routes now stops working.")
 	}
 	if _, ok := b.parts[partWorker]; ok {
+		if worker.compatibilityDate == "" {
+			// Undeclared means the Pages project's own setting decides, and the
+			// oldest runtime if it has none — a worker that runs differently
+			// than it was written against, without anyone choosing that.
+			progress("⚠ no runtime pinned for _worker.js — it will run on whatever the Pages")
+			progress("  project is set to, or the oldest runtime there is. Pin it by setting")
+			progress("  deploy.worker.compatibilityDate in .crofty/config.json (e.g. 2026-07-20).")
+		}
 		if _, hasRoutes := b.parts[partRoutes]; !hasRoutes {
 			// Not an error: nothing breaks, it just costs more. Without
 			// _routes.json every request runs the worker, static files included
@@ -267,7 +275,7 @@ func cfDeployBundle(token, accountID, project, branch string, b deployBundle, pr
 	}
 
 	progress("Creating the deployment…")
-	url, aliases, err := cfCreateDeployment(token, accountID, project, branch, manifest, b.parts)
+	url, aliases, err := cfCreateDeployment(token, accountID, project, branch, manifest, b.parts, worker)
 	if err != nil {
 		return "", fmt.Errorf("creating the deployment: %w", err)
 	}
@@ -508,7 +516,7 @@ func cfJWTExpired(jwt string) bool {
 
 // cfCreateDeployment posts the manifest and the bundle's parts as multipart form
 // data and returns the deployment URL plus its aliases.
-func cfCreateDeployment(token, accountID, project, branch string, manifest map[string]string, parts map[deployPart]string) (string, []string, error) {
+func cfCreateDeployment(token, accountID, project, branch string, manifest map[string]string, parts map[deployPart]string, worker workerOptions) (string, []string, error) {
 	var buf bytes.Buffer
 	w := multipart.NewWriter(&buf)
 	mj, _ := json.Marshal(manifest)
@@ -528,7 +536,7 @@ func cfCreateDeployment(token, accountID, project, branch string, manifest map[s
 	// inventing a default route set — the author's file goes up as written, and
 	// no file means Pages' own behaviour, the same as with wrangler (D-332 §4).
 	if p := parts[partWorker]; p != "" {
-		if err := cfAddWorkerBundle(w, p); err != nil {
+		if err := cfAddWorkerBundle(w, p, worker); err != nil {
 			return "", nil, err
 		}
 		if err := cfAddFileField(w, string(partRoutes), parts[partRoutes], "application/json"); err != nil {
@@ -587,12 +595,12 @@ func cfAddFileField(w *multipart.Writer, field, path, contentType string) error 
 // multipart form of its own (workerbundle.go) serialized into one field. The
 // part's Content-Type carries the inner form's boundary — that is what tells the
 // receiving end there is a form inside this part rather than a plain file.
-func cfAddWorkerBundle(w *multipart.Writer, path string) error {
+func cfAddWorkerBundle(w *multipart.Writer, path string, opts workerOptions) error {
 	src, err := os.ReadFile(path)
 	if err != nil {
 		return err
 	}
-	bundle, bundleType, err := buildWorkerBundle(src)
+	bundle, bundleType, err := buildWorkerBundle(src, opts)
 	if err != nil {
 		return err
 	}

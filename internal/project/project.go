@@ -65,6 +65,8 @@ type DeployConfig struct {
 	// the site can't be silently retargeted to another account. Non-secret (an
 	// account id is not a key).
 	AccountID string `json:"accountId,omitempty"`
+	// Worker holds the author's declarations about the _worker.js crofty carries.
+	Worker WorkerConfig `json:"worker,omitempty"`
 
 	// --- SFTP / FTPS ---
 	// Host is the server hostname (no scheme).
@@ -83,6 +85,20 @@ type DeployConfig struct {
 	// TLSSkipVerify accepts a shared or self-signed TLS certificate for FTPS,
 	// common on budget shared hosting. Off by default.
 	TLSSkipVerify bool `json:"tlsSkipVerify,omitempty"`
+}
+
+// WorkerConfig is what the author declares about their worker's runtime.
+// crofty carries the worker but does not decide how it runs: these are the
+// author's answers, written down where they can be read and versioned, rather
+// than defaults crofty invents.
+type WorkerConfig struct {
+	// CompatibilityDate pins the Workers runtime the worker is written against
+	// (YYYY-MM-DD). Empty means undeclared, and crofty supplies nothing in its
+	// place: an unpinned worker falls back to the Pages project's own setting,
+	// and to the oldest runtime if there is none. That is worse than it sounds
+	// but better than the alternative — a crofty default would mean upgrading
+	// crofty silently changes the runtime the author's worker executes on.
+	CompatibilityDate string `json:"compatibilityDate,omitempty"`
 }
 
 // Project is a resolved crofty project rooted at Root.

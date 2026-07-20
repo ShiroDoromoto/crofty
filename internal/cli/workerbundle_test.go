@@ -85,7 +85,7 @@ func TestWorkerImportsReportsLines(t *testing.T) {
 // upload is accepted as an opaque file that never runs.
 func TestBuildWorkerBundleShape(t *testing.T) {
 	const src = "export default { fetch: () => new Response('ok') }"
-	bundle, contentType, err := buildWorkerBundle([]byte(src))
+	bundle, contentType, err := buildWorkerBundle([]byte(src), workerOptions{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -129,4 +129,89 @@ func TestBuildWorkerBundleShape(t *testing.T) {
 	if got := types[workerMainModule]; got != "application/javascript+module" {
 		t.Errorf("module content type = %q, want application/javascript+module", got)
 	}
+	if strings.Contains(seen["metadata"], "compatibility_date") {
+		t.Errorf("metadata = %q, want no compatibility_date — none was declared", seen["metadata"])
+	}
+}
+
+// A declared runtime has to reach the metadata, or declaring it changed nothing.
+// Undeclared has to stay absent rather than travel as an empty string: Pages
+// reads a missing key as "use the project's own setting", which is the whole
+// point of crofty not having a default of its own.
+func TestBuildWorkerBundleCarriesTheCompatibilityDate(t *testing.T) {
+	for _, tc := range []struct {
+		name, date string
+		want       bool
+	}{
+		{"declared", "2026-07-20", true},
+		{"undeclared", "", false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			bundle, contentType, err := buildWorkerBundle([]byte("export default {}"), workerOptions{compatibilityDate: tc.date})
+			if err != nil {
+				t.Fatal(err)
+			}
+			meta := bundleMetadata(t, bundle, contentType)
+			got, present := meta["compatibility_date"]
+			if present != tc.want {
+				t.Fatalf("compatibility_date present = %v, want %v (metadata %v)", present, tc.want, meta)
+			}
+			if tc.want && got != tc.date {
+				t.Errorf("compatibility_date = %v, want %q", got, tc.date)
+			}
+		})
+	}
+}
+
+// A date crofty can't pass on is caught before the build and the login, where
+// the author is still watching — not as an API error at the end of a deploy.
+func TestWorkerOptionsValidate(t *testing.T) {
+	for _, tc := range []struct {
+		date string
+		ok   bool
+	}{
+		{"", true}, // undeclared is a valid answer
+		{"2026-07-20", true},
+		{"2026-7-20", false},
+		{"july 2026", false},
+		{"2026-07-20T00:00:00Z", false},
+	} {
+		err := workerOptions{compatibilityDate: tc.date}.validate()
+		if tc.ok && err != nil {
+			t.Errorf("validate(%q) = %v, want nil", tc.date, err)
+		}
+		if !tc.ok && err == nil {
+			t.Errorf("validate(%q) = nil, want an error naming the field", tc.date)
+		}
+	}
+}
+
+// bundleMetadata pulls the metadata field out of a worker bundle.
+func bundleMetadata(t *testing.T, bundle []byte, contentType string) map[string]any {
+	t.Helper()
+	_, params, err := mime.ParseMediaType(contentType)
+	if err != nil {
+		t.Fatal(err)
+	}
+	r := multipart.NewReader(strings.NewReader(string(bundle)), params["boundary"])
+	for {
+		p, err := r.NextPart()
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			t.Fatal(err)
+		}
+		if p.FormName() != "metadata" {
+			continue
+		}
+		b, _ := io.ReadAll(p)
+		var meta map[string]any
+		if err := json.Unmarshal(b, &meta); err != nil {
+			t.Fatalf("metadata is not JSON: %q", b)
+		}
+		return meta
+	}
+	t.Fatal("the bundle has no metadata field")
+	return nil
 }

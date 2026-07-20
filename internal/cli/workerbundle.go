@@ -196,6 +196,28 @@ func closingQuote(src []byte, i int) (int, bool) {
 	return 0, false
 }
 
+// workerOptions are the author's declarations about how their worker runs,
+// read from .crofty/config.json. crofty carries them; it does not fill them in.
+type workerOptions struct {
+	// compatibilityDate pins the Workers runtime (YYYY-MM-DD). Empty is
+	// undeclared, and stays undeclared on the wire.
+	compatibilityDate string
+}
+
+// workerDateFormat is how Cloudflare writes a compatibility date, and the only
+// shape crofty will pass on.
+var workerDateFormat = regexp.MustCompile(`^\d{4}-\d{2}-\d{2}$`)
+
+// validate checks the declarations crofty can check without the network, so a
+// typo is caught before a build and a login rather than as an API error at the
+// end of a deploy.
+func (o workerOptions) validate() error {
+	if o.compatibilityDate == "" || workerDateFormat.MatchString(o.compatibilityDate) {
+		return nil
+	}
+	return fmt.Errorf("deploy.worker.compatibilityDate is %q — it has to be a date like 2026-07-20", o.compatibilityDate)
+}
+
 // buildWorkerBundle wraps a module in the Workers script upload form and returns
 // the serialized bytes plus the Content-Type that names its boundary. The caller
 // must send that content type with the part, or the receiving end cannot find
@@ -203,14 +225,20 @@ func closingQuote(src []byte, i int) (int, bool) {
 //
 // bindings is sent empty: a binding is a resource in the author's own Cloudflare
 // account, and crofty does not create or name those (D-332).
-func buildWorkerBundle(src []byte) ([]byte, string, error) {
+func buildWorkerBundle(src []byte, opts workerOptions) ([]byte, string, error) {
 	var buf bytes.Buffer
 	w := multipart.NewWriter(&buf)
 
-	metadata, err := json.Marshal(map[string]any{
+	meta := map[string]any{
 		"main_module": workerMainModule,
 		"bindings":    []any{},
-	})
+	}
+	// Absent, not empty: sending "" would be crofty answering a question the
+	// author didn't, and Pages reads a missing key as "use the project setting".
+	if opts.compatibilityDate != "" {
+		meta["compatibility_date"] = opts.compatibilityDate
+	}
+	metadata, err := json.Marshal(meta)
 	if err != nil {
 		return nil, "", err
 	}

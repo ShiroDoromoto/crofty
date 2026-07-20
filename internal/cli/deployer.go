@@ -55,6 +55,7 @@ type cloudflareDeployer struct {
 	accountID string
 	project   string
 	branch    string
+	worker    workerOptions
 }
 
 // Pages takes _headers and _redirects as fields of the deployment itself, so
@@ -62,5 +63,5 @@ type cloudflareDeployer struct {
 func (d *cloudflareDeployer) Carries() []deployPart { return providerCarries("cloudflare") }
 
 func (d *cloudflareDeployer) Deploy(b deployBundle, progress func(string)) (string, error) {
-	return cfDeployBundle(d.token, d.accountID, d.project, d.branch, b, progress)
+	return cfDeployBundle(d.token, d.accountID, d.project, d.branch, b, d.worker, progress)
 }

@@ -71,7 +71,7 @@ func runDeploy(args []string) error {
 	if err := partsGate(gated, provider, staticOnly); err != nil {
 		return err
 	}
-	if err := workerGate(gated, provider, staticOnly); err != nil {
+	if err := workerGate(gated, provider, staticOnly, workerOptionsFrom(cfg)); err != nil {
 		return err
 	}
 
@@ -194,19 +194,34 @@ func partsGate(b deployBundle, provider string, staticOnly bool) error {
 	return errSilent
 }
 
+// workerOptionsFrom reads the author's worker declarations out of the project
+// config. Undeclared stays undeclared: crofty has no default to offer here.
+func workerOptionsFrom(cfg *project.Config) workerOptions {
+	if cfg == nil {
+		return workerOptions{}
+	}
+	return workerOptions{compatibilityDate: cfg.Deploy.Worker.CompatibilityDate}
+}
+
 // workerGate stops a deploy whose worker crofty cannot carry whole. A
 // destination that takes a worker takes exactly one self-contained module:
 // crofty has no bundler, so an import would upload cleanly and then fail on the
 // first request — the failure moving from the terminal, where it can be read,
 // into production, where it can't. The scan is conservative by design
 // (workerbundle.go), and the way out is stated rather than implied.
-func workerGate(b deployBundle, provider string, staticOnly bool) error {
+func workerGate(b deployBundle, provider string, staticOnly bool, opts workerOptions) error {
 	if staticOnly {
 		return nil // the worker isn't going anywhere, so it needn't be carryable
 	}
 	path, ok := b.parts[partWorker]
 	if !ok || !carriesPart(providerCarries(provider), partWorker) {
 		return nil // no worker, or one partsGate already stopped over
+	}
+	// A declaration crofty can't pass on is worth catching here, where the
+	// author is still looking, rather than as an API error after a build and a
+	// login.
+	if err := opts.validate(); err != nil {
+		return err
 	}
 	src, err := os.ReadFile(path)
 	if err != nil {
@@ -278,7 +293,13 @@ func resolveDeployer(provider string, proj *project.Project, cfg *project.Config
 		if branch == "" {
 			branch = "main"
 		}
-		d := &cloudflareDeployer{token: token, accountID: acct.id, project: cfg.Deploy.Project, branch: branch}
+		d := &cloudflareDeployer{
+			token:     token,
+			accountID: acct.id,
+			project:   cfg.Deploy.Project,
+			branch:    branch,
+			worker:    workerOptionsFrom(cfg),
+		}
 		return d, func(url string) {
 			fmt.Println()
 			fmt.Println("✓ deployed", cfg.Deploy.Project, "to Cloudflare Pages")

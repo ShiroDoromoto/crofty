@@ -232,7 +232,7 @@ func TestCFDeployBundle(t *testing.T) {
 		}
 	})()
 
-	url, err := cfDeployBundle("acct-token", "acct1", "site", "main", assembleBundle(dir, dir), func(string) {})
+	url, err := cfDeployBundle("acct-token", "acct1", "site", "main", assembleBundle(dir, dir), workerOptions{}, func(string) {})
 	if err != nil {
 		t.Fatalf("cfDeployBundle: %v", err)
 	}
@@ -259,7 +259,7 @@ func TestCFDeployBundle(t *testing.T) {
 // step, handing the deployment request back for inspection. The Direct Upload
 // sequence itself is covered by TestCFDeployBundle; the tests below are only
 // interested in what ends up on that last request.
-func cfDeployToFake(t *testing.T, root, dist string) (*multipart.Form, []string) {
+func cfDeployToFake(t *testing.T, root, dist string, worker workerOptions) (*multipart.Form, []string) {
 	t.Helper()
 	jwt := makeJWT(t, time.Now().Add(time.Hour).Unix())
 	var mu sync.Mutex
@@ -290,7 +290,7 @@ func cfDeployToFake(t *testing.T, root, dist string) (*multipart.Form, []string)
 	})()
 
 	var said []string
-	if _, err := cfDeployBundle("acct-token", "acct1", "site", "main", assembleBundle(root, dist), func(line string) {
+	if _, err := cfDeployBundle("acct-token", "acct1", "site", "main", assembleBundle(root, dist), worker, func(line string) {
 		said = append(said, line)
 	}); err != nil {
 		t.Fatalf("cfDeployBundle: %v", err)
@@ -336,7 +336,7 @@ func TestCFDeployBundleCarriesTheWorker(t *testing.T) {
 	mustWrite(t, root, "_worker.js", workerSrc)
 	mustWrite(t, root, "_routes.json", routesSrc)
 
-	form, said := cfDeployToFake(t, root, dist)
+	form, said := cfDeployToFake(t, root, dist, workerOptions{compatibilityDate: "2026-07-20"})
 
 	gotRoutes, _, ok := filePart(t, form, "_routes.json")
 	if !ok || gotRoutes != routesSrc {
@@ -385,12 +385,36 @@ func TestCFDeployBundleWarnsWhenTheWorkerHasNoRoutes(t *testing.T) {
 	mustWrite(t, dist, "index.html", "<h1>hi</h1>")
 	mustWrite(t, root, "_worker.js", "export default { fetch: () => new Response('ok') }")
 
-	form, said := cfDeployToFake(t, root, dist)
+	form, said := cfDeployToFake(t, root, dist, workerOptions{compatibilityDate: "2026-07-20"})
 	if _, _, ok := filePart(t, form, "_worker.bundle"); !ok {
 		t.Error("the worker should still travel without _routes.json")
 	}
 	if !strings.Contains(strings.Join(said, "\n"), "_routes.json") {
 		t.Errorf("nothing said about the missing _routes.json: %v", said)
+	}
+}
+
+// An unpinned worker runs on whatever the Pages project is set to, or the oldest
+// runtime there is — a worker executing somewhere other than where it was
+// written against. crofty supplies no date of its own, so the least it owes the
+// author is saying so, and saying where to write one.
+func TestCFDeployBundleWarnsWhenNoRuntimeIsPinned(t *testing.T) {
+	root := t.TempDir()
+	dist := filepath.Join(root, "dist")
+	mustWrite(t, dist, "index.html", "<h1>hi</h1>")
+	mustWrite(t, root, "_worker.js", "export default { fetch: () => new Response('ok') }")
+	mustWrite(t, root, "_routes.json", `{"include":["/api/*"]}`)
+
+	_, said := cfDeployToFake(t, root, dist, workerOptions{})
+	joined := strings.Join(said, "\n")
+	if !strings.Contains(joined, "compatibilityDate") {
+		t.Errorf("nothing said about the unpinned runtime, or it never names the field: %v", said)
+	}
+
+	// Declared: the warning has to go away, or it teaches the author to ignore it.
+	_, said = cfDeployToFake(t, root, dist, workerOptions{compatibilityDate: "2026-07-20"})
+	if strings.Contains(strings.Join(said, "\n"), "compatibilityDate") {
+		t.Errorf("warned about the runtime when it is pinned: %v", said)
 	}
 }
 
@@ -402,7 +426,7 @@ func TestCFDeployBundleLeavesRoutesWhenThereIsNoWorker(t *testing.T) {
 	mustWrite(t, dist, "index.html", "<h1>hi</h1>")
 	mustWrite(t, root, "_routes.json", `{"include":["/api/*"]}`)
 
-	form, _ := cfDeployToFake(t, root, dist)
+	form, _ := cfDeployToFake(t, root, dist, workerOptions{compatibilityDate: "2026-07-20"})
 	if _, _, ok := filePart(t, form, "_routes.json"); ok {
 		t.Error("_routes.json travelled without a worker")
 	}

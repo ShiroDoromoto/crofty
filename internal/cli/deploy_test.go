@@ -66,15 +66,15 @@ func TestWorkerGateStopsAnImportingWorker(t *testing.T) {
 	if err := partsGate(b, "cloudflare", false); err != nil {
 		t.Fatalf("partsGate = %v — the worker is carried, so this gate has no say", err)
 	}
-	if err := workerGate(b, "cloudflare", false); err == nil {
+	if err := workerGate(b, "cloudflare", false, workerOptions{}); err == nil {
 		t.Error("a worker with an import should stop the deploy")
 	}
-	if err := workerGate(b, "cloudflare", true); err != nil {
+	if err := workerGate(b, "cloudflare", true, workerOptions{}); err != nil {
 		t.Errorf("--static-only: workerGate = %v, want nil", err)
 	}
 	// A destination that can't take a worker at all has already stopped in
 	// partsGate; this gate must not speak over it with the wrong reason.
-	if err := workerGate(b, "sftp", false); err != nil {
+	if err := workerGate(b, "sftp", false, workerOptions{}); err != nil {
 		t.Errorf("sftp: workerGate = %v, want nil (partsGate owns that refusal)", err)
 	}
 }
@@ -85,7 +85,7 @@ func TestWorkerGatePassesSelfContainedWorker(t *testing.T) {
 	mustWrite(t, root, "_worker.js", "export default { fetch: () => new Response('ok') }")
 	b := assembleBundle(root, filepath.Join(root, "dist"))
 
-	if err := workerGate(b, "cloudflare", false); err != nil {
+	if err := workerGate(b, "cloudflare", false, workerOptions{}); err != nil {
 		t.Errorf("workerGate = %v, want nil", err)
 	}
 }
