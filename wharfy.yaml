@@ -11,16 +11,21 @@
 # drag Hugo in as a package dependency. install.sh / install.ps1 serve the first
 # purpose; the click installers now bundle Hugo, which retires the second. What
 # was left was two tap repos to keep. They stay on GitHub, archived, with a
-# notice on the last formula: `crofty update` sends anyone still there to the
-# installers. Do not re-add these channels — a release would overwrite that
-# notice.
+# deprecation notice on the last formula, and crofty's own update notice sends
+# anyone still there to the installers. Do not re-add these channels — a release
+# would overwrite that notice.
 #
 # No apt, no rpm either. Once we declined to host a signed repo (a repo whose
 # only job is to save one download is not worth handing a third party our private
 # key), `apt upgrade` could never carry crofty forward, and the packages stopped
 # pulling Hugo in as well. What remained was two artifacts nobody built in CI and
-# nobody ran — install.sh puts the same binary on PATH, on every distro, and
-# `crofty update` walks the last .deb/.rpm users out.
+# nobody ran — install.sh puts the same binary on PATH, on every distro, and the
+# update notice walks the last .deb/.rpm users out.
+#
+# That notice is not a command: crofty has no `update` subcommand and does not
+# update itself. It is the nudge printed at the end of a run when a newer release
+# exists (internal/cli/update.go), and it names a route-specific way out — which
+# is why retiring a channel means teaching upgradeHintFor about it.
 channels:
   - releases
   - script
