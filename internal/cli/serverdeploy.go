@@ -22,11 +22,12 @@ type serverFile struct {
 }
 
 // scanDistTree walks dir and returns every regular file (slash-relative paths,
-// no leading slash) plus whether the build carries Cloudflare-only edge files
-// (_headers / _redirects / _worker.js / functions/) that won't run on a plain
-// host. The edge files are still uploaded — harmless static text — but the
-// caller warns they're inert here.
-func scanDistTree(dir string) (files []serverFile, hasEdgeFiles bool, err error) {
+// no leading slash) plus whether the build carries server-side Functions inputs
+// (_worker.js / functions/) that won't run on a plain host. They are still
+// uploaded — the caller warns they're inert here. The parts a plain host can't
+// act on (_headers / _redirects) are not detected here: they are in the bundle,
+// and the caller sees them via deployBundle.partsNotCarried.
+func scanDistTree(dir string) (files []serverFile, hasFunctions bool, err error) {
 	err = filepath.WalkDir(dir, func(p string, d os.DirEntry, werr error) error {
 		if werr != nil {
 			return werr
@@ -38,18 +39,15 @@ func scanDistTree(dir string) (files []serverFile, hasEdgeFiles bool, err error)
 		name := filepath.ToSlash(rel)
 		if d.IsDir() {
 			if name == "functions" {
-				hasEdgeFiles = true
+				hasFunctions = true
 			}
 			return nil
 		}
 		if !d.Type().IsRegular() {
 			return nil // skip symlinks, sockets, etc.
 		}
-		if !strings.Contains(name, "/") {
-			switch name {
-			case "_headers", "_redirects", "_worker.js":
-				hasEdgeFiles = true
-			}
+		if name == "_worker.js" {
+			hasFunctions = true
 		}
 		files = append(files, serverFile{rel: name, abs: p})
 		return nil
@@ -57,7 +55,7 @@ func scanDistTree(dir string) (files []serverFile, hasEdgeFiles bool, err error)
 	if err != nil {
 		return nil, false, err
 	}
-	return files, hasEdgeFiles, nil
+	return files, hasFunctions, nil
 }
 
 // remoteDirs returns the set of ancestor directories (slash-relative to the

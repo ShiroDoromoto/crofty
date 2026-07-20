@@ -38,8 +38,13 @@ type sftpDeployer struct {
 	remoteDir string
 }
 
-func (d *sftpDeployer) Deploy(distDir string, progress func(string)) (string, error) {
-	files, hasEdge, err := scanDistTree(distDir)
+// A plain SFTP host is a file store with no edge runtime, so it delivers the
+// assets and nothing else.
+func (d *sftpDeployer) Carries() []deployPart { return nil }
+
+func (d *sftpDeployer) Deploy(b deployBundle, progress func(string)) (string, error) {
+	distDir := b.assetsDir
+	files, hasFunctions, err := scanDistTree(distDir)
 	if err != nil {
 		return "", err
 	}
@@ -59,7 +64,7 @@ func (d *sftpDeployer) Deploy(distDir string, progress func(string)) (string, er
 	defer client.Close()
 
 	warnInPlace(progress)
-	if hasEdge {
+	if hasFunctions || len(b.partsNotCarried(d)) > 0 {
 		warnEdgeFiles(progress)
 	}
 	progress(fmt.Sprintf("Uploading %d files to %s:%s …", len(files), d.addr, d.remoteDir))

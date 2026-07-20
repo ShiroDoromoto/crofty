@@ -61,18 +61,26 @@ type cfAsset struct {
 	hash        string
 }
 
-// cfDirScan is the result of walking a built site: ordinary assets plus the
-// special files Pages takes as their own deployment fields.
+// cfParts are the parts a Pages deployment takes as fields of the deployment
+// itself, rather than as files under the site.
+func cfParts() []deployPart { return []deployPart{partHeaders, partRedirects} }
+
+// cfDirScan is the result of walking a built site: the ordinary assets, once the
+// files that travel some other way have been set aside.
 type cfDirScan struct {
 	assets    []cfAsset
-	headers   string // path to a root _headers file, if present
-	redirects string // path to a root _redirects file, if present
-	functions bool   // a _worker.js / functions/ Pages-Functions build (unsupported)
+	functions bool // a _worker.js / functions/ Pages-Functions build (unsupported)
 }
 
-// cfScanDir walks dir, hashing every asset and setting aside the special files.
-func cfScanDir(dir string) (cfDirScan, error) {
+// cfScanDir walks dir, hashing every asset. Files matching a part in parts are
+// left out: they are already in the bundle and go on the deployment as fields,
+// not as assets.
+func cfScanDir(dir string, parts []deployPart) (cfDirScan, error) {
 	var scan cfDirScan
+	asPart := map[string]bool{}
+	for _, p := range parts {
+		asPart[string(p)] = true
+	}
 	err := filepath.WalkDir(dir, func(p string, d os.DirEntry, err error) error {
 		if err != nil {
 			return err
@@ -97,13 +105,10 @@ func cfScanDir(dir string) (cfDirScan, error) {
 		}
 		// Root-level special files are not ordinary assets.
 		if !strings.Contains(name, "/") {
+			if asPart[name] {
+				return nil // carried as a deployment field, not as a file
+			}
 			switch name {
-			case "_headers":
-				scan.headers = p
-				return nil
-			case "_redirects":
-				scan.redirects = p
-				return nil
 			case "_worker.js":
 				scan.functions = true
 				return nil
@@ -184,10 +189,13 @@ func cfContentType(name string) string {
 	return "application/octet-stream"
 }
 
-// cfDeployDir runs the full Direct Upload sequence and returns the deployment's
-// canonical URL. progress receives short human lines so deploy.go can print them.
-func cfDeployDir(token, accountID, project, branch, dir string, progress func(string)) (string, error) {
-	scan, err := cfScanDir(dir)
+// cfDeployBundle runs the full Direct Upload sequence and returns the
+// deployment's canonical URL. progress receives short human lines so deploy.go
+// can print them. The bundle's assets become the deployment's files; its parts
+// become fields on the deployment itself.
+func cfDeployBundle(token, accountID, project, branch string, b deployBundle, progress func(string)) (string, error) {
+	dir := b.assetsDir
+	scan, err := cfScanDir(dir, cfParts())
 	if err != nil {
 		return "", err
 	}
@@ -241,7 +249,7 @@ func cfDeployDir(token, accountID, project, branch, dir string, progress func(st
 	}
 
 	progress("Creating the deployment…")
-	url, aliases, err := cfCreateDeployment(token, accountID, project, branch, manifest, scan.headers, scan.redirects)
+	url, aliases, err := cfCreateDeployment(token, accountID, project, branch, manifest, b.parts[partHeaders], b.parts[partRedirects])
 	if err != nil {
 		return "", fmt.Errorf("creating the deployment: %w", err)
 	}

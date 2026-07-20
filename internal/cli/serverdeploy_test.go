@@ -84,8 +84,9 @@ func TestIsSupportedProvider(t *testing.T) {
 	}
 }
 
-// scanDistTree must collect every regular file with slash-relative paths and flag
-// Cloudflare-only edge files so the SFTP/FTPS backends can warn they're inert.
+// scanDistTree must collect every regular file with slash-relative paths — the
+// _redirects file included, since a plain host stores it like any other — and
+// flag server-side Functions inputs so SFTP/FTPS can warn they're inert.
 func TestScanDistTree(t *testing.T) {
 	dir := t.TempDir()
 	write := func(rel, body string) {
@@ -101,20 +102,21 @@ func TestScanDistTree(t *testing.T) {
 	write("posts/hello/index.html", "hi")
 	write("assets/site.css", "css")
 	write("_redirects", "/* /index.html 200")
+	write("_worker.js", "export default {}")
 
-	files, hasEdge, err := scanDistTree(dir)
+	files, hasFunctions, err := scanDistTree(dir)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !hasEdge {
-		t.Error("expected hasEdgeFiles true (a _redirects file is present)")
+	if !hasFunctions {
+		t.Error("expected hasFunctions true (a _worker.js file is present)")
 	}
 	got := make([]string, len(files))
 	for i, f := range files {
 		got[i] = f.rel
 	}
 	sort.Strings(got)
-	want := []string{"_redirects", "assets/site.css", "index.html", "posts/hello/index.html"}
+	want := []string{"_redirects", "_worker.js", "assets/site.css", "index.html", "posts/hello/index.html"}
 	if !reflect.DeepEqual(got, want) {
 		t.Errorf("scanDistTree rel paths = %v; want %v", got, want)
 	}

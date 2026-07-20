@@ -101,8 +101,8 @@ func runDeploy(args []string) error {
 	}
 
 	// Resolve credentials (keychain / TTY prompt) and build the Deployer for the
-	// configured provider. Nothing but dist/ is ever uploaded — keys, .crofty/,
-	// and config stay local.
+	// configured provider. Nothing but the bundle is ever uploaded — keys,
+	// .crofty/, and config stay local.
 	deployer, onDone, err := resolveDeployer(provider, proj, cfg, account, reauth, yes)
 	if err != nil {
 		return err
@@ -111,7 +111,11 @@ func runDeploy(args []string) error {
 		return nil // a choice was printed (e.g. Cloudflare's "pick --account")
 	}
 
-	url, err := deployer.Deploy(proj.DistDir(), func(line string) {
+	// Collect what the site needs to work — assets plus the parts found beside
+	// them — without knowing which provider takes it.
+	bundle := assembleBundle(proj.DistDir())
+
+	url, err := deployer.Deploy(bundle, func(line string) {
 		fmt.Println("  " + line)
 	})
 	if err != nil {

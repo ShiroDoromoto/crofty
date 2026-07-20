@@ -33,8 +33,13 @@ type ftpsDeployer struct {
 	remoteDir string
 }
 
-func (d *ftpsDeployer) Deploy(distDir string, progress func(string)) (string, error) {
-	files, hasEdge, err := scanDistTree(distDir)
+// A plain FTPS host is a file store with no edge runtime, so it delivers the
+// assets and nothing else.
+func (d *ftpsDeployer) Carries() []deployPart { return nil }
+
+func (d *ftpsDeployer) Deploy(b deployBundle, progress func(string)) (string, error) {
+	distDir := b.assetsDir
+	files, hasFunctions, err := scanDistTree(distDir)
 	if err != nil {
 		return "", err
 	}
@@ -56,7 +61,7 @@ func (d *ftpsDeployer) Deploy(distDir string, progress func(string)) (string, er
 	}
 
 	warnInPlace(progress)
-	if hasEdge {
+	if hasFunctions || len(b.partsNotCarried(d)) > 0 {
 		warnEdgeFiles(progress)
 	}
 

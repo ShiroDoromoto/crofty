@@ -61,15 +61,16 @@ func TestCFScanDir(t *testing.T) {
 	mustWrite(t, dir, "_headers", "/*\n  X-Test: 1")
 	mustWrite(t, dir, "_worker.js", "export default {}")
 
-	scan, err := cfScanDir(dir)
+	scan, err := cfScanDir(dir, cfParts())
 	if err != nil {
 		t.Fatal(err)
 	}
 	if len(scan.assets) != 2 {
 		t.Fatalf("assets = %d, want 2 (special files excluded): %+v", len(scan.assets), scan.assets)
 	}
-	if scan.redirects == "" || scan.headers == "" {
-		t.Fatalf("_headers/_redirects not set aside: %+v", scan)
+	b := assembleBundle(dir)
+	if b.parts[partHeaders] == "" || b.parts[partRedirects] == "" {
+		t.Fatalf("_headers/_redirects not collected as parts: %+v", b.parts)
 	}
 	if !scan.functions {
 		t.Fatal("_worker.js should mark the scan as a Functions build")
@@ -90,7 +91,7 @@ func TestCFScanDirSkipsFunctionsTree(t *testing.T) {
 	mustWrite(t, dir, "functions/api/contact.js", "export function onRequest() {}")
 	mustWrite(t, dir, "functions/_middleware.js", "export function onRequest() {}")
 
-	scan, err := cfScanDir(dir)
+	scan, err := cfScanDir(dir, cfParts())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -113,7 +114,7 @@ func TestCFScanDirRejectsOversizeFile(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(dir, "huge.bin"), big, 0o644); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := cfScanDir(dir); err == nil {
+	if _, err := cfScanDir(dir, cfParts()); err == nil {
 		t.Fatal("expected an error for a file over the per-file limit")
 	}
 }
@@ -145,9 +146,9 @@ func TestCFPickURL(t *testing.T) {
 	}
 }
 
-// TestCFDeployDir drives the whole Direct Upload sequence against a fake CF API,
-// asserting the dual-auth split, the upload payload, and the returned URL.
-func TestCFDeployDir(t *testing.T) {
+// TestCFDeployBundle drives the whole Direct Upload sequence against a fake CF
+// API, asserting the dual-auth split, the upload payload, and the returned URL.
+func TestCFDeployBundle(t *testing.T) {
 	dir := t.TempDir()
 	mustWrite(t, dir, "index.html", "<h1>hi</h1>")
 	mustWrite(t, dir, "css/style.css", "body{color:red}")
@@ -211,9 +212,9 @@ func TestCFDeployDir(t *testing.T) {
 		}
 	})()
 
-	url, err := cfDeployDir("acct-token", "acct1", "site", "main", dir, func(string) {})
+	url, err := cfDeployBundle("acct-token", "acct1", "site", "main", assembleBundle(dir), func(string) {})
 	if err != nil {
-		t.Fatalf("cfDeployDir: %v", err)
+		t.Fatalf("cfDeployBundle: %v", err)
 	}
 	if url != "https://site.pages.dev" {
 		t.Errorf("url = %q, want https://site.pages.dev", url)
