@@ -50,13 +50,6 @@ func runDeploy(args []string) error {
 		return err
 	}
 
-	// Stop before anything is built or uploaded: crofty deploys static assets
-	// only, so publishing over a site whose Functions are live takes the working
-	// endpoints down while the command still reports success (08 §6).
-	if err := functionsGate(proj.Root, staticOnly); err != nil {
-		return err
-	}
-
 	cfg, err := proj.LoadConfig()
 	if err != nil {
 		return fmt.Errorf("reading deploy config: %w", err)
@@ -67,6 +60,15 @@ func runDeploy(args []string) error {
 	}
 	if !isSupportedProvider(provider) {
 		return fmt.Errorf("deploy provider %q is not supported (use one of: %s)", provider, strings.Join(supportedProviders(), ", "))
+	}
+
+	// Stop before anything is built or uploaded: publishing over a site whose
+	// live parts this destination can't carry takes the working endpoints down
+	// while the command still reports success (08 §6). Assembled here, before
+	// the build, the bundle holds the root parts — which is where every live
+	// part is — and that is all the gate looks at.
+	if err := partsGate(assembleBundle(proj.Root, proj.DistDir()), provider, staticOnly); err != nil {
+		return err
 	}
 
 	// Build the current source before publishing, so deploy can never ship a
@@ -112,8 +114,10 @@ func runDeploy(args []string) error {
 	}
 
 	// Collect what the site needs to work — assets plus the parts found beside
-	// them — without knowing which provider takes it.
-	bundle := assembleBundle(proj.DistDir())
+	// them and at the root — without knowing which provider takes it. Assembled
+	// again here because the build has run since the gate: this is the bundle
+	// that actually goes out.
+	bundle := assembleBundle(proj.Root, proj.DistDir())
 
 	url, err := deployer.Deploy(bundle, func(line string) {
 		fmt.Println("  " + line)
@@ -126,44 +130,67 @@ func runDeploy(args []string) error {
 }
 
 // projectFunctions returns the Pages Functions entry points found at the root of
-// a crofty project. Hugo never copies these into
-// dist/ — they are Cloudflare's own build inputs — so the project root is the
-// only place they can be seen.
+// a crofty project — the live parts, the ones that answer requests. Hugo never
+// copies these into dist/ — they are the host's own build inputs — so the
+// project root is the only place they can be seen.
 func projectFunctions(root string) []string {
 	found := []string{} // never nil: `crofty config --json` reports this as a list
-	if fi, err := os.Stat(filepath.Join(root, "functions")); err == nil && fi.IsDir() {
-		found = append(found, "functions/")
-	}
-	if fi, err := os.Stat(filepath.Join(root, "_worker.js")); err == nil && fi.Mode().IsRegular() {
-		found = append(found, "_worker.js")
+	present := rootParts(root)
+	for _, s := range partSpecs() {
+		if !s.live {
+			continue
+		}
+		if _, ok := present[s.part]; ok {
+			found = append(found, s.label())
+		}
 	}
 	return found
 }
 
-// functionsGate stops a deploy that would silently take live Pages Functions
-// offline. crofty uploads static assets only, so a deployment replaces whatever
-// was serving those routes — forms and the like stop working, and the command
-// still exits 0. staticOnly is the explicit "yes, drop them" opt-out.
-func functionsGate(root string, staticOnly bool) error {
-	found := projectFunctions(root)
-	if len(found) == 0 {
+// partsGate stops a deploy that would silently take live routes offline. crofty
+// uploads what the destination can carry, so a deployment replaces whatever was
+// serving the rest — forms and the like stop working, and the command still
+// exits 0. The judgement is never "is this file named _worker.js": it is "is
+// there a live part in the bundle this destination can't deliver", which is why
+// adding a provider or a part doesn't mean revisiting this gate. Inert parts
+// (_headers on a plain host) are not a reason to stop — nothing that worked
+// stops working — so each provider warns about those itself. staticOnly is the
+// explicit "yes, drop them" opt-out.
+func partsGate(b deployBundle, provider string, staticOnly bool) error {
+	dropped := b.livePartsNotCarried(providerCarries(provider))
+	if len(dropped) == 0 {
 		return nil
 	}
+	labels := partLabels(dropped)
 	if staticOnly {
-		fmt.Printf("⚠ deploying static files only — %s stays behind, so anything it serves stops working.\n\n", strings.Join(found, " and "))
+		fmt.Printf("⚠ deploying static files only — %s stays behind, so anything it serves stops working.\n\n", strings.Join(labels, " and "))
 		return nil
 	}
-	fmt.Printf("✗ this project has Pages Functions (%s) — not deploying:\n", strings.Join(found, ", "))
+	fmt.Printf("✗ this project has parts a %s deploy can't carry (%s) — not deploying:\n", provider, strings.Join(labels, ", "))
 	fmt.Println()
-	fmt.Println("  crofty deploys static files only. Publishing would replace what is serving")
-	fmt.Println("  those routes now, so anything they answer — forms, redirects, APIs — stops")
-	fmt.Println("  working, silently.")
+	fmt.Println("  crofty would upload the rest and replace what is serving those routes now,")
+	fmt.Println("  so anything they answer — forms, redirects, APIs — stops working, silently.")
 	fmt.Println()
-	fmt.Println("  Deploy this site the way its Functions get deployed (wrangler / a Pages git")
-	fmt.Println("  build), or run 'crofty deploy --static-only' to drop them on purpose.")
+	fmt.Println("  Deploy this site the way those parts reach production")
+	fmt.Printf("  (%s), or run 'crofty deploy --static-only'\n", strings.Join(elsewhereFor(dropped), " / "))
+	fmt.Println("  to drop them on purpose.")
 	fmt.Println()
 	fmt.Println("Nothing was deployed.")
 	return errSilent
+}
+
+// elsewhereFor lists, without repeats, the routes to production the dropped
+// parts have outside crofty.
+func elsewhereFor(parts []deployPart) []string {
+	var out []string
+	seen := map[string]bool{}
+	for _, p := range parts {
+		if e := specOf(p).elsewhere; e != "" && !seen[e] {
+			seen[e] = true
+			out = append(out, e)
+		}
+	}
+	return out
 }
 
 // resolveDeployer authenticates for the given provider and returns a ready

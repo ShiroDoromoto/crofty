@@ -53,7 +53,7 @@ func TestSFTPDeploy_E2E(t *testing.T) {
 		},
 		remoteDir: dst,
 	}
-	if _, err := d.Deploy(assembleBundle(src), func(string) {}); err != nil {
+	if _, err := d.Deploy(assembleBundle(src, src), func(string) {}); err != nil {
 		t.Fatalf("Deploy: %v", err)
 	}
 	assertTreeUploaded(t, src, dst)
@@ -72,7 +72,7 @@ func TestSFTPDeploy_BadPassword(t *testing.T) {
 		},
 		remoteDir: t.TempDir(),
 	}
-	if _, err := d.Deploy(assembleBundle(src), func(string) {}); err == nil {
+	if _, err := d.Deploy(assembleBundle(src, src), func(string) {}); err == nil {
 		t.Fatal("expected an auth failure, got nil")
 	}
 }

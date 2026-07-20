@@ -37,7 +37,7 @@ func TestFTPSDeploy_E2E(t *testing.T) {
 		tlsConfig: &tls.Config{InsecureSkipVerify: true}, // self-signed test cert
 		remoteDir: "/site",
 	}
-	if _, err := d.Deploy(assembleBundle(src), func(string) {}); err != nil {
+	if _, err := d.Deploy(assembleBundle(src, src), func(string) {}); err != nil {
 		t.Fatalf("Deploy: %v", err)
 	}
 	// The server's filesystem is rooted at dst, so /site lands under dst/site.
@@ -57,7 +57,7 @@ func TestFTPSDeploy_BadPassword(t *testing.T) {
 		tlsConfig: &tls.Config{InsecureSkipVerify: true},
 		remoteDir: "/site",
 	}
-	if _, err := d.Deploy(assembleBundle(src), func(string) {}); err == nil {
+	if _, err := d.Deploy(assembleBundle(src, src), func(string) {}); err == nil {
 		t.Fatal("expected a login failure, got nil")
 	}
 }

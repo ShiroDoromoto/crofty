@@ -68,7 +68,7 @@ func TestCFScanDir(t *testing.T) {
 	if len(scan.assets) != 2 {
 		t.Fatalf("assets = %d, want 2 (special files excluded): %+v", len(scan.assets), scan.assets)
 	}
-	b := assembleBundle(dir)
+	b := assembleBundle(dir, dir)
 	if b.parts[partHeaders] == "" || b.parts[partRedirects] == "" {
 		t.Fatalf("_headers/_redirects not collected as parts: %+v", b.parts)
 	}
@@ -212,7 +212,7 @@ func TestCFDeployBundle(t *testing.T) {
 		}
 	})()
 
-	url, err := cfDeployBundle("acct-token", "acct1", "site", "main", assembleBundle(dir), func(string) {})
+	url, err := cfDeployBundle("acct-token", "acct1", "site", "main", assembleBundle(dir, dir), func(string) {})
 	if err != nil {
 		t.Fatalf("cfDeployBundle: %v", err)
 	}

@@ -25,6 +25,18 @@ type Deployer interface {
 // off this list so they can't drift apart.
 func supportedProviders() []string { return []string{"cloudflare", "sftp", "ftps"} }
 
+// providerCarries reports the parts a provider can deliver, from its name alone.
+// The deploy gate has to know this before the site is built and before any
+// credential is asked for, which is too early for a Deployer to exist — so this,
+// not Deployer.Carries, is where the answer lives.
+func providerCarries(provider string) []deployPart {
+	switch provider {
+	case "cloudflare":
+		return cfParts()
+	}
+	return nil // sftp, ftps: plain file stores with no edge runtime
+}
+
 // isSupportedProvider reports whether p is a known deploy backend.
 func isSupportedProvider(p string) bool {
 	for _, v := range supportedProviders() {
@@ -47,7 +59,7 @@ type cloudflareDeployer struct {
 
 // Pages takes _headers and _redirects as fields of the deployment itself, so
 // they travel as parts rather than as files under the site.
-func (d *cloudflareDeployer) Carries() []deployPart { return cfParts() }
+func (d *cloudflareDeployer) Carries() []deployPart { return providerCarries("cloudflare") }
 
 func (d *cloudflareDeployer) Deploy(b deployBundle, progress func(string)) (string, error) {
 	return cfDeployBundle(d.token, d.accountID, d.project, d.branch, b, progress)

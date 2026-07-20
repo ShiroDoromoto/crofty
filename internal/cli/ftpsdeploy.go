@@ -35,7 +35,7 @@ type ftpsDeployer struct {
 
 // A plain FTPS host is a file store with no edge runtime, so it delivers the
 // assets and nothing else.
-func (d *ftpsDeployer) Carries() []deployPart { return nil }
+func (d *ftpsDeployer) Carries() []deployPart { return providerCarries("ftps") }
 
 func (d *ftpsDeployer) Deploy(b deployBundle, progress func(string)) (string, error) {
 	distDir := b.assetsDir
@@ -61,7 +61,7 @@ func (d *ftpsDeployer) Deploy(b deployBundle, progress func(string)) (string, er
 	}
 
 	warnInPlace(progress)
-	if hasFunctions || len(b.partsNotCarried(d)) > 0 {
+	if hasFunctions || len(b.partsNotCarried(d.Carries())) > 0 {
 		warnEdgeFiles(progress)
 	}
 
