@@ -84,6 +84,29 @@ func TestCFScanDir(t *testing.T) {
 	}
 }
 
+func TestCFScanDirSkipsFunctionsTree(t *testing.T) {
+	dir := t.TempDir()
+	mustWrite(t, dir, "index.html", "<h1>hi</h1>")
+	mustWrite(t, dir, "functions/api/contact.js", "export function onRequest() {}")
+	mustWrite(t, dir, "functions/_middleware.js", "export function onRequest() {}")
+
+	scan, err := cfScanDir(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !scan.functions {
+		t.Fatal("a functions/ dir should mark the scan as a Functions build")
+	}
+	for _, a := range scan.assets {
+		if strings.HasPrefix(a.name, "functions/") {
+			t.Errorf("server-side source published as an asset: %q", a.name)
+		}
+	}
+	if len(scan.assets) != 1 {
+		t.Fatalf("assets = %d, want 1 (only index.html): %+v", len(scan.assets), scan.assets)
+	}
+}
+
 func TestCFScanDirRejectsOversizeFile(t *testing.T) {
 	dir := t.TempDir()
 	big := make([]byte, cfMaxAssetSize+1)

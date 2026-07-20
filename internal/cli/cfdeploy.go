@@ -24,6 +24,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"io/fs"
 	"mime"
 	"mime/multipart"
 	"net/http"
@@ -82,9 +83,12 @@ func cfScanDir(dir string) (cfDirScan, error) {
 		}
 		name := filepath.ToSlash(rel)
 		if d.IsDir() {
-			// A Pages Functions build lives in a top-level functions/ dir.
+			// A Pages Functions build lives in a top-level functions/ dir. Its
+			// contents are server-side source, not assets: skip the whole tree
+			// so nothing under it is published as a static file.
 			if name == "functions" {
 				scan.functions = true
+				return fs.SkipDir
 			}
 			return nil
 		}
