@@ -191,8 +191,8 @@ func cfDeployDir(token, accountID, project, branch, dir string, progress func(st
 		return "", fmt.Errorf("no files to deploy in %s", dir)
 	}
 	if scan.functions {
-		progress("⚠ this site uses Pages Functions (_worker.js / functions/) — crofty's native")
-		progress("  deploy uploads static assets only; those parts won't run. (Tell us if you need them.)")
+		progress("⚠ dist/ carries Pages Functions (_worker.js / functions/) — crofty uploads static")
+		progress("  files only, so whatever is serving those routes now stops working.")
 	}
 
 	if err := cfEnsureProject(token, accountID, project, branch); err != nil {

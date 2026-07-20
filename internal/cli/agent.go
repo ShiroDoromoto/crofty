@@ -340,6 +340,7 @@ func agentDetails() map[string]agentCmd {
 				{"--account <id>", "Cloudflare account id to deploy to (when a token reaches several)"},
 				{"--reauth", "enter new credentials, replacing the saved token / password"},
 				{"--yes", "SFTP only: trust an unknown server host key on first use without the y/N prompt (pass this when no human is at the keyboard to answer it)"},
+				{"--static-only", "deploy the static site even though this project has Pages Functions (functions/ or _worker.js) — crofty uploads static files only, so whatever serves those routes now stops working"},
 			},
 			Examples: []string{"crofty deploy", "crofty deploy --reauth", "crofty deploy --yes"},
 		},

@@ -23,11 +23,13 @@ func runDeploy(args []string) error {
 	var reauth bool
 	var skipBuild bool
 	var yes bool
+	var staticOnly bool
 	fs.StringVar(&account, "account", "", "Cloudflare account id to deploy to (when a token reaches several)")
 	fs.BoolVar(&reauth, "reauth", false, "enter new credentials (replace the saved token / password)")
 	fs.BoolVar(&skipBuild, "skip-build", false, "publish the existing ./dist as-is, without rebuilding (e.g. CI built it)")
 	fs.BoolVar(&yes, "yes", false, "trust an unknown SFTP host key on first use without the y/N prompt")
 	fs.BoolVar(&yes, "y", false, "trust an unknown SFTP host key on first use without the y/N prompt")
+	fs.BoolVar(&staticOnly, "static-only", false, "deploy the static site even though this project has Pages Functions (they stop serving)")
 	fs.Usage = func() {
 		fmt.Println("crofty deploy — build the current site and publish it to your deploy provider")
 		fmt.Println("\nProviders (set at 'crofty init'): cloudflare (default), sftp, ftps")
@@ -37,6 +39,7 @@ func runDeploy(args []string) error {
 		fmt.Println("  crofty deploy --reauth        # replace saved credentials")
 		fmt.Println("  crofty deploy --yes           # SFTP: trust an unknown host key on first use (no y/N prompt)")
 		fmt.Println("  crofty deploy --account <id>  # Cloudflare: pick the account when a token reaches several")
+		fmt.Println("  crofty deploy --static-only   # deploy anyway when this project has Pages Functions")
 	}
 	if _, err := parseArgs(fs, args); err != nil {
 		return err
@@ -46,6 +49,14 @@ func runDeploy(args []string) error {
 	if err != nil {
 		return err
 	}
+
+	// Stop before anything is built or uploaded: crofty deploys static assets
+	// only, so publishing over a site whose Functions are live takes the working
+	// endpoints down while the command still reports success (08 §6).
+	if err := functionsGate(proj.Root, staticOnly); err != nil {
+		return err
+	}
+
 	cfg, err := proj.LoadConfig()
 	if err != nil {
 		return fmt.Errorf("reading deploy config: %w", err)
@@ -108,6 +119,47 @@ func runDeploy(args []string) error {
 	}
 	onDone(url)
 	return nil
+}
+
+// projectFunctions returns the Pages Functions entry points found at the root of
+// a crofty project. Hugo never copies these into
+// dist/ — they are Cloudflare's own build inputs — so the project root is the
+// only place they can be seen.
+func projectFunctions(root string) []string {
+	var found []string
+	if fi, err := os.Stat(filepath.Join(root, "functions")); err == nil && fi.IsDir() {
+		found = append(found, "functions/")
+	}
+	if fi, err := os.Stat(filepath.Join(root, "_worker.js")); err == nil && fi.Mode().IsRegular() {
+		found = append(found, "_worker.js")
+	}
+	return found
+}
+
+// functionsGate stops a deploy that would silently take live Pages Functions
+// offline. crofty uploads static assets only, so a deployment replaces whatever
+// was serving those routes — forms and the like stop working, and the command
+// still exits 0. staticOnly is the explicit "yes, drop them" opt-out.
+func functionsGate(root string, staticOnly bool) error {
+	found := projectFunctions(root)
+	if len(found) == 0 {
+		return nil
+	}
+	if staticOnly {
+		fmt.Printf("⚠ deploying static files only — %s stays behind, so anything it serves stops working.\n\n", strings.Join(found, " and "))
+		return nil
+	}
+	fmt.Printf("✗ this project has Pages Functions (%s) — not deploying:\n", strings.Join(found, ", "))
+	fmt.Println()
+	fmt.Println("  crofty deploys static files only. Publishing would replace what is serving")
+	fmt.Println("  those routes now, so anything they answer — forms, redirects, APIs — stops")
+	fmt.Println("  working, silently.")
+	fmt.Println()
+	fmt.Println("  Deploy this site the way its Functions get deployed (wrangler / a Pages git")
+	fmt.Println("  build), or run 'crofty deploy --static-only' to drop them on purpose.")
+	fmt.Println()
+	fmt.Println("Nothing was deployed.")
+	return errSilent
 }
 
 // resolveDeployer authenticates for the given provider and returns a ready
