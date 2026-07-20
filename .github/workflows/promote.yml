@@ -17,6 +17,12 @@ on:
 
 permissions:
   contents: write
+  # publish attests anything it pushes to a registry itself (an image is named by
+  # a digest that only exists once the registry has it). crofty ships no
+  # container today, so this attaches nothing — it is here so the step reports
+  # honestly instead of warning attest_unavailable on every run.
+  id-token: write
+  attestations: write
 
 jobs:
   promote:
