@@ -99,6 +99,18 @@ type WorkerConfig struct {
 	// but better than the alternative — a crofty default would mean upgrading
 	// crofty silently changes the runtime the author's worker executes on.
 	CompatibilityDate string `json:"compatibilityDate,omitempty"`
+
+	// RequiredEnv names the environment variables the worker needs to answer a
+	// request — names only, never values. A worker whose variables are unset
+	// deploys perfectly and then fails one route at a time, which is the hardest
+	// kind of failure to trace back to a deploy. Declaring the names lets crofty
+	// compare them against the destination and say what is missing.
+	//
+	// Values stay out of this file on purpose. crofty keeps secrets in the OS
+	// keychain, and it will not grow a path that reads them and hands them to
+	// Cloudflare: carrying someone's secrets is a different job than publishing
+	// their site.
+	RequiredEnv []string `json:"requiredEnv,omitempty"`
 }
 
 // Project is a resolved crofty project rooted at Root.

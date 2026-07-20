@@ -248,8 +248,22 @@ func cfDeployBundle(token, accountID, project, branch string, b deployBundle, wo
 		}
 	}
 
-	if err := cfEnsureProject(token, accountID, project, branch); err != nil {
+	envNames, err := cfEnsureProject(token, accountID, project, branch)
+	if err != nil {
 		return "", fmt.Errorf("preparing the Pages project: %w", err)
+	}
+	if _, ok := b.parts[partWorker]; ok {
+		// Only once the destination is known: what the worker needs is declared
+		// locally, but whether it is there can only be asked of the project.
+		if missing := missingEnv(worker.requiredEnv, envNames); len(missing) > 0 {
+			// A warning, not a stop. crofty did not unset these, and a deploy
+			// that refuses over the destination's own settings takes away the
+			// only move left — deploying and then filling them in (D-332 §7).
+			progress(fmt.Sprintf("⚠ %s: declared in deploy.worker.requiredEnv, but not set on the Pages", strings.Join(missing, ", ")))
+			progress("  project. The deploy succeeds and the worker fails per request instead —")
+			progress("  set them in Pages → " + project + " → Settings → Variables and secrets.")
+			progress("  crofty compares names only; it never carries a value.")
+		}
 	}
 
 	u := &cfUploader{token: token, accountID: accountID, project: project}
@@ -467,24 +481,56 @@ func (u *cfUploader) upsertHashes(hashes []string) error {
 }
 
 // cfEnsureProject makes sure the Pages project exists, creating it (idempotently)
-// on the first deploy.
-func cfEnsureProject(token, accountID, project, branch string) error {
+// on the first deploy. It also returns the names of the environment variables
+// the project has on its production config, which is how a deploy can tell the
+// author that a variable their worker needs was never set.
+//
+// Names, and only names: the values are decoded as raw JSON that is read for its
+// keys and then dropped, so a secret never becomes a Go string crofty could
+// print, log, or pass on. A project that had to be created has none of either.
+func cfEnsureProject(token, accountID, project, branch string) ([]string, error) {
 	body, status, err := cfGet(token, "/accounts/"+accountID+"/pages/projects/"+project)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	if status >= 200 && status < 300 {
-		return nil
+		return cfProjectEnvNames(body), nil
 	}
 	if status != http.StatusNotFound {
-		return cfStatusErr(body, status, nil)
+		return nil, cfStatusErr(body, status, nil)
 	}
 	payload, _ := json.Marshal(map[string]string{"name": project, "production_branch": branch})
 	rb, st, err := cfRequest(cfHTTP(), http.MethodPost, "/accounts/"+accountID+"/pages/projects", token, "application/json", bytes.NewReader(payload))
 	if err == nil && st >= 200 && st < 300 {
+		return nil, nil
+	}
+	return nil, cfStatusErr(rb, st, err)
+}
+
+// cfProjectEnvNames pulls the production environment variable names out of a
+// Pages project response, sorted so the report reads the same way twice. A body
+// that doesn't parse yields no names rather than an error: this feeds a warning,
+// and failing a deploy over the shape of a field crofty only reads would trade a
+// small unclear message for a large one.
+func cfProjectEnvNames(body []byte) []string {
+	var out struct {
+		Result struct {
+			DeploymentConfigs struct {
+				Production struct {
+					EnvVars map[string]json.RawMessage `json:"env_vars"`
+				} `json:"production"`
+			} `json:"deployment_configs"`
+		} `json:"result"`
+	}
+	if err := json.Unmarshal(body, &out); err != nil {
 		return nil
 	}
-	return cfStatusErr(rb, st, err)
+	names := make([]string, 0, len(out.Result.DeploymentConfigs.Production.EnvVars))
+	for name := range out.Result.DeploymentConfigs.Production.EnvVars {
+		names = append(names, name)
+	}
+	sort.Strings(names)
+	return names
 }
 
 func cfUploadToken(token, accountID, project string) (string, error) {

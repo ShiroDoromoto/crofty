@@ -5,6 +5,7 @@ import (
 	"io"
 	"mime"
 	"mime/multipart"
+	"reflect"
 	"strings"
 	"testing"
 )
@@ -183,6 +184,55 @@ func TestWorkerOptionsValidate(t *testing.T) {
 		if !tc.ok && err == nil {
 			t.Errorf("validate(%q) = nil, want an error naming the field", tc.date)
 		}
+	}
+}
+
+// requiredEnv holds names. The mistake worth catching is NAME=value, because
+// that is a secret landing in a file crofty asks people to commit.
+func TestWorkerOptionsValidateRequiredEnv(t *testing.T) {
+	for _, tc := range []struct {
+		name string
+		env  []string
+		ok   bool
+	}{
+		{"none declared", nil, true},
+		{"plain names", []string{"API_BASE", "_private", "K2"}, true},
+		{"a value came along", []string{"API_KEY=sk-live-abc"}, false},
+		{"empty entry", []string{""}, false},
+		{"a leading digit is not a name", []string{"2FA_SECRET"}, false},
+		{"whitespace", []string{"API KEY"}, false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			err := workerOptions{requiredEnv: tc.env}.validate()
+			if tc.ok && err != nil {
+				t.Errorf("validate(%q) = %v, want nil", tc.env, err)
+			}
+			if !tc.ok && err == nil {
+				t.Errorf("validate(%q) = nil, want an error naming the field", tc.env)
+			}
+		})
+	}
+}
+
+// A declared name the destination doesn't have is the whole point; a declared
+// name it does have must stay quiet, or the warning becomes noise to scroll past.
+func TestMissingEnv(t *testing.T) {
+	for _, tc := range []struct {
+		name              string
+		required, present []string
+		want              []string
+	}{
+		{"nothing declared", nil, []string{"API_BASE"}, nil},
+		{"all present", []string{"API_BASE"}, []string{"OTHER", "API_BASE"}, nil},
+		{"none present", []string{"API_BASE", "SIGNING_KEY"}, nil, []string{"API_BASE", "SIGNING_KEY"}},
+		{"some present", []string{"API_BASE", "SIGNING_KEY"}, []string{"API_BASE"}, []string{"SIGNING_KEY"}},
+		{"names are case-sensitive, as they are on the wire", []string{"API_BASE"}, []string{"api_base"}, []string{"API_BASE"}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := missingEnv(tc.required, tc.present); !reflect.DeepEqual(got, tc.want) {
+				t.Errorf("missingEnv(%q, %q) = %q, want %q", tc.required, tc.present, got, tc.want)
+			}
+		})
 	}
 }
 

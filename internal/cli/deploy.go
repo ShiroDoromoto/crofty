@@ -200,7 +200,10 @@ func workerOptionsFrom(cfg *project.Config) workerOptions {
 	if cfg == nil {
 		return workerOptions{}
 	}
-	return workerOptions{compatibilityDate: cfg.Deploy.Worker.CompatibilityDate}
+	return workerOptions{
+		compatibilityDate: cfg.Deploy.Worker.CompatibilityDate,
+		requiredEnv:       cfg.Deploy.Worker.RequiredEnv,
+	}
 }
 
 // workerGate stops a deploy whose worker crofty cannot carry whole. A

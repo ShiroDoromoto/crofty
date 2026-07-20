@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"reflect"
 	"strings"
 	"sync"
 	"testing"
@@ -167,6 +168,36 @@ func TestCFScanDirRejectsOversizeFile(t *testing.T) {
 	}
 	if _, err := cfScanDir(dir, cfParts()); err == nil {
 		t.Fatal("expected an error for a file over the per-file limit")
+	}
+}
+
+// Reading the destination's variables is how a deploy can say one is missing.
+// It reads names: the values in that same response must not come back with
+// them, because a name crofty prints is help and a value crofty prints is a leak.
+func TestCFProjectEnvNamesReadsNamesOnly(t *testing.T) {
+	body := []byte(`{"success":true,"result":{"name":"blog","deployment_configs":{
+		"production":{"env_vars":{"SIGNING_KEY":{"type":"secret_text"},"API_BASE":{"type":"plain_text","value":"https://api.example.com"}}},
+		"preview":{"env_vars":{"PREVIEW_ONLY":{"type":"plain_text","value":"x"}}}}}}`)
+
+	got := cfProjectEnvNames(body)
+	want := []string{"API_BASE", "SIGNING_KEY"} // sorted, and production only
+	if !reflect.DeepEqual(got, want) {
+		t.Fatalf("cfProjectEnvNames = %q, want %q", got, want)
+	}
+	for _, name := range got {
+		if strings.Contains(name, "example.com") || strings.Contains(name, "://") {
+			t.Errorf("a value came back with the names: %q", name)
+		}
+	}
+}
+
+// A response crofty can't parse must not fail the deploy: this feeds a warning,
+// and nothing here is crofty's to break.
+func TestCFProjectEnvNamesSurvivesAnUnexpectedBody(t *testing.T) {
+	for _, body := range []string{``, `not json`, `{"result":null}`, `{"result":{"deployment_configs":{}}}`} {
+		if got := cfProjectEnvNames([]byte(body)); len(got) != 0 {
+			t.Errorf("cfProjectEnvNames(%q) = %q, want none", body, got)
+		}
 	}
 }
 

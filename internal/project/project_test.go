@@ -4,6 +4,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"reflect"
 	"testing"
 )
 
@@ -29,7 +30,7 @@ func TestConfigRoundTrip(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got.Deploy != want.Deploy {
+	if !reflect.DeepEqual(got.Deploy, want.Deploy) {
 		t.Errorf("deploy round-trip\n got %+v\nwant %+v", got.Deploy, want.Deploy)
 	}
 	if got.Workspace != want.Workspace {
@@ -37,12 +38,15 @@ func TestConfigRoundTrip(t *testing.T) {
 	}
 }
 
-// A Cloudflare config (the common case) must still round-trip unchanged.
+// A Cloudflare config (the common case) must still round-trip unchanged — the
+// worker declarations included, since they are what a deploy checks the
+// destination against and a dropped one turns into silence.
 func TestConfigRoundTrip_Cloudflare(t *testing.T) {
 	proj := &Project{Root: t.TempDir()}
 	want := &Config{
 		Workspace: "ws",
-		Deploy:    DeployConfig{Provider: "cloudflare", Project: "blog", Branch: "main", AccountID: "acc"},
+		Deploy: DeployConfig{Provider: "cloudflare", Project: "blog", Branch: "main", AccountID: "acc",
+			Worker: WorkerConfig{CompatibilityDate: "2026-07-20", RequiredEnv: []string{"API_BASE", "SIGNING_KEY"}}},
 	}
 	if err := proj.SaveConfig(want); err != nil {
 		t.Fatal(err)
@@ -51,7 +55,7 @@ func TestConfigRoundTrip_Cloudflare(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got.Deploy != want.Deploy {
+	if !reflect.DeepEqual(got.Deploy, want.Deploy) {
 		t.Errorf("deploy round-trip\n got %+v\nwant %+v", got.Deploy, want.Deploy)
 	}
 }

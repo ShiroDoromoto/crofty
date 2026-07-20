@@ -202,20 +202,58 @@ type workerOptions struct {
 	// compatibilityDate pins the Workers runtime (YYYY-MM-DD). Empty is
 	// undeclared, and stays undeclared on the wire.
 	compatibilityDate string
+
+	// requiredEnv names the environment variables the worker needs. Names only:
+	// they are compared against the destination and never sent anywhere.
+	requiredEnv []string
 }
 
 // workerDateFormat is how Cloudflare writes a compatibility date, and the only
 // shape crofty will pass on.
 var workerDateFormat = regexp.MustCompile(`^\d{4}-\d{2}-\d{2}$`)
 
+// workerEnvName is the shape of an environment variable name, which is all
+// crofty will accept in requiredEnv — anything else is a value that wandered in.
+var workerEnvName = regexp.MustCompile(`^[A-Za-z_][A-Za-z0-9_]*$`)
+
 // validate checks the declarations crofty can check without the network, so a
 // typo is caught before a build and a login rather than as an API error at the
 // end of a deploy.
 func (o workerOptions) validate() error {
-	if o.compatibilityDate == "" || workerDateFormat.MatchString(o.compatibilityDate) {
+	if o.compatibilityDate != "" && !workerDateFormat.MatchString(o.compatibilityDate) {
+		return fmt.Errorf("deploy.worker.compatibilityDate is %q — it has to be a date like 2026-07-20", o.compatibilityDate)
+	}
+	for _, name := range o.requiredEnv {
+		if workerEnvName.MatchString(name) {
+			continue
+		}
+		// The likely mistake is writing NAME=value, and that one has to be
+		// caught rather than trimmed: a value in a config file is a secret in a
+		// file, which is the thing this field exists to avoid.
+		return fmt.Errorf("deploy.worker.requiredEnv has %q — put the variable's name there and nothing else.\n"+
+			"  crofty compares names with the destination; the value belongs where the destination keeps secrets", name)
+	}
+	return nil
+}
+
+// missingEnv returns the declared names that the destination does not have, in
+// the order they were declared — the author's own order, which is the one they
+// can scan against their config file.
+func missingEnv(required, present []string) []string {
+	if len(required) == 0 {
 		return nil
 	}
-	return fmt.Errorf("deploy.worker.compatibilityDate is %q — it has to be a date like 2026-07-20", o.compatibilityDate)
+	have := make(map[string]bool, len(present))
+	for _, name := range present {
+		have[name] = true
+	}
+	var missing []string
+	for _, name := range required {
+		if !have[name] {
+			missing = append(missing, name)
+		}
+	}
+	return missing
 }
 
 // buildWorkerBundle wraps a module in the Workers script upload form and returns
