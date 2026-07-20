@@ -126,7 +126,7 @@ func runDeploy(args []string) error {
 // dist/ — they are Cloudflare's own build inputs — so the project root is the
 // only place they can be seen.
 func projectFunctions(root string) []string {
-	var found []string
+	found := []string{} // never nil: `crofty config --json` reports this as a list
 	if fi, err := os.Stat(filepath.Join(root, "functions")); err == nil && fi.IsDir() {
 		found = append(found, "functions/")
 	}

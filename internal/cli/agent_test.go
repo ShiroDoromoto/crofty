@@ -70,3 +70,42 @@ func TestAgent_TextCoversCommands(t *testing.T) {
 		}
 	}
 }
+
+// The Functions constraint has to be readable before deploy runs, or the AI
+// driving crofty only learns it by hitting the gate. Both the flag and the rule
+// behind it must show up — a flag with no explanation invites --static-only as a
+// reflex, which is exactly the silent breakage the gate exists to stop.
+func TestAgentBrief_TeachesTheFunctionsConstraint(t *testing.T) {
+	b := agentBrief()
+
+	var deploy agentCmd
+	for _, c := range b.Commands {
+		if c.Name == "deploy" {
+			deploy = c
+		}
+	}
+	var hasFlag bool
+	for _, f := range deploy.Flags {
+		if f.Name == "--static-only" {
+			hasFlag = true
+		}
+	}
+	if !hasFlag {
+		t.Error("deploy is missing the --static-only flag")
+	}
+
+	var note string
+	for _, n := range b.Notes {
+		if strings.Contains(n, "Pages Functions") {
+			note = n
+		}
+	}
+	if note == "" {
+		t.Fatal("notes never mention Pages Functions")
+	}
+	for _, want := range []string{"pagesFunctions", "--static-only", "author"} {
+		if !strings.Contains(note, want) {
+			t.Errorf("the Functions note never mentions %q — an agent cannot act on it", want)
+		}
+	}
+}

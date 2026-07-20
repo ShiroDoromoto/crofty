@@ -1,10 +1,12 @@
 package cli
 
 import (
+	"encoding/json"
 	"os"
 	"path/filepath"
 	"reflect"
 	"runtime"
+	"strings"
 	"testing"
 
 	"github.com/ShiroDoromoto/crofty/internal/project"
@@ -108,5 +110,41 @@ func TestSiteTitle(t *testing.T) {
 	}
 	if got := siteTitle(multi); got != "日本語タイトル" {
 		t.Errorf("siteTitle multilingual = %q, want the default language's title", got)
+	}
+}
+
+// pagesFunctions is how an agent learns the deploy gate exists without running
+// into it. A plain site must report an empty list, not null — a JSON null reads
+// as "crofty didn't check".
+func TestSiteConfigReportsPagesFunctions(t *testing.T) {
+	root := t.TempDir()
+	if got := projectFunctions(root); got == nil || len(got) != 0 {
+		t.Fatalf("projectFunctions on a plain site = %#v, want an empty list", got)
+	}
+	b, err := json.Marshal(siteConfig{PagesFunctions: projectFunctions(root)})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(b), `"pagesFunctions":[]`) {
+		t.Errorf("plain site JSON should carry an empty pagesFunctions list, got %s", b)
+	}
+
+	if err := os.MkdirAll(filepath.Join(root, "functions"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	got := projectFunctions(root)
+	if len(got) != 1 || got[0] != "functions/" {
+		t.Fatalf("projectFunctions = %v, want [functions/]", got)
+	}
+
+	out, err := captureStdout(t, func() error {
+		printConfig(siteConfig{PagesFunctions: got})
+		return nil
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(out, "--static-only") {
+		t.Errorf("the human view should say how to proceed on purpose, got:\n%s", out)
 	}
 }

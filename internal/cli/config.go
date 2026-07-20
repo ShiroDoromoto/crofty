@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
+	"strings"
 
 	"github.com/ShiroDoromoto/crofty/internal/access"
 	"github.com/ShiroDoromoto/crofty/internal/project"
@@ -49,6 +50,7 @@ func runConfig(args []string) error {
 		Theme:           themeState(proj.Root),
 		Support:         supportProviders(proj.Root),
 		State:           stateDirState(),
+		PagesFunctions:  projectFunctions(proj.Root),
 	}
 	if deploy != nil {
 		state.Provider = deploy.Deploy.Provider
@@ -85,6 +87,12 @@ type siteConfig struct {
 	Support         []string        `json:"support"`              // patronage providers configured
 	FooterCredit    string          `json:"footerCredit"`         // on | off | "" (undecided)
 	State           stateDir        `json:"state"`                // where crofty keeps its own state, and whether it may write there
+	// PagesFunctions lists the Pages Functions entry points at the project root
+	// (functions/, _worker.js). Non-empty means `crofty deploy` stops by
+	// default — crofty publishes static files only, so deploying would take
+	// whatever serves those routes offline. Reading it here is how an agent
+	// learns that before it runs deploy and hits the gate.
+	PagesFunctions []string `json:"pagesFunctions"`
 }
 
 // stateDir reports crofty's own state directory: where it is, who chose it, and
@@ -254,6 +262,12 @@ func printConfig(s siteConfig) {
 	fmt.Printf("  credit      %s\n", creditLabel(s.FooterCredit))
 	fmt.Printf("  state       %s\n", stateLabel(s.State))
 	printStateWall(s.State)
+	if len(s.PagesFunctions) > 0 {
+		fmt.Println()
+		fmt.Printf("  ⚠ this project has Pages Functions (%s). 'crofty deploy' stops rather than\n", strings.Join(s.PagesFunctions, ", "))
+		fmt.Println("    take them offline — it publishes static files only. Deploy the way they are")
+		fmt.Println("    deployed, or 'crofty deploy --static-only' to drop them on purpose.")
+	}
 	fmt.Println()
 	fmt.Println("Turn things on with 'crofty add <feature>' / 'crofty lang add <code>'.")
 }
