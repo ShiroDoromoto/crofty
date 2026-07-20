@@ -15,8 +15,10 @@ package cli
 // would leave behind.
 
 import (
+	"io/fs"
 	"os"
 	"path/filepath"
+	"strings"
 )
 
 // deployPart names one non-asset artifact a site can need. The value is the
@@ -213,6 +215,35 @@ func carriesPart(carried []deployPart, p deployPart) bool {
 		}
 	}
 	return false
+}
+
+// functionsDirHoldsSource judges what a top-level functions/ directory *in a
+// build* actually is, because the name alone cannot tell the two apart:
+//
+//   - Pages Functions source only reaches the build through static/, which
+//     copies verbatim. It is JavaScript on its way to a runtime, never HTML.
+//   - A content section named functions/ ("function reference", "features") is
+//     rendered by Hugo, so every page under it is an index.html.
+//
+// So: a tree holding no HTML is source. Deciding by name dropped that section
+// from the deploy without saying so, which is the worse of the two mistakes —
+// publishing a page nobody asked for is visible, a missing page looks like a
+// deploy that worked.
+func functionsDirHoldsSource(dir string) bool {
+	holdsHTML := false
+	// An unreadable entry is skipped rather than fatal: this only chooses which
+	// of two treatments applies, and the caller's own walk reports real errors.
+	_ = filepath.WalkDir(dir, func(p string, d os.DirEntry, err error) error {
+		if err != nil || d.IsDir() || !d.Type().IsRegular() {
+			return nil
+		}
+		if strings.EqualFold(filepath.Ext(p), ".html") {
+			holdsHTML = true
+			return fs.SkipAll
+		}
+		return nil
+	})
+	return !holdsHTML
 }
 
 // rootPartNamed matches a name and shape against the parts that belong at the

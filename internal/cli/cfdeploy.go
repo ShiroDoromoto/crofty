@@ -74,8 +74,9 @@ func cfParts() []deployPart {
 // cfDirScan is the result of walking a built site: the ordinary assets, once the
 // files that travel some other way have been set aside.
 type cfDirScan struct {
-	assets       []cfAsset
-	functionsDir bool // a functions/ tree in the build — server source, not assets
+	assets         []cfAsset
+	functionsDir   bool // a functions/ tree in the build — server source, not assets
+	functionsPages bool // a functions/ tree in the build that is content, and is published
 }
 
 // cfScanDir walks dir, hashing every asset. Files matching a part in parts are
@@ -99,10 +100,15 @@ func cfScanDir(dir string, parts []deployPart) (cfDirScan, error) {
 		if d.IsDir() {
 			// A Pages Functions build lives in a top-level functions/ dir. Its
 			// contents are server-side source, not assets: skip the whole tree
-			// so nothing under it is published as a static file.
+			// so nothing under it is published as a static file. A content
+			// section that happens to be named functions/ is not that, and is
+			// published like any other section.
 			if name == "functions" {
-				scan.functionsDir = true
-				return fs.SkipDir
+				if functionsDirHoldsSource(p) {
+					scan.functionsDir = true
+					return fs.SkipDir
+				}
+				scan.functionsPages = true
 			}
 			return nil
 		}
@@ -211,8 +217,17 @@ func cfDeployBundle(token, accountID, project, branch string, b deployBundle, wo
 		return "", fmt.Errorf("no files to deploy in %s", dir)
 	}
 	if scan.functionsDir {
-		progress("⚠ the build carries a functions/ tree — crofty publishes static files only,")
-		progress("  so whatever is serving those routes now stops working.")
+		progress("⚠ the build carries a functions/ tree with no pages in it, so crofty reads it")
+		progress("  as server-side source and leaves it out — crofty publishes static files only,")
+		progress("  and whatever is serving those routes now stops working. If that tree is")
+		progress("  content, give it a rendered page and it will be published.")
+	}
+	if scan.functionsPages {
+		// The name collides with Pages Functions, so say which of the two this
+		// was taken for. Silence here reads as "it was published" right up until
+		// someone notices it wasn't.
+		progress("· functions/ holds rendered pages, so it is published as content, not read")
+		progress("  as Pages Functions source.")
 	}
 	if _, ok := b.parts[partWorker]; ok {
 		if worker.compatibilityDate == "" {

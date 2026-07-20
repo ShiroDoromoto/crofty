@@ -122,6 +122,26 @@ func TestScanDistTree(t *testing.T) {
 	}
 }
 
+// A content section named functions/ is uploaded like any other, and must not
+// set off the warning about edge files that won't run on a plain host — there
+// is nothing there for the author to move elsewhere.
+func TestScanDistTreeDoesNotCallAContentSectionFunctions(t *testing.T) {
+	dir := t.TempDir()
+	mustWrite(t, dir, "index.html", "home")
+	mustWrite(t, dir, "functions/index.html", "<h1>Functions</h1>")
+
+	files, hasFunctions, err := scanDistTree(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if hasFunctions {
+		t.Error("a rendered content section was taken for Pages Functions source")
+	}
+	if len(files) != 2 {
+		t.Errorf("files = %d, want 2 (the section is uploaded too): %+v", len(files), files)
+	}
+}
+
 // remoteDirs must list every ancestor directory, shallowest-first, so each can be
 // created after its parent (FTP has no recursive mkdir).
 func TestRemoteDirs(t *testing.T) {

@@ -106,6 +106,37 @@ func TestCFScanDirSkipsFunctionsTree(t *testing.T) {
 	}
 }
 
+// "functions" is an ordinary word: a site can have a content section called
+// that ("function reference"), and Hugo renders it to pages like any other.
+// Judging by name alone left that section out of every deploy, and said so in
+// words about Pages Functions that led nowhere.
+func TestCFScanDirPublishesAFunctionsContentSection(t *testing.T) {
+	dir := t.TempDir()
+	mustWrite(t, dir, "index.html", "<h1>hi</h1>")
+	mustWrite(t, dir, "functions/index.html", "<h1>Functions</h1>")
+	mustWrite(t, dir, "functions/sum/index.html", "<h1>sum</h1>")
+
+	scan, err := cfScanDir(dir, cfParts())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if scan.functionsDir {
+		t.Error("a rendered content section was taken for server-side source")
+	}
+	if !scan.functionsPages {
+		t.Error("publishing functions/ as content should be reported, not silent")
+	}
+	got := map[string]bool{}
+	for _, a := range scan.assets {
+		got[a.name] = true
+	}
+	for _, want := range []string{"functions/index.html", "functions/sum/index.html"} {
+		if !got[want] {
+			t.Errorf("%q was not published: %v", want, got)
+		}
+	}
+}
+
 // A part that belongs at the project root, found in the build instead, got
 // there through static/. crofty carries the copy at the root, so this one would
 // be ignored — and a deploy that ignores the author's worker looks like it

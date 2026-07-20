@@ -38,7 +38,10 @@ func scanDistTree(dir string) (files []serverFile, hasFunctions bool, err error)
 		}
 		name := filepath.ToSlash(rel)
 		if d.IsDir() {
-			if name == "functions" {
+			// Only a functions/ tree that is really server source counts: a
+			// content section by that name uploads like any other, and warning
+			// that it "won't run here" would send the author chasing nothing.
+			if name == "functions" && functionsDirHoldsSource(p) {
 				hasFunctions = true
 			}
 			return nil
