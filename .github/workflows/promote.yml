@@ -41,8 +41,10 @@ jobs:
           curl -fsSL https://github.com/ShiroDoromoto/wharfy/releases/latest/download/install.sh | sh
           echo "$HOME/.local/bin" >> "$GITHUB_PATH"
 
+      # --yes, or wharfy only prints the plan and exits 0 — a step that looks
+      # green while nothing was promoted.
       - name: make it the latest release
-        run: wharfy promote
+        run: wharfy promote --yes
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
