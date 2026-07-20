@@ -87,11 +87,12 @@ type siteConfig struct {
 	Support         []string        `json:"support"`              // patronage providers configured
 	FooterCredit    string          `json:"footerCredit"`         // on | off | "" (undecided)
 	State           stateDir        `json:"state"`                // where crofty keeps its own state, and whether it may write there
-	// PagesFunctions lists the Pages Functions entry points at the project root
-	// (functions/, _worker.js). Non-empty means `crofty deploy` stops by
-	// default — crofty publishes static files only, so deploying would take
-	// whatever serves those routes offline. Reading it here is how an agent
-	// learns that before it runs deploy and hits the gate.
+	// PagesFunctions lists the parts at the project root that answer requests
+	// (functions/, _worker.js). Whether a deploy can take them depends on where
+	// the site goes: Cloudflare carries a self-contained _worker.js, nothing
+	// carries a functions/ tree, and what can't be carried stops `crofty deploy`
+	// rather than let it take those routes offline. Reading this here is how an
+	// agent learns what is at stake before it runs deploy and hits the gate.
 	PagesFunctions []string `json:"pagesFunctions"`
 }
 
@@ -262,14 +263,49 @@ func printConfig(s siteConfig) {
 	fmt.Printf("  credit      %s\n", creditLabel(s.FooterCredit))
 	fmt.Printf("  state       %s\n", stateLabel(s.State))
 	printStateWall(s.State)
-	if len(s.PagesFunctions) > 0 {
-		fmt.Println()
-		fmt.Printf("  ⚠ this project has Pages Functions (%s). 'crofty deploy' stops rather than\n", strings.Join(s.PagesFunctions, ", "))
-		fmt.Println("    take them offline — it publishes static files only. Deploy the way they are")
-		fmt.Println("    deployed, or 'crofty deploy --static-only' to drop them on purpose.")
-	}
+	printPagesFunctions(s)
 	fmt.Println()
 	fmt.Println("Turn things on with 'crofty add <feature>' / 'crofty lang add <code>'.")
+}
+
+// printPagesFunctions says what the next deploy will do with the parts of this
+// site that answer requests. That answer isn't a property of the site alone —
+// it depends on where the site is going — so the report is split by what this
+// project's destination can actually carry, rather than warning about all of
+// them or none.
+func printPagesFunctions(s siteConfig) {
+	if len(s.PagesFunctions) == 0 {
+		return
+	}
+	carried, left := splitByCarried(s.PagesFunctions, s.Provider)
+	fmt.Println()
+	if len(carried) > 0 {
+		fmt.Printf("  · %s travels with the deploy, as long as it is one self-contained\n", strings.Join(carried, ", "))
+		fmt.Println("    module — crofty carries a finished worker, it doesn't bundle one, so an")
+		fmt.Println("    import stops the deploy rather than break the site after it.")
+	}
+	if len(left) > 0 {
+		fmt.Printf("  ⚠ %s can't travel to %s. 'crofty deploy' stops rather than\n", strings.Join(left, ", "), s.Provider)
+		fmt.Println("    take those routes offline. Deploy the way they are deployed, or")
+		fmt.Println("    'crofty deploy --static-only' to drop them on purpose.")
+	}
+}
+
+// splitByCarried divides part labels into the ones a provider can deliver and
+// the ones it can't.
+func splitByCarried(labels []string, provider string) (carried, left []string) {
+	can := map[string]bool{}
+	for _, p := range providerCarries(provider) {
+		can[specOf(p).label()] = true
+	}
+	for _, l := range labels {
+		if can[l] {
+			carried = append(carried, l)
+		} else {
+			left = append(left, l)
+		}
+	}
+	return carried, left
 }
 
 // stateLabel says where crofty's state is and, in the same breath, whether it

@@ -1,0 +1,237 @@
+package cli
+
+// Carrying a finished worker to the edge.
+//
+// crofty runs no bundler and owns no routing convention: it carries a worker the
+// author finished, it does not build one. So the worker it takes is a single
+// self-contained ES module, and this file holds the two halves of that deal.
+//
+//   - workerImports reads the source and reports every place it reaches for
+//     another module. Any hit stops the deploy — an unresolved import is a worker
+//     that uploads cleanly and then fails in production.
+//   - buildWorkerBundle wraps the module in the shape Pages takes it in: a
+//     multipart form of its own, serialized into the outer deployment's
+//     _worker.bundle field. It is the same form wrangler builds, and Go's
+//     mime/multipart is all it needs — no dependency comes with this.
+//
+// The scan is deliberately crude, because crofty has no JS parser and the two
+// ways of being wrong are not equal. Refusing a worker that would have worked
+// leaves the author a way out (put it in one file, or deploy with wrangler);
+// carrying one that doesn't leaves a broken endpoint in production. So it errs
+// toward refusing.
+
+import (
+	"bytes"
+	"encoding/json"
+	"fmt"
+	"mime/multipart"
+	"net/textproto"
+	"regexp"
+	"sort"
+	"strings"
+)
+
+// workerMainModule is the module's name inside the bundle. Pages requires it to
+// match the file Pages itself expects at the site root.
+const workerMainModule = "_worker.js"
+
+// workerImport is one place a worker reaches outside itself, named the way the
+// author will recognise it in their own source.
+type workerImport struct {
+	line int
+	what string
+}
+
+// workerModuleRefs are the ways a module pulls in another one. Each pattern runs
+// over source whose comments and string literals have been blanked out, so the
+// word "import" inside an HTML template is not mistaken for one.
+var workerModuleRefs = []struct {
+	what string
+	re   *regexp.Regexp
+}{
+	// Static `import x from …`, bare `import "…"`, and dynamic `import(…)` alike.
+	// The trailing group is how import.meta — which reads the module's own URL and
+	// pulls in nothing — is told apart from the rest.
+	{"import", regexp.MustCompile(`\bimport\b\s*(\.?)`)},
+	{"require(", regexp.MustCompile(`\brequire\s*\(`)},
+	// `export { x } from "…"` and `export * from "…"` hand another module's
+	// exports on, so they are imports wearing a different word. Only the two
+	// forms that can take a source are matched — a plain `export default { …
+	// from … }` says nothing about another module, and being crude there would
+	// refuse the most ordinary worker there is.
+	{"export … from", regexp.MustCompile(`\bexport\s*(\*(\s+as\s+[\w$]+)?|\{[^}]*\})\s*from\b`)},
+}
+
+// workerImports lists every module reference in src, in source order. An empty
+// result is the only shape of worker crofty carries.
+func workerImports(src []byte) []workerImport {
+	code := blankJSLiterals(src)
+	type hit struct {
+		at   int
+		what string
+	}
+	var hits []hit
+	for _, ref := range workerModuleRefs {
+		for _, m := range ref.re.FindAllStringSubmatchIndex(code, -1) {
+			// `obj.import` is a property read, not a keyword.
+			if precededByDot(code, m[0]) {
+				continue
+			}
+			// import.meta: the one `import` that brings nothing with it.
+			if len(m) > 3 && m[2] >= 0 && code[m[2]:m[3]] == "." {
+				continue
+			}
+			hits = append(hits, hit{at: m[0], what: ref.what})
+		}
+	}
+	// In source order, so the author reads them the way their file is written
+	// rather than grouped by pattern.
+	sort.Slice(hits, func(i, j int) bool { return hits[i].at < hits[j].at })
+
+	var out []workerImport
+	for _, h := range hits {
+		out = append(out, workerImport{line: 1 + strings.Count(code[:h.at], "\n"), what: h.what})
+	}
+	return out
+}
+
+// precededByDot reports whether the token at i is a property access.
+func precededByDot(code string, i int) bool {
+	for j := i - 1; j >= 0; j-- {
+		switch code[j] {
+		case ' ', '\t', '\r', '\n':
+			continue
+		case '.':
+			return true
+		default:
+			return false
+		}
+	}
+	return false
+}
+
+// blankJSLiterals replaces the bytes of comments and string literals with
+// spaces, keeping every newline so a match still reports the right line. It is
+// not a JS lexer: it is the smallest thing that keeps prose out of the scan
+// without hiding code from it.
+//
+// A quoted string that never closes on its own line is left alone, because the
+// quote was almost certainly a regular expression (`/"/`) rather than the start
+// of a string — blanking from there would swallow real code, which is the one
+// direction this scan must not fail in. Template literals do span lines, so
+// those are followed properly, and the code inside `${…}` is left visible.
+func blankJSLiterals(src []byte) string {
+	out := append([]byte(nil), src...)
+	blank := func(i int) {
+		if out[i] != '\n' {
+			out[i] = ' '
+		}
+	}
+	// tmpl counts the `${…}` interpolations open inside the current template
+	// literal; -1 means no template literal is open.
+	tmpl := -1
+
+	for i := 0; i < len(src); i++ {
+		switch {
+		case tmpl >= 0:
+			switch {
+			case src[i] == '\\':
+				blank(i)
+				if i+1 < len(src) {
+					i++
+					blank(i)
+				}
+			case src[i] == '$' && i+1 < len(src) && src[i+1] == '{':
+				tmpl++
+				i++ // the interpolation's code stays readable
+			case src[i] == '}' && tmpl > 0:
+				tmpl--
+			case src[i] == '`' && tmpl == 0:
+				blank(i)
+				tmpl = -1
+			case tmpl == 0:
+				blank(i)
+			}
+		case src[i] == '/' && i+1 < len(src) && src[i+1] == '/':
+			for ; i < len(src) && src[i] != '\n'; i++ {
+				blank(i)
+			}
+		case src[i] == '/' && i+1 < len(src) && src[i+1] == '*':
+			open := i
+			blank(i)
+			for i++; i < len(src); i++ {
+				blank(i)
+				// `/*/` is not a closed comment: the same star can't do both ends.
+				if src[i] == '/' && i > open+2 && src[i-1] == '*' {
+					break
+				}
+			}
+		case src[i] == '`':
+			blank(i)
+			tmpl = 0
+		case src[i] == '\'' || src[i] == '"':
+			if end, ok := closingQuote(src, i); ok {
+				for ; i <= end; i++ {
+					blank(i)
+				}
+				i--
+			}
+		}
+	}
+	return string(out)
+}
+
+// closingQuote finds the matching quote for the one at i, on that line only.
+func closingQuote(src []byte, i int) (int, bool) {
+	q := src[i]
+	for j := i + 1; j < len(src) && src[j] != '\n'; j++ {
+		if src[j] == '\\' {
+			j++
+			continue
+		}
+		if src[j] == q {
+			return j, true
+		}
+	}
+	return 0, false
+}
+
+// buildWorkerBundle wraps a module in the Workers script upload form and returns
+// the serialized bytes plus the Content-Type that names its boundary. The caller
+// must send that content type with the part, or the receiving end cannot find
+// the form inside it.
+//
+// bindings is sent empty: a binding is a resource in the author's own Cloudflare
+// account, and crofty does not create or name those (D-332).
+func buildWorkerBundle(src []byte) ([]byte, string, error) {
+	var buf bytes.Buffer
+	w := multipart.NewWriter(&buf)
+
+	metadata, err := json.Marshal(map[string]any{
+		"main_module": workerMainModule,
+		"bindings":    []any{},
+	})
+	if err != nil {
+		return nil, "", err
+	}
+	if err := w.WriteField("metadata", string(metadata)); err != nil {
+		return nil, "", err
+	}
+
+	// The module itself: field name, file name and main_module are all the same
+	// string, which is how the form says which module is the entry point.
+	h := make(textproto.MIMEHeader)
+	h.Set("Content-Disposition", fmt.Sprintf(`form-data; name=%q; filename=%q`, workerMainModule, workerMainModule))
+	h.Set("Content-Type", "application/javascript+module")
+	part, err := w.CreatePart(h)
+	if err != nil {
+		return nil, "", err
+	}
+	if _, err := part.Write(src); err != nil {
+		return nil, "", err
+	}
+	if err := w.Close(); err != nil {
+		return nil, "", err
+	}
+	return buf.Bytes(), w.FormDataContentType(), nil
+}

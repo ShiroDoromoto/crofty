@@ -177,3 +177,51 @@ func (b deployBundle) livePartsNotCarried(carried []deployPart) []deployPart {
 	}
 	return out
 }
+
+// liveParts returns the parts in this bundle that answer requests, whoever the
+// destination is — what `--static-only` chooses to leave behind.
+func (b deployBundle) liveParts() []deployPart {
+	var out []deployPart
+	for _, s := range partSpecs() {
+		if _, present := b.parts[s.part]; present && s.live {
+			out = append(out, s.part)
+		}
+	}
+	return out
+}
+
+// withoutLiveParts is this bundle with the request-answering parts removed, so a
+// destination that could carry them doesn't. It backs `--static-only`, whose
+// meaning is "publish the static site and leave those behind on purpose" — a
+// choice that must survive crofty learning to carry the part.
+func (b deployBundle) withoutLiveParts() deployBundle {
+	kept := make(map[deployPart]string, len(b.parts))
+	for p, path := range b.parts {
+		if !specOf(p).live {
+			kept[p] = path
+		}
+	}
+	return deployBundle{assetsDir: b.assetsDir, parts: kept}
+}
+
+// carriesPart reports whether a destination carrying exactly `carried` can
+// deliver p.
+func carriesPart(carried []deployPart, p deployPart) bool {
+	for _, c := range carried {
+		if c == p {
+			return true
+		}
+	}
+	return false
+}
+
+// rootPartNamed matches a name and shape against the parts that belong at the
+// project root. It is how a copy of one, found somewhere else, is recognised.
+func rootPartNamed(name string, isDir bool) (partSpec, bool) {
+	for _, s := range partSpecs() {
+		if s.atRoot && string(s.part) == name && s.isDir == isDir {
+			return s, true
+		}
+	}
+	return partSpec{}, false
+}

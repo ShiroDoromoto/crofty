@@ -5,6 +5,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"mime"
+	"mime/multipart"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -59,7 +61,6 @@ func TestCFScanDir(t *testing.T) {
 	mustWrite(t, dir, "css/style.css", "body{}")
 	mustWrite(t, dir, "_redirects", "/old /new 301")
 	mustWrite(t, dir, "_headers", "/*\n  X-Test: 1")
-	mustWrite(t, dir, "_worker.js", "export default {}")
 
 	scan, err := cfScanDir(dir, cfParts())
 	if err != nil {
@@ -71,9 +72,6 @@ func TestCFScanDir(t *testing.T) {
 	b := assembleBundle(dir, dir)
 	if b.parts[partHeaders] == "" || b.parts[partRedirects] == "" {
 		t.Fatalf("_headers/_redirects not collected as parts: %+v", b.parts)
-	}
-	if !scan.functions {
-		t.Fatal("_worker.js should mark the scan as a Functions build")
 	}
 	for _, a := range scan.assets {
 		if a.hash == "" || a.contentType == "" {
@@ -95,8 +93,8 @@ func TestCFScanDirSkipsFunctionsTree(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !scan.functions {
-		t.Fatal("a functions/ dir should mark the scan as a Functions build")
+	if !scan.functionsDir {
+		t.Fatal("a functions/ dir should be seen as server source, not assets")
 	}
 	for _, a := range scan.assets {
 		if strings.HasPrefix(a.name, "functions/") {
@@ -105,6 +103,28 @@ func TestCFScanDirSkipsFunctionsTree(t *testing.T) {
 	}
 	if len(scan.assets) != 1 {
 		t.Fatalf("assets = %d, want 1 (only index.html): %+v", len(scan.assets), scan.assets)
+	}
+}
+
+// A part that belongs at the project root, found in the build instead, got
+// there through static/. crofty carries the copy at the root, so this one would
+// be ignored — and a deploy that ignores the author's worker looks like it
+// worked. Say where it belongs and stop.
+func TestCFScanDirStopsOnARootPartInTheBuild(t *testing.T) {
+	for _, name := range []string{"_worker.js", "_routes.json"} {
+		t.Run(name, func(t *testing.T) {
+			dir := t.TempDir()
+			mustWrite(t, dir, "index.html", "<h1>hi</h1>")
+			mustWrite(t, dir, name, "{}")
+
+			_, err := cfScanDir(dir, cfParts())
+			if err == nil {
+				t.Fatalf("%s in the build should stop the deploy", name)
+			}
+			if !strings.Contains(err.Error(), "project root") {
+				t.Errorf("error = %q, want it to say where the file belongs", err)
+			}
+		})
 	}
 }
 
@@ -232,6 +252,159 @@ func TestCFDeployBundle(t *testing.T) {
 	}
 	if a := authByPath["/accounts/acct1/pages/projects/site/deployments"]; a != "Bearer acct-token" {
 		t.Errorf("deployment auth = %q, want the account token", a)
+	}
+}
+
+// cfDeployToFake runs a whole deploy against a fake CF API that answers every
+// step, handing the deployment request back for inspection. The Direct Upload
+// sequence itself is covered by TestCFDeployBundle; the tests below are only
+// interested in what ends up on that last request.
+func cfDeployToFake(t *testing.T, root, dist string) (*multipart.Form, []string) {
+	t.Helper()
+	jwt := makeJWT(t, time.Now().Add(time.Hour).Unix())
+	var mu sync.Mutex
+	var form *multipart.Form
+
+	defer withCFServer(t, func(w http.ResponseWriter, r *http.Request) {
+		switch {
+		case strings.HasSuffix(r.URL.Path, "/upload-token"):
+			fmt.Fprintf(w, `{"success":true,"result":{"jwt":%q}}`, jwt)
+		case r.URL.Path == "/pages/assets/check-missing":
+			w.Write([]byte(`{"success":true,"result":[]}`))
+		case r.URL.Path == "/pages/assets/upsert-hashes":
+			w.Write([]byte(`{"success":true,"result":null}`))
+		case strings.HasSuffix(r.URL.Path, "/pages/projects/site") && r.Method == http.MethodGet:
+			w.Write([]byte(`{"success":true,"result":{"name":"site"}}`))
+		case strings.HasSuffix(r.URL.Path, "/deployments"):
+			if err := r.ParseMultipartForm(1 << 20); err != nil {
+				t.Errorf("parsing deployment form: %v", err)
+			}
+			mu.Lock()
+			form = r.MultipartForm
+			mu.Unlock()
+			w.Write([]byte(`{"success":true,"result":{"url":"https://h.site.pages.dev","aliases":["https://site.pages.dev"]}}`))
+		default:
+			t.Errorf("unexpected request: %s %s", r.Method, r.URL.Path)
+			w.WriteHeader(http.StatusNotFound)
+		}
+	})()
+
+	var said []string
+	if _, err := cfDeployBundle("acct-token", "acct1", "site", "main", assembleBundle(root, dist), func(line string) {
+		said = append(said, line)
+	}); err != nil {
+		t.Fatalf("cfDeployBundle: %v", err)
+	}
+	if form == nil {
+		t.Fatal("no deployment was created")
+	}
+	return form, said
+}
+
+// filePart reads one file field out of a parsed multipart form: its bytes and
+// the content type the sender put on it.
+func filePart(t *testing.T, form *multipart.Form, field string) (body, contentType string, ok bool) {
+	t.Helper()
+	fh := form.File[field]
+	if len(fh) == 0 {
+		return "", "", false
+	}
+	f, err := fh[0].Open()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer f.Close()
+	b, err := io.ReadAll(f)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return string(b), fh[0].Header.Get("Content-Type"), true
+}
+
+// The worker has to arrive in the shape Pages runs: the deployment's
+// _worker.bundle field, holding a form of its own whose Content-Type names the
+// inner boundary. Send it as a plain file and the upload is accepted, and never
+// runs. _routes.json rides with it byte for byte as the author wrote it —
+// crofty synthesizes no default, or the same site would behave differently
+// under wrangler.
+func TestCFDeployBundleCarriesTheWorker(t *testing.T) {
+	root := t.TempDir()
+	dist := filepath.Join(root, "dist")
+	mustWrite(t, dist, "index.html", "<h1>hi</h1>")
+	const workerSrc = "export default { fetch: () => new Response('ok') }"
+	const routesSrc = `{"version":1,"include":["/api/*"],"exclude":[]}`
+	mustWrite(t, root, "_worker.js", workerSrc)
+	mustWrite(t, root, "_routes.json", routesSrc)
+
+	form, said := cfDeployToFake(t, root, dist)
+
+	gotRoutes, _, ok := filePart(t, form, "_routes.json")
+	if !ok || gotRoutes != routesSrc {
+		t.Errorf("_routes.json = %q (present %v), want the author's file verbatim", gotRoutes, ok)
+	}
+	gotWorker, gotWorkerType, ok := filePart(t, form, "_worker.bundle")
+	if !ok {
+		t.Fatal("the deployment carries no _worker.bundle")
+	}
+	_, params, err := mime.ParseMediaType(gotWorkerType)
+	if err != nil || params["boundary"] == "" {
+		t.Fatalf("_worker.bundle content type = %q, which names no inner boundary (err %v)", gotWorkerType, err)
+	}
+	mr := multipart.NewReader(strings.NewReader(gotWorker), params["boundary"])
+	seen := map[string]string{}
+	for {
+		p, err := mr.NextPart()
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			t.Fatal(err)
+		}
+		b, _ := io.ReadAll(p)
+		seen[p.FormName()] = string(b)
+	}
+	if seen["_worker.js"] != workerSrc {
+		t.Errorf("bundled module = %q, want the worker verbatim", seen["_worker.js"])
+	}
+	if !strings.Contains(seen["metadata"], `"main_module":"_worker.js"`) {
+		t.Errorf("metadata = %q, want it to name the entry module", seen["metadata"])
+	}
+	for _, line := range said {
+		if strings.Contains(line, "_routes.json") {
+			t.Errorf("warned about _routes.json when there is one: %q", line)
+		}
+	}
+}
+
+// A worker with no _routes.json runs on every request, static files included,
+// and each one is billed. Nothing is broken by it, so the deploy goes on — but
+// it must not go on in silence.
+func TestCFDeployBundleWarnsWhenTheWorkerHasNoRoutes(t *testing.T) {
+	root := t.TempDir()
+	dist := filepath.Join(root, "dist")
+	mustWrite(t, dist, "index.html", "<h1>hi</h1>")
+	mustWrite(t, root, "_worker.js", "export default { fetch: () => new Response('ok') }")
+
+	form, said := cfDeployToFake(t, root, dist)
+	if _, _, ok := filePart(t, form, "_worker.bundle"); !ok {
+		t.Error("the worker should still travel without _routes.json")
+	}
+	if !strings.Contains(strings.Join(said, "\n"), "_routes.json") {
+		t.Errorf("nothing said about the missing _routes.json: %v", said)
+	}
+}
+
+// Without a worker there is nothing to route to, so _routes.json stays home
+// rather than travelling on its own and meaning nothing.
+func TestCFDeployBundleLeavesRoutesWhenThereIsNoWorker(t *testing.T) {
+	root := t.TempDir()
+	dist := filepath.Join(root, "dist")
+	mustWrite(t, dist, "index.html", "<h1>hi</h1>")
+	mustWrite(t, root, "_routes.json", `{"include":["/api/*"]}`)
+
+	form, _ := cfDeployToFake(t, root, dist)
+	if _, _, ok := filePart(t, form, "_routes.json"); ok {
+		t.Error("_routes.json travelled without a worker")
 	}
 }
 

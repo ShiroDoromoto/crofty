@@ -71,11 +71,11 @@ func TestAgent_TextCoversCommands(t *testing.T) {
 	}
 }
 
-// The Functions constraint has to be readable before deploy runs, or the AI
-// driving crofty only learns it by hitting the gate. Both the flag and the rule
-// behind it must show up — a flag with no explanation invites --static-only as a
-// reflex, which is exactly the silent breakage the gate exists to stop.
-func TestAgentBrief_TeachesTheFunctionsConstraint(t *testing.T) {
+// What crofty will and won't carry has to be readable before deploy runs, or the
+// AI driving crofty only learns it by hitting the gate. Both the flag and the
+// rule behind it must show up — a flag with no explanation invites --static-only
+// as a reflex, which is exactly the silent breakage the gate exists to stop.
+func TestAgentBrief_TeachesTheWorkerConstraint(t *testing.T) {
 	b := agentBrief()
 
 	var deploy agentCmd
@@ -96,16 +96,16 @@ func TestAgentBrief_TeachesTheFunctionsConstraint(t *testing.T) {
 
 	var note string
 	for _, n := range b.Notes {
-		if strings.Contains(n, "Pages Functions") {
+		if strings.Contains(n, "_worker.js") {
 			note = n
 		}
 	}
 	if note == "" {
-		t.Fatal("notes never mention Pages Functions")
+		t.Fatal("notes never say what happens to a _worker.js")
 	}
-	for _, want := range []string{"pagesFunctions", "--static-only", "author"} {
+	for _, want := range []string{"pagesFunctions", "--static-only", "author", "functions/", "_routes.json"} {
 		if !strings.Contains(note, want) {
-			t.Errorf("the Functions note never mentions %q — an agent cannot act on it", want)
+			t.Errorf("the worker note never mentions %q — an agent cannot act on it", want)
 		}
 	}
 }

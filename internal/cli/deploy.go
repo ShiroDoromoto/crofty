@@ -29,7 +29,7 @@ func runDeploy(args []string) error {
 	fs.BoolVar(&skipBuild, "skip-build", false, "publish the existing ./dist as-is, without rebuilding (e.g. CI built it)")
 	fs.BoolVar(&yes, "yes", false, "trust an unknown SFTP host key on first use without the y/N prompt")
 	fs.BoolVar(&yes, "y", false, "trust an unknown SFTP host key on first use without the y/N prompt")
-	fs.BoolVar(&staticOnly, "static-only", false, "deploy the static site even though this project has Pages Functions (they stop serving)")
+	fs.BoolVar(&staticOnly, "static-only", false, "publish the static site alone, leaving behind everything that answers requests (they stop serving)")
 	fs.Usage = func() {
 		fmt.Println("crofty deploy — build the current site and publish it to your deploy provider")
 		fmt.Println("\nProviders (set at 'crofty init'): cloudflare (default), sftp, ftps")
@@ -66,8 +66,12 @@ func runDeploy(args []string) error {
 	// live parts this destination can't carry takes the working endpoints down
 	// while the command still reports success (08 §6). Assembled here, before
 	// the build, the bundle holds the root parts — which is where every live
-	// part is — and that is all the gate looks at.
-	if err := partsGate(assembleBundle(proj.Root, proj.DistDir()), provider, staticOnly); err != nil {
+	// part is — and that is all the gates look at.
+	gated := assembleBundle(proj.Root, proj.DistDir())
+	if err := partsGate(gated, provider, staticOnly); err != nil {
+		return err
+	}
+	if err := workerGate(gated, provider, staticOnly); err != nil {
 		return err
 	}
 
@@ -118,6 +122,13 @@ func runDeploy(args []string) error {
 	// again here because the build has run since the gate: this is the bundle
 	// that actually goes out.
 	bundle := assembleBundle(proj.Root, proj.DistDir())
+	if staticOnly {
+		// The author asked for the static site alone. That has to mean the live
+		// parts stay home even where the destination could carry them —
+		// otherwise the flag would quietly change meaning the day crofty learned
+		// to deliver one.
+		bundle = bundle.withoutLiveParts()
+	}
 
 	url, err := deployer.Deploy(bundle, func(line string) {
 		fmt.Println("  " + line)
@@ -157,15 +168,19 @@ func projectFunctions(root string) []string {
 // stops working — so each provider warns about those itself. staticOnly is the
 // explicit "yes, drop them" opt-out.
 func partsGate(b deployBundle, provider string, staticOnly bool) error {
+	if staticOnly {
+		// Every live part is left behind, not only the ones this destination
+		// couldn't have taken anyway — that is what the flag asks for.
+		if live := b.liveParts(); len(live) > 0 {
+			fmt.Printf("⚠ deploying static files only — %s stays behind, so anything it serves stops working.\n\n", strings.Join(partLabels(live), " and "))
+		}
+		return nil
+	}
 	dropped := b.livePartsNotCarried(providerCarries(provider))
 	if len(dropped) == 0 {
 		return nil
 	}
 	labels := partLabels(dropped)
-	if staticOnly {
-		fmt.Printf("⚠ deploying static files only — %s stays behind, so anything it serves stops working.\n\n", strings.Join(labels, " and "))
-		return nil
-	}
 	fmt.Printf("✗ this project has parts a %s deploy can't carry (%s) — not deploying:\n", provider, strings.Join(labels, ", "))
 	fmt.Println()
 	fmt.Println("  crofty would upload the rest and replace what is serving those routes now,")
@@ -174,6 +189,44 @@ func partsGate(b deployBundle, provider string, staticOnly bool) error {
 	fmt.Println("  Deploy this site the way those parts reach production")
 	fmt.Printf("  (%s), or run 'crofty deploy --static-only'\n", strings.Join(elsewhereFor(dropped), " / "))
 	fmt.Println("  to drop them on purpose.")
+	fmt.Println()
+	fmt.Println("Nothing was deployed.")
+	return errSilent
+}
+
+// workerGate stops a deploy whose worker crofty cannot carry whole. A
+// destination that takes a worker takes exactly one self-contained module:
+// crofty has no bundler, so an import would upload cleanly and then fail on the
+// first request — the failure moving from the terminal, where it can be read,
+// into production, where it can't. The scan is conservative by design
+// (workerbundle.go), and the way out is stated rather than implied.
+func workerGate(b deployBundle, provider string, staticOnly bool) error {
+	if staticOnly {
+		return nil // the worker isn't going anywhere, so it needn't be carryable
+	}
+	path, ok := b.parts[partWorker]
+	if !ok || !carriesPart(providerCarries(provider), partWorker) {
+		return nil // no worker, or one partsGate already stopped over
+	}
+	src, err := os.ReadFile(path)
+	if err != nil {
+		return fmt.Errorf("reading %s: %w", specOf(partWorker).label(), err)
+	}
+	refs := workerImports(src)
+	if len(refs) == 0 {
+		return nil
+	}
+	fmt.Printf("✗ %s pulls in other modules, and crofty does not bundle — not deploying:\n", specOf(partWorker).label())
+	fmt.Println()
+	for _, r := range refs {
+		fmt.Printf("    line %d: %s\n", r.line, r.what)
+	}
+	fmt.Println()
+	fmt.Println("  crofty carries a finished worker; it never builds one. The worker it can")
+	fmt.Println("  carry is a single self-contained module — no import, no require.")
+	fmt.Println()
+	fmt.Println("  Put the whole worker in that one file, or deploy this site the way a")
+	fmt.Printf("  bundled worker reaches production (%s).\n", specOf(partWorker).elsewhere)
 	fmt.Println()
 	fmt.Println("Nothing was deployed.")
 	return errSilent

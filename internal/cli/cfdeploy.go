@@ -28,6 +28,7 @@ import (
 	"mime"
 	"mime/multipart"
 	"net/http"
+	"net/textproto"
 	"os"
 	"path/filepath"
 	"sort"
@@ -62,14 +63,19 @@ type cfAsset struct {
 }
 
 // cfParts are the parts a Pages deployment takes as fields of the deployment
-// itself, rather than as files under the site.
-func cfParts() []deployPart { return []deployPart{partHeaders, partRedirects} }
+// itself, rather than as files under the site. The worker is one of them: a
+// single self-contained module travels as the _worker.bundle field (D-332), and
+// _routes.json rides along to say which requests should reach it. A functions/
+// tree is deliberately absent — carrying that would mean bundling it.
+func cfParts() []deployPart {
+	return []deployPart{partHeaders, partRedirects, partRoutes, partWorker}
+}
 
 // cfDirScan is the result of walking a built site: the ordinary assets, once the
 // files that travel some other way have been set aside.
 type cfDirScan struct {
-	assets    []cfAsset
-	functions bool // a _worker.js / functions/ Pages-Functions build (unsupported)
+	assets       []cfAsset
+	functionsDir bool // a functions/ tree in the build — server source, not assets
 }
 
 // cfScanDir walks dir, hashing every asset. Files matching a part in parts are
@@ -95,7 +101,7 @@ func cfScanDir(dir string, parts []deployPart) (cfDirScan, error) {
 			// contents are server-side source, not assets: skip the whole tree
 			// so nothing under it is published as a static file.
 			if name == "functions" {
-				scan.functions = true
+				scan.functionsDir = true
 				return fs.SkipDir
 			}
 			return nil
@@ -105,15 +111,17 @@ func cfScanDir(dir string, parts []deployPart) (cfDirScan, error) {
 		}
 		// Root-level special files are not ordinary assets.
 		if !strings.Contains(name, "/") {
+			// A part that belongs at the project root, found in the build
+			// instead: it got here through static/, which publishes whatever it
+			// holds. crofty carries the copy at the root, so this one would
+			// either be served as source or ignored — and being ignored is the
+			// worse of the two, because the deploy would look like it worked.
+			if s, ok := rootPartNamed(name, false); ok {
+				return fmt.Errorf("%s is in the build, but it belongs at the project root — that is the copy crofty carries.\n"+
+					"  Move it out of static/ and up beside hugo.yaml, then deploy again", s.label())
+			}
 			if asPart[name] {
 				return nil // carried as a deployment field, not as a file
-			}
-			switch name {
-			case "_worker.js":
-				scan.functions = true
-				return nil
-			case "_routes.json":
-				return nil // a Functions field; not deployed by crofty
 			}
 		}
 		info, ierr := d.Info()
@@ -202,9 +210,19 @@ func cfDeployBundle(token, accountID, project, branch string, b deployBundle, pr
 	if len(scan.assets) == 0 {
 		return "", fmt.Errorf("no files to deploy in %s", dir)
 	}
-	if scan.functions {
-		progress("⚠ dist/ carries Pages Functions (_worker.js / functions/) — crofty uploads static")
-		progress("  files only, so whatever is serving those routes now stops working.")
+	if scan.functionsDir {
+		progress("⚠ the build carries a functions/ tree — crofty publishes static files only,")
+		progress("  so whatever is serving those routes now stops working.")
+	}
+	if _, ok := b.parts[partWorker]; ok {
+		if _, hasRoutes := b.parts[partRoutes]; !hasRoutes {
+			// Not an error: nothing breaks, it just costs more. Without
+			// _routes.json every request runs the worker, static files included
+			// (D-332 §4/§7).
+			progress("⚠ no _routes.json beside _worker.js — every request will run the worker,")
+			progress("  static files included, and each one is billed. Add one naming the routes")
+			progress("  the worker should answer.")
+		}
 	}
 
 	if err := cfEnsureProject(token, accountID, project, branch); err != nil {
@@ -249,7 +267,7 @@ func cfDeployBundle(token, accountID, project, branch string, b deployBundle, pr
 	}
 
 	progress("Creating the deployment…")
-	url, aliases, err := cfCreateDeployment(token, accountID, project, branch, manifest, b.parts[partHeaders], b.parts[partRedirects])
+	url, aliases, err := cfCreateDeployment(token, accountID, project, branch, manifest, b.parts)
 	if err != nil {
 		return "", fmt.Errorf("creating the deployment: %w", err)
 	}
@@ -488,9 +506,9 @@ func cfJWTExpired(jwt string) bool {
 	return time.Now().Unix() >= claims.Exp-30
 }
 
-// cfCreateDeployment posts the manifest (and any _headers/_redirects) as
-// multipart form data and returns the deployment URL plus its aliases.
-func cfCreateDeployment(token, accountID, project, branch string, manifest map[string]string, headersPath, redirectsPath string) (string, []string, error) {
+// cfCreateDeployment posts the manifest and the bundle's parts as multipart form
+// data and returns the deployment URL plus its aliases.
+func cfCreateDeployment(token, accountID, project, branch string, manifest map[string]string, parts map[deployPart]string) (string, []string, error) {
 	var buf bytes.Buffer
 	w := multipart.NewWriter(&buf)
 	mj, _ := json.Marshal(manifest)
@@ -498,11 +516,24 @@ func cfCreateDeployment(token, accountID, project, branch string, manifest map[s
 	if branch != "" {
 		_ = w.WriteField("branch", branch)
 	}
-	if err := cfAddFileField(w, "_headers", headersPath); err != nil {
+	if err := cfAddFileField(w, string(partHeaders), parts[partHeaders], ""); err != nil {
 		return "", nil, err
 	}
-	if err := cfAddFileField(w, "_redirects", redirectsPath); err != nil {
+	if err := cfAddFileField(w, string(partRedirects), parts[partRedirects], ""); err != nil {
 		return "", nil, err
+	}
+	// The worker and its routes travel together or not at all: _routes.json says
+	// which requests reach a worker, so on its own it decides nothing. Sending
+	// it only alongside the worker also keeps crofty out of the business of
+	// inventing a default route set — the author's file goes up as written, and
+	// no file means Pages' own behaviour, the same as with wrangler (D-332 §4).
+	if p := parts[partWorker]; p != "" {
+		if err := cfAddWorkerBundle(w, p); err != nil {
+			return "", nil, err
+		}
+		if err := cfAddFileField(w, string(partRoutes), parts[partRoutes], "application/json"); err != nil {
+			return "", nil, err
+		}
 	}
 	if err := w.Close(); err != nil {
 		return "", nil, err
@@ -528,9 +559,10 @@ func cfCreateDeployment(token, accountID, project, branch string, manifest map[s
 	return out.Result.URL, out.Result.Aliases, nil
 }
 
-// cfAddFileField attaches a file (e.g. _headers) as its own multipart field. A
+// cfAddFileField attaches a file (e.g. _headers) as its own multipart field,
+// under the content type given or multipart's default when that is blank. A
 // blank path means the file isn't present, so nothing is added.
-func cfAddFileField(w *multipart.Writer, field, path string) error {
+func cfAddFileField(w *multipart.Writer, field, path, contentType string) error {
 	if path == "" {
 		return nil
 	}
@@ -538,11 +570,40 @@ func cfAddFileField(w *multipart.Writer, field, path string) error {
 	if err != nil {
 		return err
 	}
-	fw, err := w.CreateFormFile(field, field)
+	h := make(textproto.MIMEHeader)
+	h.Set("Content-Disposition", fmt.Sprintf(`form-data; name=%q; filename=%q`, field, field))
+	if contentType != "" {
+		h.Set("Content-Type", contentType)
+	}
+	fw, err := w.CreatePart(h)
 	if err != nil {
 		return err
 	}
 	_, err = fw.Write(b)
+	return err
+}
+
+// cfAddWorkerBundle attaches the worker as the deployment's _worker.bundle: a
+// multipart form of its own (workerbundle.go) serialized into one field. The
+// part's Content-Type carries the inner form's boundary — that is what tells the
+// receiving end there is a form inside this part rather than a plain file.
+func cfAddWorkerBundle(w *multipart.Writer, path string) error {
+	src, err := os.ReadFile(path)
+	if err != nil {
+		return err
+	}
+	bundle, bundleType, err := buildWorkerBundle(src)
+	if err != nil {
+		return err
+	}
+	h := make(textproto.MIMEHeader)
+	h.Set("Content-Disposition", `form-data; name="_worker.bundle"; filename="_worker.bundle"`)
+	h.Set("Content-Type", bundleType)
+	fw, err := w.CreatePart(h)
+	if err != nil {
+		return err
+	}
+	_, err = fw.Write(bundle)
 	return err
 }
 

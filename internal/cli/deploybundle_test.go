@@ -114,20 +114,24 @@ func TestPartsNotCarried(t *testing.T) {
 	mustWrite(t, root, "_worker.js", "export default {}")
 	b := assembleBundle(root, dist)
 
-	// Cloudflare takes the two inert parts; the worker is still beyond it here.
-	if got := b.partsNotCarried(providerCarries("cloudflare")); !reflect.DeepEqual(got, []deployPart{partWorker}) {
-		t.Errorf("cloudflare parts not carried = %v, want [%v]", got, partWorker)
+	// Cloudflare takes all three: the two inert parts and the worker.
+	if got := b.partsNotCarried(providerCarries("cloudflare")); len(got) != 0 {
+		t.Errorf("cloudflare parts not carried = %v, want none", got)
 	}
 	want := []deployPart{partHeaders, partRedirects, partWorker}
 	if got := b.partsNotCarried(providerCarries("sftp")); !reflect.DeepEqual(got, want) {
 		t.Errorf("sftp parts not carried = %v, want %v", got, want)
 	}
 	// Only the worker answers requests: dropping _headers costs nothing that
-	// was working, so it must not be a reason to stop a deploy.
-	for _, provider := range []string{"cloudflare", "sftp", "ftps"} {
+	// was working, so it must not be a reason to stop a deploy. And a plain file
+	// store can't run one, which is exactly what is worth stopping over.
+	for _, provider := range []string{"sftp", "ftps"} {
 		if got := b.livePartsNotCarried(providerCarries(provider)); !reflect.DeepEqual(got, []deployPart{partWorker}) {
 			t.Errorf("%s live parts not carried = %v, want [%v]", provider, got, partWorker)
 		}
+	}
+	if got := b.livePartsNotCarried(providerCarries("cloudflare")); len(got) != 0 {
+		t.Errorf("cloudflare live parts not carried = %v, want none — it carries the worker", got)
 	}
 }
 
