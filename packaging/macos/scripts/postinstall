@@ -1,0 +1,51 @@
+#!/bin/sh
+# postinstall for crofty.pkg (UNSIGNED). Runs as root, once, at install time.
+#
+# The payload landed in a staging tree under /usr/local/libexec (root-owned, in
+# system space). This script moves the real body — crofty plus its bundled Hugo
+# — into the installing user's home, where it is user-writable, and leaves only
+# a link to it on PATH. That split is the whole point of D-339: after this one
+# root install, `crofty update` replaces the body in the user's home with no
+# root again, and a self-fetched unsigned binary carries no quarantine flag, so
+# Gatekeeper stays quiet on every update after this.
+#
+# The entry link on /usr/local/bin stays root-owned and is never touched again;
+# crofty follows it to its body to find the Hugo beside it (internal/hugobin).
+set -eu
+
+STAGE="/usr/local/libexec/crofty-stage"   # where pkgbuild's payload lands
+LEGACY="/usr/local/libexec/crofty"         # where older .pkg versions kept Hugo
+ENTRY="/usr/local/bin/crofty"
+
+# The install is driven by a real person at the console; the body belongs in
+# *their* home. $HOME here is root's, so resolve the console user explicitly.
+user="$(stat -f%Su /dev/console 2>/dev/null || true)"
+if [ -z "$user" ] || [ "$user" = "root" ]; then
+  echo "crofty postinstall: no console user to install for" >&2
+  exit 1
+fi
+home="$(dscl . -read "/Users/$user" NFSHomeDirectory 2>/dev/null | awk '{print $2}')"
+if [ -z "$home" ] || [ ! -d "$home" ]; then
+  echo "crofty postinstall: cannot find home directory for $user" >&2
+  exit 1
+fi
+
+dest="$home/Library/Application Support/crofty"
+
+# Place the body fresh — a reinstall or upgrade replaces it wholesale.
+rm -rf "$dest"
+mkdir -p "$dest"
+cp -Rp "$STAGE/bin" "$dest/bin"
+cp -Rp "$STAGE/libexec" "$dest/libexec"
+chown -R "$user" "$dest"
+
+# The entry link: root-owned, on the default PATH, pointing at the user's body.
+mkdir -p "$(dirname "$ENTRY")"
+ln -sf "$dest/bin/crofty" "$ENTRY"
+
+# Leave nothing of ours in system space: drop the staging tree, and any Hugo an
+# older .pkg had isolated under /usr/local/libexec/crofty.
+rm -rf "$STAGE"
+rm -rf "$LEGACY"
+
+exit 0

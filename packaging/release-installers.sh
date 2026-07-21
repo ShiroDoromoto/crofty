@@ -30,7 +30,8 @@ else
   mkdir -p "$OUT"
 fi
 
-# --- macOS: one universal (arm64 + amd64) .pkg installing to /usr/local/bin ---
+# --- macOS: one universal (arm64 + amd64) .pkg; entry on /usr/local/bin, body
+#     in the user's home (D-339) ---
 DARWIN_ARM="$(ls -d "$DIST"/crofty_darwin_arm64*/crofty 2>/dev/null | head -1)"
 DARWIN_AMD="$(ls -d "$DIST"/crofty_darwin_amd64*/crofty 2>/dev/null | head -1)"
 : "${DARWIN_ARM:?darwin arm64 binary not found in $DIST — run 'wharfy build' first}"

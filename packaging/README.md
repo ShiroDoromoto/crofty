@@ -5,12 +5,16 @@ the one step we ask of someone who never opens a terminal — the assistant take
 over from `crofty init` on. The install scripts (`install.sh` / `install.ps1`)
 remain, for people who do open one.
 
-- **macOS**: `macos/build-pkg.sh` → a universal `crofty.pkg` that installs the
-  `crofty` binary to `/usr/local/bin` (on the default PATH). Standard installer
-  (asks for the user's password once).
+- **macOS**: `macos/build-pkg.sh` → a universal `crofty.pkg`. Its postinstall
+  splits the install into an entry and a body (D-339): a link at
+  `/usr/local/bin/crofty` (on the default PATH), and the body — crofty plus its
+  bundled Hugo — in `~/Library/Application Support/crofty`, owned by the user so
+  `crofty update` can replace it later with no root. Standard installer (asks for
+  the password once, to write the entry).
 - **Windows**: `windows/installer.nsi` + `windows/build-exe.sh` → `crofty-setup.exe`
   that installs per-user to `%LOCALAPPDATA%\crofty\bin` and adds it to the user
-  PATH (no admin).
+  PATH (no admin). Already user-writable, so D-339's entry/body split is a no-op
+  here — nothing to change.
 
 Both are **unsigned by choice** — no Apple Developer ID, no code-signing cert, no
 P12. First open shows an OS warning (Gatekeeper / SmartScreen); the user picks
@@ -27,9 +31,10 @@ the extended build.
 
 Neither installer disturbs a hugo the author already has.
 
-- macOS: `/usr/local/libexec/crofty/hugo` — deliberately **not** `/usr/local/bin`,
-  which is shared ground (Intel Homebrew's hugo lives exactly there). It stays off
-  PATH; crofty finds it from its own location.
+- macOS: in the body, at `~/Library/Application Support/crofty/libexec/crofty/hugo`
+  — deliberately **off** PATH (shared ground: Intel Homebrew's hugo lives in
+  `/usr/local/bin`). crofty finds it from its own body, following the entry link
+  there first (`internal/hugobin`).
 - Windows: beside `crofty.exe`, in a directory the installer owns outright.
 
 Hugo's macOS build ships as a `.pkg` only, so `hugo.sh` unwraps it with `pkgutil`

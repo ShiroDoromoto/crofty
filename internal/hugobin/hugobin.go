@@ -74,10 +74,11 @@ func resolve(override, exe, goos string) (string, error) {
 	return "", errors.New(missing)
 }
 
-// Bundled reports whether a click installer's copy of Hugo sits next to the
-// crofty binary at exe. It is exported because that copy is also the only thing
-// that distinguishes the two macOS install routes: the .pkg and install.sh both
-// put crofty in /usr/local/bin, but only the .pkg leaves a Hugo behind.
+// Bundled reports whether a click installer's copy of Hugo sits with the crofty
+// binary reached from exe. It is exported because that copy is also the only
+// thing that distinguishes the two macOS install routes: both answer to a crofty
+// on /usr/local/bin — the .pkg through an entry link, install.sh with the binary
+// itself — but only the .pkg leaves a Hugo behind.
 func Bundled(exe, goos string) bool {
 	if exe == "" {
 		return false
@@ -98,12 +99,12 @@ func resolveLink(path string) string {
 	return path
 }
 
-// bundled locates the Hugo a click installer put next to crofty. The two layouts
+// bundled locates the Hugo a click installer put with crofty. The two layouts
 // differ because the install trees do: on Windows the installer owns
 // %LOCALAPPDATA%\crofty\bin outright, so hugo.exe just sits beside crofty.exe.
-// On macOS crofty lands in /usr/local/bin, a directory shared with every other
-// program — so the bundled Hugo goes to /usr/local/libexec/crofty/ and stays off
-// PATH, where it cannot shadow a hugo the author installed themselves.
+// On macOS the .pkg keeps its body in a tree of its own (D-339) — crofty under
+// bin/ and Hugo under libexec/crofty/, off PATH, where it cannot shadow a hugo
+// the author installed themselves.
 func bundled(exe, goos string) string {
 	dir := filepath.Dir(exe)
 	if goos == "windows" {
