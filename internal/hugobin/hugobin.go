@@ -11,6 +11,12 @@
 // write over an existing hugo: the bundled copy sits next to crofty and is found
 // from the running executable, never from PATH (D-3). PATH is the last resort,
 // for the installs that carry no Hugo of their own.
+//
+// The "running executable" is the real body, not whatever PATH entry launched
+// it. A click install (D-339) keeps the body in a user-writable place and drops
+// a link for it on PATH; os.Executable() on macOS reports that link, so crofty
+// has to follow it to the body before it looks beside itself — otherwise it
+// searches the shared system dir the link lives in and picks up the wrong Hugo.
 package hugobin
 
 import (
@@ -58,7 +64,7 @@ func resolve(override, exe, goos string) (string, error) {
 		return override, nil
 	}
 	if exe != "" {
-		if bin := bundled(exe, goos); executable(bin, goos) {
+		if bin := bundled(resolveLink(exe), goos); executable(bin, goos) {
 			return bin, nil
 		}
 	}
@@ -76,7 +82,20 @@ func Bundled(exe, goos string) bool {
 	if exe == "" {
 		return false
 	}
-	return executable(bundled(exe, goos), goos)
+	return executable(bundled(resolveLink(exe), goos), goos)
+}
+
+// resolveLink follows an entry link to the real file behind it, so the bundled
+// Hugo is sought beside crofty's body rather than beside the link that launched
+// it. When the path resolves to nothing — a crofty that cannot find its own
+// file — the original is handed back and the bundled lookup simply misses,
+// leaving PATH to answer. A direct launch resolves to itself, so this is a
+// no-op there.
+func resolveLink(path string) string {
+	if real, err := filepath.EvalSymlinks(path); err == nil {
+		return real
+	}
+	return path
 }
 
 // bundled locates the Hugo a click installer put next to crofty. The two layouts

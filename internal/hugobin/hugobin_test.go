@@ -31,6 +31,75 @@ func bundledLayout(t *testing.T, goos string) string {
 	return filepath.Join(root, "bin", "crofty")
 }
 
+// sameFile reports whether two paths name the same file on disk, so a comparison
+// survives the symlink resolution that rewrites a temp path's /var prefix to
+// /private/var on macOS.
+func sameFile(t *testing.T, a, b string) bool {
+	t.Helper()
+	fa, err := os.Stat(a)
+	if err != nil {
+		t.Fatalf("stat %q: %v", a, err)
+	}
+	fb, err := os.Stat(b)
+	if err != nil {
+		t.Fatalf("stat %q: %v", b, err)
+	}
+	return os.SameFile(fa, fb)
+}
+
+// os.Executable() on macOS reports the path crofty was launched through, not the
+// file behind it — so a crofty reached by the entry link a click install leaves
+// on PATH would look for the bundled Hugo beside the link, in the shared system
+// dir, instead of beside its real body. resolve follows the link to the body
+// first; these are the three ways that can go.
+func TestResolveFollowsEntryLink(t *testing.T) {
+	t.Run("through the entry link", func(t *testing.T) {
+		body := writeExec(t, bundledLayout(t, "darwin")) // real body, bundled hugo beside it
+		// a link on a PATH-shared dir, with a rival hugo beside it that must lose
+		linkDir := t.TempDir()
+		link := filepath.Join(linkDir, "crofty")
+		if err := os.Symlink(body, link); err != nil {
+			t.Fatal(err)
+		}
+		t.Setenv("PATH", filepath.Dir(writeExec(t, filepath.Join(linkDir, "libexec", "crofty", "hugo"))))
+
+		got, err := resolve("", link, "darwin")
+		if err != nil {
+			t.Fatalf("resolve: %v", err)
+		}
+		if !sameFile(t, got, bundled(body, "darwin")) {
+			t.Errorf("resolve = %q, want the Hugo bundled beside the real body", got)
+		}
+	})
+
+	t.Run("launched directly", func(t *testing.T) {
+		body := writeExec(t, bundledLayout(t, "darwin"))
+
+		got, err := resolve("", body, "darwin")
+		if err != nil {
+			t.Fatalf("resolve: %v", err)
+		}
+		if !sameFile(t, got, bundled(body, "darwin")) {
+			t.Errorf("resolve = %q, want the bundled copy", got)
+		}
+	})
+
+	t.Run("body cannot be located", func(t *testing.T) {
+		// exe names a path with no file behind it: nothing to resolve, so crofty
+		// falls through to PATH rather than failing.
+		onPath := writeExec(t, filepath.Join(t.TempDir(), "hugo"))
+		t.Setenv("PATH", filepath.Dir(onPath))
+
+		got, err := resolve("", filepath.Join(t.TempDir(), "bin", "crofty"), "darwin")
+		if err != nil {
+			t.Fatalf("resolve: %v", err)
+		}
+		if got != onPath {
+			t.Errorf("resolve = %q, want the hugo on PATH %q", got, onPath)
+		}
+	})
+}
+
 func TestResolvePrefersOverride(t *testing.T) {
 	mine := writeExec(t, filepath.Join(t.TempDir(), "my-hugo"))
 	exe := bundledLayout(t, "darwin") // a bundled copy exists and must lose
@@ -96,6 +165,17 @@ func TestBundled(t *testing.T) {
 	// claim one.
 	if Bundled("", "darwin") {
 		t.Error(`Bundled("", "darwin") = true, want false`)
+	}
+	// Reached through the entry link, Bundled has to follow it to the body — the
+	// update notice tells the two macOS routes apart by this answer, and the link
+	// sits in a dir with no bundled Hugo of its own.
+	body := writeExec(t, bundledLayout(t, "darwin"))
+	link := filepath.Join(t.TempDir(), "crofty")
+	if err := os.Symlink(body, link); err != nil {
+		t.Fatal(err)
+	}
+	if !Bundled(link, "darwin") {
+		t.Errorf("Bundled(%q, darwin) = false through the entry link, want true", link)
 	}
 }
 
