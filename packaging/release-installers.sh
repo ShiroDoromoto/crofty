@@ -66,7 +66,14 @@ mkdir -p "$WINBODY"
 cp "$WIN_AMD" "$WINBODY/crofty.exe"
 cp "$HUGO_WIN" "$WINBODY/hugo.exe"
 cp "$HERE/hugo/LICENSE-hugo.txt" "$WINBODY/LICENSE-hugo.txt"
-( cd "$WINBODY" && zip -q "$OUT/crofty-body-windows-amd64.zip" crofty.exe hugo.exe LICENSE-hugo.txt )
+# zip resolves its output relative to the cwd, so a cd into $WINBODY would send
+# a relative $OUT astray (unlike tar -C above, which never leaves this dir). Stay
+# put and flatten with -j, which drops the files at the archive root the way the
+# installer lays them. rm first so a re-run rebuilds rather than appends (as tar
+# does), keeping the bytes update verifies against reproducible.
+rm -f "$OUT/crofty-body-windows-amd64.zip"
+zip -qj "$OUT/crofty-body-windows-amd64.zip" \
+  "$WINBODY/crofty.exe" "$WINBODY/hugo.exe" "$WINBODY/LICENSE-hugo.txt"
 
 # Checksums, paired with the verification crofty update does after downloading
 # (sha256, in `shasum -a 256` format so update reads the hash by asset name).
