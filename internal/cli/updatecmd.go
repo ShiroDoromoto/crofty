@@ -581,6 +581,80 @@ func fetchBytes(url string) ([]byte, error) {
 	return io.ReadAll(resp.Body)
 }
 
+// label is the human name of an install route, for diagnostics (crofty doctor).
+func (r installRoute) label() string {
+	switch r {
+	case routeHomebrew:
+		return "Homebrew (retired)"
+	case routeScoop:
+		return "Scoop (retired)"
+	case routeDebRpm:
+		return ".deb/.rpm (retired)"
+	case routeWindowsClick:
+		return "Windows installer"
+	case routeScriptUser:
+		return "install.sh (per-user)"
+	case routeScriptSystem:
+		return "install.sh (system-wide)"
+	case routePkgDarwin:
+		return "macOS .pkg"
+	default:
+		return "unrecognized"
+	}
+}
+
+// selfUpdateHealth is what `crofty doctor` reports about whether `crofty update`
+// will work from this install: which route it is, whether update handles it, and
+// whether the body location is writable without root — the two things D-339's
+// entry/body split has to get right for a self-update to succeed. That the entry
+// link resolves to the real body is implicit in the route: a .pkg only classifies
+// as routePkgDarwin when the bundled Hugo is found through the resolved path, so a
+// broken entry link shows up as a different route with a "by hand" note.
+type selfUpdateHealth struct {
+	Route         string `json:"route"`         // human label of the install route
+	Path          string `json:"path"`          // the resolved body path crofty runs from
+	CanSelfUpdate bool   `json:"canSelfUpdate"` // does `crofty update` handle this route
+	Writable      bool   `json:"writable"`      // is the body location writable (no admin needed)
+	Note          string `json:"note"`          // one-line status / next step
+}
+
+// checkSelfUpdate inspects the running install the way `crofty update` would,
+// without touching the network, so doctor can tell the author (or their AI)
+// whether an update will just work here. It resolves the body behind any entry
+// link (the .pkg puts one on PATH), classifies the route, and — only for a route
+// update actually handles — probes that the body location is writable.
+func checkSelfUpdate() selfUpdateHealth {
+	exe := resolveSelfPath()
+	goos := runtime.GOOS
+	route := classifyInstall(exe, goos, hugobin.Bundled(exe, goos))
+	h := selfUpdateHealth{
+		Route: route.label(),
+		Path:  exe,
+	}
+
+	if Version == "dev" {
+		h.Note = "source build — update by rebuilding: git pull && go build ."
+		return h
+	}
+	if !route.selfUpdates() {
+		h.Note = "this install updates by hand: " + upgradeHintFor(exe, goos, hugobin.Bundled(exe, goos))
+		return h
+	}
+
+	h.CanSelfUpdate = true
+	dir := filepath.Dir(exe)
+	if route == routePkgDarwin {
+		dir = filepath.Dir(dir) // the body root holds bin/ and libexec/
+	}
+	if err := ensureWritable(dir); err == nil {
+		h.Writable = true
+		h.Note = "ready — run 'crofty update' to move to the latest release"
+	} else {
+		h.Note = "the install location isn't writable, so 'crofty update' can't replace it: " + dir
+	}
+	return h
+}
+
 // The three refusals below print a classified failure and return errSilent, so
 // `crofty update` never fails silently and always exits non-zero when it did not
 // update — the AI driving crofty can tell "updated" from "didn't" by the code.

@@ -97,13 +97,22 @@ one, set `CROFTY_HUGO=/path/to/hugo`.
 
 ### Updating
 
-crofty tells you when a release is out, and prints the one line that updates the
-copy you actually have. Run it again the way you installed it:
+Once crofty is installed, it updates itself:
 
-- **the installers** — download and double-click the new `.pkg` / `.exe`; it
-  replaces what's there. The OS warns about each download it hasn't seen, so
-  expect it again, and clear it the same way.
-- **the install scripts** — re-run the same `curl` / `irm` line
+```sh
+crofty update
+```
+
+It fetches the latest release and swaps the binary in place — no reinstall, no
+admin, and no OS warning (a file crofty downloads itself carries no quarantine
+flag). This works for the click installers (`.pkg` / `.exe`) and the per-user
+install script. There is no automatic update: it only runs when you (or the AI
+driving crofty) ask it to, and it points you at the release notes so the upgrade
+stays your call. crofty still tells you when a release is out.
+
+A system-wide install script (`PREFIX=/usr/local`) is root-owned, so `crofty
+update` sends you back to re-run the script with `sudo` instead. Either way,
+`crofty doctor` shows whether an update will work from your install.
 
 ### If you installed with Homebrew, Scoop, or a `.deb` / `.rpm`
 

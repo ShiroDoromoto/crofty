@@ -57,6 +57,27 @@ func TestClassifyInstall(t *testing.T) {
 	}
 }
 
+// selfUpdates decides whether the nudge says "crofty update" or the manual,
+// route-back way (D-326): the .pkg / Windows / per-user-script routes self-update;
+// dead channels, a root-owned system-wide install, and the unknown fallback do not.
+func TestSelfUpdates(t *testing.T) {
+	self := map[installRoute]bool{
+		routePkgDarwin:    true,
+		routeWindowsClick: true,
+		routeScriptUser:   true,
+		routeScriptSystem: false,
+		routeHomebrew:     false,
+		routeScoop:        false,
+		routeDebRpm:       false,
+		routeUnknown:      false,
+	}
+	for route, want := range self {
+		if got := route.selfUpdates(); got != want {
+			t.Errorf("route %d selfUpdates() = %v; want %v", route, got, want)
+		}
+	}
+}
+
 func TestManifestPlatformKey(t *testing.T) {
 	cases := []struct{ goos, goarch, want string }{
 		{"darwin", "arm64", "macos-arm64"},

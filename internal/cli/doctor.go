@@ -32,19 +32,45 @@ func runDoctor(args []string) error {
 		return err
 	}
 
+	health := checkSelfUpdate()
 	if *asJSON {
 		enc := json.NewEncoder(os.Stdout)
 		enc.SetIndent("", "  ")
-		if err := enc.Encode(report); err != nil {
+		if err := enc.Encode(doctorReport{Contract: report, SelfUpdate: health}); err != nil {
 			return err
 		}
 	} else {
 		renderContract(report)
+		renderSelfUpdate(health)
 	}
 	if report.HasError() {
 		return errSilent // findings already shown; non-zero exit gates build/deploy
 	}
 	return nil
+}
+
+// doctorReport is the JSON shape of `crofty doctor --json`: the output contract
+// report (the build/deploy gate) plus whether `crofty update` will work from this
+// install. The install health is advisory — it never changes doctor's exit code,
+// which gates on the contract alone.
+type doctorReport struct {
+	Contract   contract.Report  `json:"contract"`
+	SelfUpdate selfUpdateHealth `json:"selfUpdate"`
+}
+
+// renderSelfUpdate prints the one-line install-health advisory: which route this
+// is and whether `crofty update` can move it to the latest. It never gates —
+// it's a heads-up, not a contract check.
+func renderSelfUpdate(h selfUpdateHealth) {
+	fmt.Println()
+	mark := "·"
+	switch {
+	case h.CanSelfUpdate && h.Writable:
+		mark = "✓"
+	case h.CanSelfUpdate && !h.Writable:
+		mark = "⚠"
+	}
+	fmt.Printf("%s update (%s): %s\n", mark, h.Route, h.Note)
 }
 
 // renderContract prints a full human report plus the honest note about what the

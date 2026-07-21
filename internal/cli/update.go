@@ -130,9 +130,12 @@ func fetchLatestRelease() (string, error) {
 	return strings.TrimPrefix(strings.TrimSpace(rel.TagName), "v"), nil
 }
 
-// upgradeHint returns the exact command to update crofty, inferred from where
-// the running binary lives. The inference degrades gracefully: anything
-// unrecognized falls back to the releases page, which is always correct.
+// upgradeHint returns the one line telling someone how to move to the latest
+// release from where this binary is installed. On a route `crofty update` can
+// self-update (D-339), that line is simply `crofty update`; on every other route
+// it is the manual, route-back way — a dead channel to leave, a script to re-run —
+// honouring D-326. The inference degrades gracefully: anything unrecognized falls
+// back to the releases page, which is always correct.
 func upgradeHint() string {
 	exe, err := os.Executable()
 	if err == nil {
@@ -140,7 +143,14 @@ func upgradeHint() string {
 			exe = resolved
 		}
 	}
-	return upgradeHintFor(exe, runtime.GOOS, hugobin.Bundled(exe, runtime.GOOS))
+	goos := runtime.GOOS
+	bundled := hugobin.Bundled(exe, goos)
+	// A dev build can't self-update; it never reaches here (the nudge is inert for
+	// "dev"), but guard anyway so nothing ever tells a source build to run update.
+	if Version != "dev" && classifyInstall(exe, goos, bundled).selfUpdates() {
+		return "crofty update"
+	}
+	return upgradeHintFor(exe, goos, bundled)
 }
 
 // installRoute is how this binary got onto the machine, inferred from where it
@@ -161,6 +171,19 @@ const (
 	routeScriptSystem                     // install.sh, system-wide (PREFIX=/usr/local, root-owned)
 	routePkgDarwin                        // macOS .pkg body (user-writable, bundled Hugo alongside)
 )
+
+// selfUpdates reports whether `crofty update` can update this route in place —
+// the routes with a user-writable body crofty can fetch and swap without root.
+// Every other route (dead channels, a root-owned system-wide install, one crofty
+// doesn't recognize) is sent to its manual, route-back way instead.
+func (r installRoute) selfUpdates() bool {
+	switch r {
+	case routePkgDarwin, routeWindowsClick, routeScriptUser:
+		return true
+	default:
+		return false
+	}
+}
 
 // classifyInstall maps a resolved binary path (and OS) to its installRoute. It
 // is split from the hint and the update logic so the one classification they
