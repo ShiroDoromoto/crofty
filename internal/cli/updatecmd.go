@@ -2,6 +2,7 @@ package cli
 
 import (
 	"archive/tar"
+	"archive/zip"
 	"bytes"
 	"compress/gzip"
 	"context"
@@ -31,12 +32,12 @@ import (
 // quiet, and the entry link on PATH (root-owned, placed once at install) is
 // never touched, so no update needs root again.
 //
-// Which install this is decides what update does. The macOS .pkg body and the
-// per-user install.sh binary self-update here; every other route (dead channels,
-// a root-owned system-wide install, Windows until 3b lands, or one crofty does
-// not recognize) is handed back the same route-specific hint the upgrade nudge
-// prints — classifyInstall is the single source both stand on, so they can never
-// disagree about what kind of install this is.
+// Which install this is decides what update does. The macOS .pkg body, the
+// Windows click-installer body and the per-user install.sh binary self-update
+// here; every other route (dead channels, a root-owned system-wide install, or
+// one crofty does not recognize) is handed back the same route-specific hint the
+// upgrade nudge prints — classifyInstall is the single source both stand on, so
+// they can never disagree about what kind of install this is.
 
 const (
 	// releaseDownloadBase is the GitHub release download root. Fixed-name assets
@@ -49,11 +50,13 @@ const (
 	// notifier) so a network problem surfaces as a real, classified error.
 	updateManifestURL = releaseDownloadBase + "/latest/download/latest.json"
 
-	// The macOS .pkg body and its checksums have fixed names, so /latest/download
-	// reaches them without first learning the version.
+	// The .pkg / .exe bodies and their shared checksums have fixed names, so
+	// /latest/download reaches them without first learning the version.
 	updateBodyDarwinURL    = releaseDownloadBase + "/latest/download/crofty-body-darwin-universal.tar.gz"
+	updateBodyWindowsURL   = releaseDownloadBase + "/latest/download/crofty-body-windows-amd64.zip"
 	updateBodyChecksumsURL = releaseDownloadBase + "/latest/download/crofty-body-checksums.txt"
 	updateBodyDarwinAsset  = "crofty-body-darwin-universal.tar.gz"
+	updateBodyWindowsAsset = "crofty-body-windows-amd64.zip"
 
 	// updateDownloadTimeout bounds the whole fetch. The bodies carry Hugo (~47MB),
 	// so this is minutes — not the notifier's second-and-a-half.
@@ -93,12 +96,14 @@ func runUpdate(args []string) error {
 	switch classifyInstall(exe, runtime.GOOS, bundled) {
 	case routePkgDarwin:
 		return updateDarwinBody(exe)
+	case routeWindowsClick:
+		return updateWindowsBody(exe)
 	case routeScriptUser:
 		return updateScriptBinary(exe)
 	default:
 		// Every other route can't self-update here: dead channels (leave),
-		// root-owned system-wide install (needs sudo), Windows (rename-swap lands
-		// in 3b), or one crofty doesn't recognize. Hand back the route's own hint.
+		// root-owned system-wide install (needs sudo), or one crofty doesn't
+		// recognize. Hand back the route's own hint.
 		fmt.Fprintf(os.Stderr, "crofty update can't update this install automatically.\nTo update: %s\n", upgradeHintFor(exe, runtime.GOOS, bundled))
 		return errSilent
 	}
@@ -241,6 +246,143 @@ func swapDarwinBody(archive []byte, root string) error {
 		}
 		if err := os.Rename(src, dst); err != nil {
 			return fmt.Errorf("couldn't replace %s (%v). It may need write permission there", dst, err)
+		}
+	}
+	return nil
+}
+
+// updateWindowsBody updates a %LOCALAPPDATA%\crofty\bin install (the click
+// installer / install.ps1). The body is flat — crofty.exe beside hugo.exe — so
+// update swaps both. That directory is per-user, so no admin is needed; the extra
+// work over the other routes is that a running .exe cannot be overwritten on
+// Windows, only renamed out of the way (handled in swapWindowsBody).
+func updateWindowsBody(exe string) error {
+	m, err := latestFromManifest()
+	if err != nil {
+		fmt.Fprintln(os.Stderr, "crofty:", err)
+		return errSilent
+	}
+	if !semverLess(Version, m.Version) {
+		fmt.Printf("crofty is already up to date (%s).\n", Version)
+		return nil
+	}
+	dir := filepath.Dir(exe)
+	if err := ensureWritable(dir); err != nil {
+		return updateWriteRefusal(dir, err)
+	}
+	fmt.Printf("Updating crofty %s → %s …\n", Version, m.Version)
+
+	archive, err := fetchBytes(updateBodyWindowsURL)
+	if err != nil {
+		return downloadRefusal("the update", err)
+	}
+	sums, err := fetchBytes(updateBodyChecksumsURL)
+	if err != nil {
+		return downloadRefusal("the checksums", err)
+	}
+	if err := verifyChecksum(archive, updateBodyWindowsAsset, string(sums)); err != nil {
+		return checksumRefusal(err)
+	}
+	if err := swapWindowsBody(archive, exe); err != nil {
+		fmt.Fprintf(os.Stderr, "crofty: %v\n", err)
+		return errSilent
+	}
+	fmt.Printf("Updated to crofty %s (Hugo refreshed too). What changed: %s\n", m.Version, releaseNotesURL)
+	return nil
+}
+
+// swapWindowsBody replaces the running crofty.exe and its neighbour hugo.exe from
+// the body zip. A .exe that is executing can't be overwritten on Windows, but it
+// can be renamed, so the running binary is moved aside (to .old) before the new
+// one is dropped in; the process keeps running from the renamed file, and the new
+// exe is read on the next launch. hugo.exe isn't running, so it's replaced
+// directly. Every step past the first is undone on failure — the original exe is
+// restored — so a half-applied update never leaves a broken install behind. The
+// stale .old can't be deleted while the process holds it open, so it's cleared
+// best-effort here and again at the start of the next update.
+func swapWindowsBody(archive []byte, exe string) error {
+	dir := filepath.Dir(exe)
+	staging, err := os.MkdirTemp(dir, ".crofty-update-")
+	if err != nil {
+		return fmt.Errorf("couldn't stage the update in %s (%v). Nothing was changed", dir, err)
+	}
+	defer os.RemoveAll(staging)
+	if err := extractZip(archive, staging); err != nil {
+		return fmt.Errorf("the update archive was unreadable (%v). Nothing was changed", err)
+	}
+
+	newExe := filepath.Join(staging, "crofty.exe")
+	if _, err := os.Stat(newExe); err != nil {
+		return fmt.Errorf("the update archive carried no crofty.exe (%v). Nothing was changed", err)
+	}
+
+	backup := exe + ".old"
+	os.Remove(backup) // clear a locked leftover from a previous update, best-effort
+
+	// 1. Move the running exe aside. Renaming an in-use .exe is allowed on Windows.
+	if err := os.Rename(exe, backup); err != nil {
+		return fmt.Errorf("couldn't move the running crofty aside (%v). Nothing was changed", err)
+	}
+	// 2. Drop the new exe where the old one was. On failure, restore the original.
+	if err := os.Rename(newExe, exe); err != nil {
+		os.Rename(backup, exe)
+		return fmt.Errorf("couldn't place the new crofty (%v). The old one was kept", err)
+	}
+	// 3. Replace hugo.exe beside it — not running, so a direct replace is fine. On
+	//    failure, undo the exe swap too (the new exe isn't in use, so it can go).
+	newHugo := filepath.Join(staging, "hugo.exe")
+	if _, err := os.Stat(newHugo); err == nil {
+		if err := os.Rename(newHugo, filepath.Join(dir, "hugo.exe")); err != nil {
+			os.Remove(exe)
+			os.Rename(backup, exe)
+			return fmt.Errorf("couldn't replace hugo.exe (%v). The old crofty was kept", err)
+		}
+	}
+	os.Remove(backup) // best-effort; still open by the running process, so likely a no-op
+	return nil
+}
+
+// extractZip unpacks every file in a zip under dest, creating parent directories
+// and rejecting an entry whose path escapes dest. It is the Windows body's
+// counterpart to extractTarGz (the .exe payload ships as a .zip, as the NSIS
+// installer lays it).
+func extractZip(data []byte, dest string) error {
+	zr, err := zip.NewReader(bytes.NewReader(data), int64(len(data)))
+	if err != nil {
+		return err
+	}
+	for _, f := range zr.File {
+		clean := path.Clean(f.Name)
+		if clean == ".." || strings.HasPrefix(clean, "../") || strings.HasPrefix(clean, "/") {
+			return fmt.Errorf("refusing archive entry outside the target: %s", f.Name)
+		}
+		if f.FileInfo().IsDir() {
+			continue
+		}
+		target := filepath.Join(dest, filepath.FromSlash(clean))
+		if err := os.MkdirAll(filepath.Dir(target), 0o755); err != nil {
+			return err
+		}
+		mode := f.Mode().Perm()
+		if mode == 0 {
+			mode = 0o755 // a zip made on Windows carries no unix mode
+		}
+		rc, err := f.Open()
+		if err != nil {
+			return err
+		}
+		out, err := os.OpenFile(target, os.O_CREATE|os.O_TRUNC|os.O_WRONLY, mode)
+		if err != nil {
+			rc.Close()
+			return err
+		}
+		_, cErr := io.Copy(out, rc)
+		rc.Close()
+		if closeErr := out.Close(); cErr == nil {
+			cErr = closeErr
+		}
+		if cErr != nil {
+			return cErr
 		}
 	}
 	return nil

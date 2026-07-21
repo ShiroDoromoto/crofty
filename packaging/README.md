@@ -72,9 +72,10 @@ published as a machine-fetchable archive, one per bundled-Hugo route, at fixed
   swapping.
 
 The install-script route carries no Hugo, so it needs no body of its own: an
-update there reuses wharfy's binary archive. Windows delivery of the swap (an
-in-use `.exe` can't overwrite itself) is a separate task; this only produces the
-payload.
+update there reuses wharfy's binary archive. This script only produces the
+payloads; `crofty update` (internal/cli) consumes them — including on Windows,
+where an in-use `.exe` can't overwrite itself, so update renames the running one
+aside before dropping the new one in.
 
 ## Release procedure
 

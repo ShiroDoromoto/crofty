@@ -2,14 +2,30 @@ package cli
 
 import (
 	"archive/tar"
+	"archive/zip"
 	"bytes"
 	"compress/gzip"
 	"crypto/sha256"
 	"encoding/hex"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
+
+// dirEntries returns the names of the entries directly under dir.
+func dirEntries(t *testing.T, dir string) []string {
+	t.Helper()
+	es, err := os.ReadDir(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	names := make([]string, 0, len(es))
+	for _, e := range es {
+		names = append(names, e.Name())
+	}
+	return names
+}
 
 // classifyInstall is the single route classification both the upgrade nudge and
 // `crofty update` read, so it must map the same paths TestUpgradeHintFor covers
@@ -172,6 +188,96 @@ func TestExtractTarGzRejectsEscape(t *testing.T) {
 	})
 	if err := extractTarGz(archive, t.TempDir()); err == nil {
 		t.Error("extractTarGz accepted an entry climbing out of the target; want a refusal")
+	}
+}
+
+func makeZip(t *testing.T, files map[string]tarEntry) []byte {
+	t.Helper()
+	var buf bytes.Buffer
+	zw := zip.NewWriter(&buf)
+	for name, e := range files {
+		fh := &zip.FileHeader{Name: name, Method: zip.Deflate}
+		fh.SetMode(os.FileMode(e.mode))
+		w, err := zw.CreateHeader(fh)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if _, err := w.Write(e.data); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := zw.Close(); err != nil {
+		t.Fatal(err)
+	}
+	return buf.Bytes()
+}
+
+// TestSwapWindowsBody is the Windows click-installer replacement, offline: the
+// running crofty.exe is moved aside and the new one dropped in, and the neighbour
+// hugo.exe is replaced too — no network, no live release. (File semantics let
+// this run on any OS; the Windows-specific behaviour it stands in for is that a
+// running .exe can be renamed but not overwritten.)
+func TestSwapWindowsBody(t *testing.T) {
+	root := t.TempDir()
+	exe := filepath.Join(root, "crofty.exe")
+	writeFileMode(t, exe, "old-crofty", 0o755)
+	writeFileMode(t, filepath.Join(root, "hugo.exe"), "old-hugo", 0o755)
+
+	archive := makeZip(t, map[string]tarEntry{
+		"crofty.exe":       {[]byte("new-crofty"), 0o755},
+		"hugo.exe":         {[]byte("new-hugo"), 0o755},
+		"LICENSE-hugo.txt": {[]byte("hugo license"), 0o644},
+	})
+	if err := swapWindowsBody(archive, exe); err != nil {
+		t.Fatalf("swapWindowsBody: %v", err)
+	}
+	if got := readFile(t, exe); got != "new-crofty" {
+		t.Errorf("crofty.exe after swap = %q; want new-crofty", got)
+	}
+	if got := readFile(t, filepath.Join(root, "hugo.exe")); got != "new-hugo" {
+		t.Errorf("hugo.exe after swap = %q; want new-hugo (bundled Hugo must update too)", got)
+	}
+	for _, e := range dirEntries(t, root) {
+		if strings.HasSuffix(e, ".old") || strings.HasPrefix(e, ".crofty-update-") {
+			t.Errorf("%q left behind after a clean swap", e)
+		}
+	}
+}
+
+// TestSwapWindowsBodyRollsBackOnFailure forces the hugo.exe replace to fail (its
+// target is a non-empty directory), and checks the crofty.exe swap is undone —
+// the original binary is restored, so a half-applied update never leaves a broken
+// install behind.
+func TestSwapWindowsBodyRollsBackOnFailure(t *testing.T) {
+	root := t.TempDir()
+	exe := filepath.Join(root, "crofty.exe")
+	writeFileMode(t, exe, "old-crofty", 0o755)
+	// hugo.exe is a non-empty directory: renaming a file over it must fail.
+	writeFileMode(t, filepath.Join(root, "hugo.exe", "blocker"), "x", 0o644)
+
+	archive := makeZip(t, map[string]tarEntry{
+		"crofty.exe": {[]byte("new-crofty"), 0o755},
+		"hugo.exe":   {[]byte("new-hugo"), 0o755},
+	})
+	if err := swapWindowsBody(archive, exe); err == nil {
+		t.Fatal("swapWindowsBody succeeded despite an unreplaceable hugo.exe; want an error")
+	}
+	if got := readFile(t, exe); got != "old-crofty" {
+		t.Errorf("crofty.exe after a failed swap = %q; want the original restored (old-crofty)", got)
+	}
+	for _, e := range dirEntries(t, root) {
+		if strings.HasSuffix(e, ".old") || strings.HasPrefix(e, ".crofty-update-") {
+			t.Errorf("%q left behind after rollback", e)
+		}
+	}
+}
+
+func TestExtractZipRejectsEscape(t *testing.T) {
+	archive := makeZip(t, map[string]tarEntry{
+		"../escape": {[]byte("evil"), 0o644},
+	})
+	if err := extractZip(archive, t.TempDir()); err == nil {
+		t.Error("extractZip accepted an entry climbing out of the target; want a refusal")
 	}
 }
 
