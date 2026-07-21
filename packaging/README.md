@@ -54,6 +54,28 @@ Pro-only. So the installers are attached to the GitHub Release as **extra assets
 - `https://github.com/ShiroDoromoto/crofty/releases/latest/download/crofty.pkg`
 - `https://github.com/ShiroDoromoto/crofty/releases/latest/download/crofty-setup.exe`
 
+## Update payloads (for `crofty update`)
+
+The installers are how a person gets crofty the first time. `crofty update`
+(D-339) is how the body updates after that — it self-fetches and swaps only the
+body in the user's home, never re-running the installer (that is what keeps root,
+and Gatekeeper, out of the update). So the same body the installers drop is also
+published as a machine-fetchable archive, one per bundled-Hugo route, at fixed
+`latest/download` names so update needs no tag lookup:
+
+- `…/releases/latest/download/crofty-body-darwin-universal.tar.gz` — a tree:
+  `bin/crofty` beside `libexec/crofty/hugo` (what the .pkg lays in the home).
+- `…/releases/latest/download/crofty-body-windows-amd64.zip` — flat: `crofty.exe`
+  beside `hugo.exe` (what the .exe lays in `%LOCALAPPDATA%\crofty\bin`).
+- `…/releases/latest/download/crofty-body-checksums.txt` — sha256 in `shasum -a
+  256` format; update reads its route's hash by asset name and verifies before
+  swapping.
+
+The install-script route carries no Hugo, so it needs no body of its own: an
+update there reuses wharfy's binary archive. Windows delivery of the swap (an
+in-use `.exe` can't overwrite itself) is a separate task; this only produces the
+payload.
+
 ## Release procedure
 
 These are built in public CI, not on a laptop: pushing a tag runs
@@ -68,12 +90,13 @@ packaging/release-installers.sh X.Y.Z [outdir]   # from repo root, after `wharfy
 ```
 
 It builds a universal `.pkg` (arm64+amd64, ad-hoc signed) and the amd64 `.exe`,
-each with its Hugo, then attaches both to the release with `--clobber`. Rare
-win/arm64 users fall back to the install script. The `.pkg` runs about 47 MB and
-the `.exe` about 28 MB — Hugo is most of that. Passing `outdir` keeps the two
-files after the upload, which is how CI attests their build provenance: wharfy
-never sees these assets, and provenance covering only part of a release is
-rejected by `wharfy verify`.
+each with its Hugo, plus the `crofty update` payloads (the same bodies, as a
+tar.gz / zip with a sha256 checksums file), then attaches them all to the release
+with `--clobber`. Rare win/arm64 users fall back to the install script. The
+`.pkg` runs about 47 MB and the `.exe` about 28 MB — Hugo is most of that.
+Passing `outdir` keeps the files after the upload, which is how CI attests their
+build provenance: wharfy never sees these assets, and provenance covering only
+part of a release is rejected by `wharfy verify`.
 
 Running it by hand needs a macOS host with `makensis` and `gh` — and is only for
 when CI is down, because a laptop build carries no provenance at all.

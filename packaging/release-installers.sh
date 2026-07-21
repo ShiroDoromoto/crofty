@@ -48,7 +48,39 @@ WIN_AMD="$(ls -d "$DIST"/crofty_windows_amd64*/crofty.exe 2>/dev/null | head -1)
 HUGO_WIN="$("$HERE/hugo.sh" windows-amd64 "$OUT")"
 "$HERE/windows/build-exe.sh" "$VERSION" "$WIN_AMD" "$HUGO_WIN" "$OUT/crofty-setup.exe"
 
-# --- attach to the GitHub release (idempotent: --clobber replaces same-name) ---
-gh release upload "v$VERSION" "$OUT/crofty.pkg" "$OUT/crofty-setup.exe" --clobber
+# --- update payloads (D-339): the body `crofty update` self-fetches to replace
+#     itself, identical to what the installers drop. macOS is a tree (crofty under
+#     bin/, Hugo under libexec/crofty/ — the same shape build-pkg.sh stages and
+#     crofty resolves Hugo from); Windows is flat (crofty.exe beside hugo.exe, as
+#     installer.nsi lays them). The install-script route carries no Hugo, so it
+#     reuses wharfy's own binary archives — no extra payload is built here. ---
+MACBODY="$OUT/body-darwin"
+mkdir -p "$MACBODY/bin" "$MACBODY/libexec/crofty"
+cp "$OUT/crofty" "$MACBODY/bin/crofty"
+cp -p "$HUGO_MAC" "$MACBODY/libexec/crofty/hugo"
+cp "$HERE/hugo/LICENSE-hugo.txt" "$MACBODY/libexec/crofty/LICENSE-hugo.txt"
+tar -C "$MACBODY" -czf "$OUT/crofty-body-darwin-universal.tar.gz" bin libexec
 
-echo "attached crofty.pkg + crofty-setup.exe to release v$VERSION"
+WINBODY="$OUT/body-windows"
+mkdir -p "$WINBODY"
+cp "$WIN_AMD" "$WINBODY/crofty.exe"
+cp "$HUGO_WIN" "$WINBODY/hugo.exe"
+cp "$HERE/hugo/LICENSE-hugo.txt" "$WINBODY/LICENSE-hugo.txt"
+( cd "$WINBODY" && zip -q "$OUT/crofty-body-windows-amd64.zip" crofty.exe hugo.exe LICENSE-hugo.txt )
+
+# Checksums, paired with the verification crofty update does after downloading
+# (sha256, in `shasum -a 256` format so update reads the hash by asset name).
+( cd "$OUT" && shasum -a 256 \
+    crofty-body-darwin-universal.tar.gz \
+    crofty-body-windows-amd64.zip \
+    > crofty-body-checksums.txt )
+
+# --- attach to the GitHub release (idempotent: --clobber replaces same-name) ---
+gh release upload "v$VERSION" \
+  "$OUT/crofty.pkg" "$OUT/crofty-setup.exe" \
+  "$OUT/crofty-body-darwin-universal.tar.gz" \
+  "$OUT/crofty-body-windows-amd64.zip" \
+  "$OUT/crofty-body-checksums.txt" \
+  --clobber
+
+echo "attached installers + update payloads to release v$VERSION"
