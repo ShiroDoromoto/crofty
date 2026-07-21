@@ -46,6 +46,7 @@ func commands() []command {
 		{"share", "Print a ready-to-post fragment (text + link) for any SNS", runShare},
 		{"credit", "Show or set the optional, removable \"Made with crofty\" footer line", runCredit},
 		{"theme", "Bring the theme onto disk to customize (eject tokens or full)", runTheme},
+		{"update", "Update crofty itself to the latest release (self-fetch, no reinstall)", runUpdate},
 		{"eject", "Convert to a plain Hugo project (later)", runEject},
 	}
 }

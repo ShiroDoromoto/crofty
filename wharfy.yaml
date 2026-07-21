@@ -22,10 +22,11 @@
 # nobody ran — install.sh puts the same binary on PATH, on every distro, and the
 # update notice walks the last .deb/.rpm users out.
 #
-# That notice is not a command: crofty has no `update` subcommand and does not
-# update itself. It is the nudge printed at the end of a run when a newer release
-# exists (internal/cli/update.go), and it names a route-specific way out — which
-# is why retiring a channel means teaching upgradeHintFor about it.
+# That notice is the nudge printed at the end of a run when a newer release exists
+# (internal/cli/update.go); it names a route-specific way out, which is why
+# retiring a channel means teaching upgradeHintFor about it. `crofty update` now
+# self-updates the routes that can (the .pkg body, the install.sh binary — D-339),
+# but the nudge still covers the ones that can't, a retired channel among them.
 channels:
   - releases
   - script

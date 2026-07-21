@@ -413,6 +413,9 @@ func agentDetails() map[string]agentCmd {
 			},
 			Examples: []string{"crofty theme set quiet-paper", "crofty theme eject", "crofty theme eject --full"},
 		},
+		"update": {
+			Examples: []string{"crofty update   # fetch the latest release and replace this crofty in place"},
+		},
 		"eject": {
 			Examples: []string{"crofty eject   # not implemented yet — own the theme today with 'crofty theme eject --full'"},
 		},

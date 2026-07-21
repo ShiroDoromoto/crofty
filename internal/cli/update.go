@@ -23,9 +23,14 @@ import (
 // through routes (click installers, install scripts) that do NOT silently
 // auto-upgrade an installed binary: without a nudge, someone who installed once
 // can sit on an old version forever, never learning a fix or feature shipped.
-// We deliberately do NOT self-update the binary — the installers are unsigned and
-// crofty does not own the file once a package manager has placed it; we only
-// print the one command to run.
+//
+// This file is the notifier, not the updater — it only points the way. Since
+// D-339 the updater exists too: `crofty update` (updatecmd.go) self-fetches the
+// release and swaps the binary in place, on the routes that can. But crofty still
+// never updates on its own — no auto-upgrade at startup; the nudge runs at the
+// end of a command to remind a stale binary, and the decision to act stays the
+// author's. Both read the install route from the one classifier here, so they
+// can never disagree about which way out to name.
 //
 // It is quiet by construction: it never runs for source builds (Version=="dev"),
 // it can be turned off with CROFTY_NO_UPDATE_CHECK, it talks to the network at
@@ -41,9 +46,9 @@ const (
 	updateTimeout   = 1500 * time.Millisecond
 
 	// releaseNotesURL is where an upgrade nudge sends someone to find out what
-	// actually changed. crofty never updates itself, so every upgrade starts as a
-	// decision the author makes — and "a newer version exists" is not enough to
-	// make one on. It points at crofty.site rather than the GitHub releases page
+	// actually changed. crofty never upgrades on its own, so every upgrade starts
+	// as a decision the author makes — and "a newer version exists" is not enough
+	// to make one on. It points at crofty.site rather than the GitHub releases page
 	// because that one reads: it has both languages, and patches folded in.
 	releaseNotesURL = "https://crofty.site/releases/"
 )
@@ -138,22 +143,70 @@ func upgradeHint() string {
 	return upgradeHintFor(exe, runtime.GOOS, hugobin.Bundled(exe, runtime.GOOS))
 }
 
-// upgradeHintFor maps a resolved binary path (and OS) to the right upgrade
-// command. Split out from upgradeHint so the classification is testable without
-// depending on where the test binary happens to live — which is also why the
-// one fact it needs from the filesystem, whether a click installer's Hugo sits
-// next to the binary, arrives as an argument rather than being looked up here.
-func upgradeHintFor(exe, goos string, bundledHugo bool) string {
+// installRoute is how this binary got onto the machine, inferred from where it
+// lives. It is the one classification both the upgrade nudge and `crofty update`
+// stand on: the nudge turns a route into the sentence a human reads, and update
+// turns the same route into a decision — self-fetch and swap, or hand back the
+// nudge because this route can't (a dead channel, a root-owned install, Windows
+// until 3b lands, or an install crofty doesn't recognize).
+type installRoute int
+
+const (
+	routeUnknown      installRoute = iota // unrecognized (incl. `go install`) → releases page
+	routeHomebrew                         // Homebrew (dead channel)
+	routeScoop                            // Scoop (dead channel)
+	routeDebRpm                           // .deb/.rpm on Linux (dead channel)
+	routeWindowsClick                     // %LOCALAPPDATA%\crofty\bin (click installer / install.ps1)
+	routeScriptUser                       // install.sh, per-user ($HOME/.local)
+	routeScriptSystem                     // install.sh, system-wide (PREFIX=/usr/local, root-owned)
+	routePkgDarwin                        // macOS .pkg body (user-writable, bundled Hugo alongside)
+)
+
+// classifyInstall maps a resolved binary path (and OS) to its installRoute. It
+// is split from the hint and the update logic so the one classification they
+// share lives in a single place — which is also why the one fact it needs from
+// the filesystem, whether a click installer's Hugo sits next to the binary,
+// arrives as an argument rather than being looked up here.
+//
+// The order matters: the macOS routes both answer to /usr/local, and only the
+// bundled Hugo tells the .pkg body apart from a system-wide install.sh.
+func classifyInstall(exe, goos string, bundledHugo bool) installRoute {
 	low := strings.ToLower(exe)
 	switch {
+	case strings.Contains(low, "/cellar/") || strings.Contains(low, "/homebrew/"):
+		return routeHomebrew
+	case strings.Contains(low, "scoop"):
+		return routeScoop
+	case strings.Contains(low, `\appdata\local\`):
+		return routeWindowsClick
+	case strings.Contains(low, "/.local/"):
+		return routeScriptUser
+	case strings.HasPrefix(low, "/usr/local/"):
+		if goos == "darwin" && bundledHugo {
+			return routePkgDarwin
+		}
+		return routeScriptSystem
+	case goos == "linux" && strings.HasPrefix(exe, "/usr/"):
+		return routeDebRpm
+	default:
+		return routeUnknown
+	}
+}
+
+// upgradeHintFor returns the route-specific command that updates crofty from
+// where this binary lives — the sentence the nudge and the `crofty update`
+// refusal both print. It reads its route from classifyInstall so the two can
+// never disagree about what kind of install this is.
+func upgradeHintFor(exe, goos string, bundledHugo bool) string {
+	switch classifyInstall(exe, goos, bundledHugo) {
 	// crofty no longer ships to Homebrew or Scoop, so the tap and the bucket are
 	// frozen: `brew upgrade` would find nothing and say nothing. Whoever installed
 	// that way has to leave, and this notice is the one place they hear about it.
-	case strings.Contains(low, "/cellar/") || strings.Contains(low, "/homebrew/"):
+	case routeHomebrew:
 		return "run 'brew uninstall crofty', then install from https://crofty.site — crofty no longer ships to Homebrew"
-	case strings.Contains(low, "scoop"):
+	case routeScoop:
 		return "run 'scoop uninstall crofty', then install from https://crofty.site — crofty no longer ships to Scoop"
-	case strings.Contains(low, `\appdata\local\`):
+	case routeWindowsClick:
 		// Both Windows routes land in %LOCALAPPDATA%\crofty\bin — the click
 		// installer and install.ps1 — so the path cannot tell them apart. Name the
 		// installer: it overwrites this binary in place either way, and it is the
@@ -161,21 +214,20 @@ func upgradeHintFor(exe, goos string, bundledHugo bool) string {
 		// real Windows box that pipeline died inside schannel, and an update notice
 		// that sends someone back through a known failure is worse than silence.
 		return "install crofty-setup.exe from https://github.com/ShiroDoromoto/crofty/releases/latest/download/crofty-setup.exe over this one"
-	case strings.Contains(low, "/.local/"):
+	case routeScriptUser:
 		// per-user install.sh target ($HOME/.local/bin): re-run the script
 		return "re-run: curl -fsSL https://crofty.site/install.sh | sh"
-	case strings.HasPrefix(low, "/usr/local/"):
-		// Both macOS routes land in /usr/local/bin, so the path alone cannot tell
-		// them apart — the bundled Hugo can, because only the .pkg leaves one. Send
-		// .pkg users back to the .pkg: they came in without opening a terminal, and
-		// install.sh replaces the binary only, leaving the .pkg's Hugo behind for
-		// hugobin.Resolve to keep preferring over PATH forever after.
-		if goos == "darwin" && bundledHugo {
-			return "install crofty.pkg from https://github.com/ShiroDoromoto/crofty/releases/latest/download/crofty.pkg over this one"
-		}
+	case routePkgDarwin:
+		// Send .pkg users back to the .pkg: they came in without opening a
+		// terminal, and install.sh replaces the binary only, leaving the .pkg's
+		// Hugo behind for hugobin.Resolve to keep preferring over PATH forever
+		// after. (This is only reached when self-update can't run; `crofty update`
+		// swaps this body itself.)
+		return "install crofty.pkg from https://github.com/ShiroDoromoto/crofty/releases/latest/download/crofty.pkg over this one"
+	case routeScriptSystem:
 		// system-wide install.sh target (PREFIX=/usr/local): re-run it the same way
 		return "re-run: curl -fsSL https://crofty.site/install.sh | sudo PREFIX=/usr/local sh"
-	case goos == "linux" && strings.HasPrefix(exe, "/usr/"):
+	case routeDebRpm:
 		// /usr/bin on Linux means the old .deb/.rpm, which crofty no longer builds.
 		// No repo ever stood behind them, so nothing will tell these users to move:
 		// this notice is the only place they hear it.
