@@ -67,14 +67,19 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      # wharfy attests what it uploads itself; these two it never saw, and
-      # provenance that covers only some artifacts is worse than none — verify
-      # fails it. Attest the exact bytes we just uploaded.
+      # wharfy attests what it uploads itself; these it never saw, and provenance
+      # that covers only some artifacts is worse than none — verify fails it. So
+      # attest the exact bytes release-installers.sh just uploaded: the two click
+      # installers, and the update payloads `crofty update` self-fetches (D-339,
+      # the bodies plus their checksums file).
       - uses: actions/attest-build-provenance@v2
         with:
           subject-path: |
             dist/installers/crofty.pkg
             dist/installers/crofty-setup.exe
+            dist/installers/crofty-body-darwin-universal.tar.gz
+            dist/installers/crofty-body-windows-amd64.zip
+            dist/installers/crofty-body-checksums.txt
 
       - name: verify the prerelease from the consumer side
         run: wharfy verify --version "$VERSION"
