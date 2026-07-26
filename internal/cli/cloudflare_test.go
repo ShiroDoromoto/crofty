@@ -1,9 +1,14 @@
 package cli
 
 import (
+	"errors"
 	"net/http"
 	"net/http/httptest"
+	"os"
+	"strings"
 	"testing"
+
+	"github.com/zalando/go-keyring"
 
 	"github.com/ShiroDoromoto/crofty/internal/project"
 )
@@ -94,6 +99,104 @@ func TestPickAccountExplicitFlagWins(t *testing.T) {
 	got, ok, err := pickAccount("tok", cfg, "chosen")
 	if err != nil || !ok || got.id != "chosen" {
 		t.Fatalf("got (%+v, %v, %v), want chosen", got, ok, err)
+	}
+}
+
+// pinnedTo returns a project rooted in a fresh temp dir plus a config pinned to
+// accountID — the shape connectCloudflare sees on a CI checkout.
+func pinnedTo(t *testing.T, accountID string) (*project.Project, *project.Config) {
+	t.Helper()
+	cfg := &project.Config{}
+	cfg.Deploy.AccountID = accountID
+	return &project.Project{Root: t.TempDir()}, cfg
+}
+
+// cfPagesFor serves Pages access on one account for exactly one bearer token,
+// and fails every other request — so a test can prove *which* token was used.
+func cfPagesFor(t *testing.T, wantToken, accountID string) http.HandlerFunc {
+	t.Helper()
+	return func(w http.ResponseWriter, r *http.Request) {
+		if r.Header.Get("Authorization") != "Bearer "+wantToken || r.URL.Path != "/accounts/"+accountID+"/pages/projects" {
+			w.WriteHeader(http.StatusForbidden)
+			w.Write([]byte(`{"success":false,"errors":[{"message":"no access"}]}`))
+			return
+		}
+		w.Write([]byte(`{"success":true,"result":[]}`))
+	}
+}
+
+func TestConnectCloudflareTakesTheTokenFromTheEnvironment(t *testing.T) {
+	// CI has no TTY and no keychain: the token comes from the environment, wins
+	// over anything saved, and leaves no trace behind.
+	keyring.MockInit()
+	if err := saveCFToken("acct", "keychain-token"); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv(cfTokenEnv, "  env-token\n")
+	defer withCFServer(t, cfPagesFor(t, "env-token", "acct"))()
+
+	proj, cfg := pinnedTo(t, "acct")
+	tok, acct, proceed, err := connectCloudflare(proj, cfg, "", false)
+	if err != nil || !proceed {
+		t.Fatalf("connectCloudflare: (%v, %v)", proceed, err)
+	}
+	if tok != "env-token" || acct.id != "acct" {
+		t.Fatalf("got token %q account %q, want the environment's token", tok, acct.id)
+	}
+	if saved, err := savedCFToken("acct"); err != nil || saved != "keychain-token" {
+		t.Fatalf("keychain holds %q (%v) — an env token must not be stored", saved, err)
+	}
+	if _, err := os.Stat(proj.ConfigPath()); !os.IsNotExist(err) {
+		t.Fatalf("%s was written — an env token must not rewrite the config", proj.ConfigPath())
+	}
+}
+
+func TestConnectCloudflareIgnoresTheGenericTokenName(t *testing.T) {
+	// CLOUDFLARE_API_TOKEN is usually set for some other tool; reading it would
+	// deploy to whichever account that tool belongs to.
+	keyring.MockInit()
+	t.Setenv(cfTokenEnv, "")
+	t.Setenv("CLOUDFLARE_API_TOKEN", "generic-token")
+	defer withCFServer(t, func(w http.ResponseWriter, r *http.Request) {
+		t.Errorf("called the Cloudflare API with %q — the generic name must not be read", r.Header.Get("Authorization"))
+		w.WriteHeader(http.StatusForbidden)
+	})()
+
+	proj, cfg := pinnedTo(t, "acct")
+	_, _, _, err := connectCloudflare(proj, cfg, "", false)
+	if err == nil || !strings.Contains(err.Error(), "terminal") {
+		t.Fatalf("got %v, want the no-token-in-a-non-terminal error", err)
+	}
+}
+
+func TestConnectCloudflareEnvTokenSurvivesAnUnusableKeychain(t *testing.T) {
+	// A runner has no keychain at all. That is not a failure — the token it does
+	// have is enough.
+	keyring.MockInitWithError(errors.New("no keychain here"))
+	defer keyring.MockInit()
+	t.Setenv(cfTokenEnv, "env-token")
+	defer withCFServer(t, cfPagesFor(t, "env-token", "acct"))()
+
+	proj, cfg := pinnedTo(t, "acct")
+	tok, _, proceed, err := connectCloudflare(proj, cfg, "", false)
+	if err != nil || !proceed || tok != "env-token" {
+		t.Fatalf("got (%q, %v, %v), want the env token", tok, proceed, err)
+	}
+}
+
+func TestConnectCloudflareKeepsTheSavedTokenWhenNoEnvIsSet(t *testing.T) {
+	// Without the variable, the keychain path is exactly what it was.
+	keyring.MockInit()
+	if err := saveCFToken("acct", "keychain-token"); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv(cfTokenEnv, "")
+	defer withCFServer(t, cfPagesFor(t, "keychain-token", "acct"))()
+
+	proj, cfg := pinnedTo(t, "acct")
+	tok, acct, proceed, err := connectCloudflare(proj, cfg, "", false)
+	if err != nil || !proceed || tok != "keychain-token" || acct.id != "acct" {
+		t.Fatalf("got (%q, %q, %v, %v), want the saved token", tok, acct.id, proceed, err)
 	}
 }
 

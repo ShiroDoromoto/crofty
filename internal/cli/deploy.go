@@ -357,6 +357,13 @@ type cfAccount struct {
 // cfSignupURL is where a user with no Cloudflare account can make a free one.
 const cfSignupURL = "https://dash.cloudflare.com/sign-up"
 
+// cfTokenEnv is the only environment variable crofty reads a Cloudflare token
+// from — the entry a non-interactive runner (CI) uses, where there is neither a
+// TTY nor a keychain. The generic CLOUDFLARE_API_TOKEN is deliberately NOT read:
+// it is often set for some other tool, and picking it up would silently deploy
+// to a different account. A CROFTY_-prefixed variable exists for crofty alone.
+const cfTokenEnv = "CROFTY_CLOUDFLARE_API_TOKEN"
+
 // cfTokenStore keeps Cloudflare API tokens in the OS keychain, keyed by account
 // id so projects sharing an account share one token. These are crofty's own
 // tokens — wrangler's login is never used.
@@ -370,11 +377,27 @@ func saveCFToken(accountID, token string) error {
 	return cfTokenStore().Set(accountID, "api_token", token)
 }
 
-// connectCloudflare returns the token + account a deploy should use. It reuses
-// the saved token for a pinned account, or runs the token flow (TTY, verified,
-// stored) on the first deploy or when --reauth is set. proceed is false only when
-// the user chose no account (e.g. cancelled the picker).
+// connectCloudflare returns the token + account a deploy should use. It takes a
+// token from the environment when one is set, else reuses the saved token for a
+// pinned account, else runs the token flow (TTY, verified, stored) on the first
+// deploy or when --reauth is set. proceed is false only when the user chose no
+// account (e.g. cancelled the picker).
 func connectCloudflare(proj *project.Project, cfg *project.Config, accountFlag string, reauth bool) (token string, acct cfAccount, proceed bool, err error) {
+	// A token in the environment is the credential for this run, and only this
+	// run: it comes from a runner's secret store, so it is not ours to keep. It
+	// is never written to the keychain, and the config file is left untouched so
+	// a CI checkout stays clean. Say where it came from — a credential must not
+	// change under the user in silence. --reauth does not apply: it replaces a
+	// saved credential, and this one was never saved.
+	if tok := strings.TrimSpace(os.Getenv(cfTokenEnv)); tok != "" {
+		fmt.Printf("Cloudflare token: $%s\n", cfTokenEnv)
+		chosen, ok, e := pickAccount(tok, cfg, accountFlag)
+		if e != nil || !ok {
+			return "", cfAccount{}, false, e
+		}
+		return tok, chosen, true, nil
+	}
+
 	// Fast path: a pinned account with a saved, still-valid token.
 	if cfg.Deploy.AccountID != "" && accountFlag == "" && !reauth {
 		if tok, e := savedCFToken(cfg.Deploy.AccountID); e == nil {
@@ -416,9 +439,8 @@ func connectCloudflare(proj *project.Project, cfg *project.Config, accountFlag s
 // the common case is a fresh token for a *different* Cloudflare account because
 // the user is moving the site. Forcing them to rerun with --account (a flag most
 // people never discover) is the wrong answer — instead we fall through to account
-// discovery and re-pin to whatever the token can actually use. pickAccount is only
-// ever reached after the interactive token prompt, so stdin is a terminal and we
-// can ask the user to choose. ok is false only when nothing was chosen.
+// discovery and re-pin to whatever the token can actually use. ok is false only
+// when nothing was chosen.
 func pickAccount(token string, cfg *project.Config, accountFlag string) (cfAccount, bool, error) {
 	// An explicit --account always wins.
 	if want := accountFlag; want != "" {
@@ -467,8 +489,7 @@ func pickAccount(token string, cfg *project.Config, accountFlag string) (cfAccou
 }
 
 // chooseAccount asks the user to pick from the accounts a token can reach, by
-// number — so it works without the user knowing the --account flag. It is only
-// reached after the interactive token prompt, so stdin is a terminal.
+// number — so it works without the user knowing the --account flag.
 func chooseAccount(accts []cfAccount, pinned string) (cfAccount, bool, error) {
 	fmt.Println()
 	fmt.Println("This token reaches several Cloudflare accounts:")
