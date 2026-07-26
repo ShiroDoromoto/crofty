@@ -1,14 +1,11 @@
 package cli
 
 import (
-	"errors"
 	"net/http"
 	"net/http/httptest"
 	"os"
 	"strings"
 	"testing"
-
-	"github.com/zalando/go-keyring"
 
 	"github.com/ShiroDoromoto/crofty/internal/project"
 )
@@ -138,7 +135,7 @@ func cfPagesFor(t *testing.T, wantToken, accountID string) http.HandlerFunc {
 func TestConnectCloudflareTakesTheTokenFromTheEnvironment(t *testing.T) {
 	// CI has no TTY and no keychain: the token comes from the environment, wins
 	// over anything saved, and leaves no trace behind.
-	keyring.MockInit()
+	freshKeychain(t)
 	if err := saveCFToken("acct", "keychain-token"); err != nil {
 		t.Fatal(err)
 	}
@@ -165,7 +162,7 @@ func TestConnectCloudflareLetsReauthOutrankTheEnvironment(t *testing.T) {
 	// `crofty connect` passes reauth to save a token. A variable that is merely
 	// set must not answer for it, or the run reports a keychain entry it never
 	// wrote.
-	keyring.MockInit()
+	freshKeychain(t)
 	withTerminal(t, false)
 	t.Setenv(cfTokenEnv, "env-token")
 	defer withCFServer(t, func(w http.ResponseWriter, r *http.Request) {
@@ -186,7 +183,7 @@ func TestConnectCloudflareLetsReauthOutrankTheEnvironment(t *testing.T) {
 func TestConnectCloudflareIgnoresTheGenericTokenName(t *testing.T) {
 	// CLOUDFLARE_API_TOKEN is usually set for some other tool; reading it would
 	// deploy to whichever account that tool belongs to.
-	keyring.MockInit()
+	freshKeychain(t)
 	withTerminal(t, false)
 	t.Setenv(cfTokenEnv, "")
 	t.Setenv("CLOUDFLARE_API_TOKEN", "generic-token")
@@ -208,8 +205,7 @@ func TestConnectCloudflareIgnoresTheGenericTokenName(t *testing.T) {
 func TestConnectCloudflareEnvTokenSurvivesAnUnusableKeychain(t *testing.T) {
 	// A runner has no keychain at all. That is not a failure — the token it does
 	// have is enough.
-	keyring.MockInitWithError(errors.New("no keychain here"))
-	defer keyring.MockInit()
+	brokenKeychain(t, "no keychain here")
 	t.Setenv(cfTokenEnv, "env-token")
 	defer withCFServer(t, cfPagesFor(t, "env-token", "acct"))()
 
@@ -222,7 +218,7 @@ func TestConnectCloudflareEnvTokenSurvivesAnUnusableKeychain(t *testing.T) {
 
 func TestConnectCloudflareKeepsTheSavedTokenWhenNoEnvIsSet(t *testing.T) {
 	// Without the variable, the keychain path is exactly what it was.
-	keyring.MockInit()
+	freshKeychain(t)
 	if err := saveCFToken("acct", "keychain-token"); err != nil {
 		t.Fatal(err)
 	}

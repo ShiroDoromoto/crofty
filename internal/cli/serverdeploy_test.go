@@ -8,8 +8,6 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/zalando/go-keyring"
-
 	"github.com/ShiroDoromoto/crofty/internal/secret"
 )
 
@@ -209,7 +207,7 @@ func TestRequireServerConfig(t *testing.T) {
 }
 
 func TestResolveSecretPrefersTheEnvironmentAndKeepsNothing(t *testing.T) {
-	keyring.MockInit()
+	freshKeychain(t)
 	store := secret.New("sftp")
 	if err := store.Set("host:user", "password", "keychain-pw"); err != nil {
 		t.Fatal(err)
@@ -227,7 +225,7 @@ func TestResolveSecretPrefersTheEnvironmentAndKeepsNothing(t *testing.T) {
 
 func TestResolveSecretFallsBackToTheKeychain(t *testing.T) {
 	// Without the variable, the keychain path is exactly what it was.
-	keyring.MockInit()
+	freshKeychain(t)
 	store := secret.New("ftps")
 	if err := store.Set("host:user", "password", "keychain-pw"); err != nil {
 		t.Fatal(err)
@@ -243,7 +241,7 @@ func TestResolveSecretFallsBackToTheKeychain(t *testing.T) {
 func TestResolveSecretIgnoresAGenericVariableName(t *testing.T) {
 	// SFTP_PASSWORD is somebody else's variable; reading it would send this
 	// site's files with a credential crofty was never given.
-	keyring.MockInit()
+	freshKeychain(t)
 	withTerminal(t, false)
 	t.Setenv(sftpPasswordEnv, "")
 	t.Setenv("SFTP_PASSWORD", "generic-pw")
@@ -260,7 +258,7 @@ func TestResolveSecretIgnoresAGenericVariableName(t *testing.T) {
 func TestResolveSecretLetsReauthOutrankTheEnvironment(t *testing.T) {
 	// `crofty connect` (and --reauth) exist to save a credential. If a variable
 	// answered for it, the run would report a keychain entry it never wrote.
-	keyring.MockInit()
+	freshKeychain(t)
 	withTerminal(t, false)
 	t.Setenv(sftpPasswordEnv, "env-pw")
 
@@ -276,7 +274,7 @@ func TestResolveSecretLetsReauthOutrankTheEnvironment(t *testing.T) {
 func TestResolveSecretNamesEveryCredentialSeparately(t *testing.T) {
 	// One variable per credential: a runner grants the passphrase without also
 	// handing over the password, and vice versa.
-	keyring.MockInit()
+	freshKeychain(t)
 	withTerminal(t, false)
 	t.Setenv(sftpPasswordEnv, "")
 	t.Setenv(sftpPassphraseEnv, "env-passphrase")

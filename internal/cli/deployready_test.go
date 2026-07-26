@@ -12,7 +12,6 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/zalando/go-keyring"
 	"golang.org/x/crypto/ssh"
 
 	"github.com/ShiroDoromoto/crofty/internal/project"
@@ -85,7 +84,7 @@ func serverConfig(provider, host, user, path, keyPath string) *project.Config {
 }
 
 func TestDeployReadyCloudflareTakesTheTokenFromTheEnvironment(t *testing.T) {
-	keyring.MockInit()
+	freshKeychain(t)
 	noDeployEnv(t)
 	t.Setenv(cfTokenEnv, "env-token")
 
@@ -101,7 +100,7 @@ func TestDeployReadyCloudflareTakesTheTokenFromTheEnvironment(t *testing.T) {
 func TestDeployReadyCloudflareWantsThePinnedAccount(t *testing.T) {
 	// The one people trip over: the token is in the environment, but nothing
 	// says which account, and with no terminal there is nobody to pick.
-	keyring.MockInit()
+	freshKeychain(t)
 	noDeployEnv(t)
 	t.Setenv(cfTokenEnv, "env-token")
 
@@ -118,7 +117,7 @@ func TestDeployReadyCloudflareWantsThePinnedAccount(t *testing.T) {
 }
 
 func TestDeployReadyCloudflareFindsASavedToken(t *testing.T) {
-	keyring.MockInit()
+	freshKeychain(t)
 	noDeployEnv(t)
 	if err := saveCFToken("abc123", "saved-token"); err != nil {
 		t.Fatal(err)
@@ -134,7 +133,7 @@ func TestDeployReadyCloudflareFindsASavedToken(t *testing.T) {
 }
 
 func TestDeployReadyCloudflareNamesTheVariableWhenThereIsNoToken(t *testing.T) {
-	keyring.MockInit()
+	freshKeychain(t)
 	noDeployEnv(t)
 
 	r := checkDeployReady(cloudflareConfig("blog", "abc123"), nil)
@@ -147,7 +146,7 @@ func TestDeployReadyCloudflareNamesTheVariableWhenThereIsNoToken(t *testing.T) {
 }
 
 func TestDeployReadyCloudflareWantsAProjectToPublishTo(t *testing.T) {
-	keyring.MockInit()
+	freshKeychain(t)
 	noDeployEnv(t)
 	t.Setenv(cfTokenEnv, "env-token")
 
@@ -160,7 +159,7 @@ func TestDeployReadyCloudflareWantsAProjectToPublishTo(t *testing.T) {
 func TestDeployReadyNeverCarriesTheSecretItself(t *testing.T) {
 	// The report travels: it is printed, and `--json` hands it to an agent. A
 	// credential must not ride along in any field.
-	keyring.MockInit()
+	freshKeychain(t)
 	noDeployEnv(t)
 	const secretValue = "s3cr3t-token-value"
 	if err := saveCFToken("abc123", secretValue); err != nil {
@@ -183,7 +182,7 @@ func TestDeployReadyNeverCarriesTheSecretItself(t *testing.T) {
 }
 
 func TestDeployReadySFTPTakesThePasswordFromTheEnvironment(t *testing.T) {
-	keyring.MockInit()
+	freshKeychain(t)
 	noDeployEnv(t)
 	t.Setenv(sftpPasswordEnv, "env-pw")
 
@@ -197,7 +196,7 @@ func TestDeployReadySFTPTakesThePasswordFromTheEnvironment(t *testing.T) {
 }
 
 func TestDeployReadySFTPNamesTheConnectionFieldsItHasNot(t *testing.T) {
-	keyring.MockInit()
+	freshKeychain(t)
 	noDeployEnv(t)
 	t.Setenv(sftpPasswordEnv, "env-pw")
 
@@ -211,7 +210,7 @@ func TestDeployReadySFTPNamesTheConnectionFieldsItHasNot(t *testing.T) {
 }
 
 func TestDeployReadySFTPKeyWithNoPassphraseNeedsNothingElse(t *testing.T) {
-	keyring.MockInit()
+	freshKeychain(t)
 	noDeployEnv(t)
 
 	r := checkDeployReady(serverConfig("sftp", "example.com", "alice", "/var/www", writeSSHKey(t, "")), nil)
@@ -221,7 +220,7 @@ func TestDeployReadySFTPKeyWithNoPassphraseNeedsNothingElse(t *testing.T) {
 }
 
 func TestDeployReadySFTPEncryptedKeyNamesThePassphraseVariable(t *testing.T) {
-	keyring.MockInit()
+	freshKeychain(t)
 	noDeployEnv(t)
 
 	r := checkDeployReady(serverConfig("sftp", "example.com", "alice", "/var/www", writeSSHKey(t, "hunter2")), nil)
@@ -238,7 +237,7 @@ func TestDeployReadySFTPEncryptedKeyNamesThePassphraseVariable(t *testing.T) {
 }
 
 func TestDeployReadySFTPSaysWhenTheKeyCannotBeRead(t *testing.T) {
-	keyring.MockInit()
+	freshKeychain(t)
 	noDeployEnv(t)
 
 	r := checkDeployReady(serverConfig("sftp", "example.com", "alice", "/var/www", filepath.Join(t.TempDir(), "absent")), nil)
@@ -252,7 +251,7 @@ func TestDeployReadySFTPSaysWhenTheKeyCannotBeRead(t *testing.T) {
 
 func TestDeployReadyFTPSReadsItsOwnPasswordVariable(t *testing.T) {
 	// One variable per credential: SFTP's password must not answer for FTPS.
-	keyring.MockInit()
+	freshKeychain(t)
 	noDeployEnv(t)
 	t.Setenv(sftpPasswordEnv, "env-pw")
 
@@ -273,7 +272,7 @@ func TestDeployReadyFTPSReadsItsOwnPasswordVariable(t *testing.T) {
 }
 
 func TestDeployReadyReportsAConfigItCannotRead(t *testing.T) {
-	keyring.MockInit()
+	freshKeychain(t)
 	noDeployEnv(t)
 
 	r := checkDeployReady(nil, errors.New("parsing .crofty/config.json: unexpected end of JSON input"))
@@ -288,7 +287,7 @@ func TestDeployReadyReportsAConfigItCannotRead(t *testing.T) {
 func TestDeployReadyMissingIsAlwaysAList(t *testing.T) {
 	// `--json` is read by agents: a null where a list belongs makes every reader
 	// handle two shapes.
-	keyring.MockInit()
+	freshKeychain(t)
 	noDeployEnv(t)
 	t.Setenv(cfTokenEnv, "env-token")
 
@@ -302,7 +301,7 @@ func TestDeployReadyMissingIsAlwaysAList(t *testing.T) {
 }
 
 func TestDeployProviderDefaultsToTheOneCroftyStartedWith(t *testing.T) {
-	keyring.MockInit()
+	freshKeychain(t)
 	noDeployEnv(t)
 
 	if got := deployProvider(&project.Config{}); got != "cloudflare" {

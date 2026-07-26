@@ -2,13 +2,30 @@ package secret
 
 import (
 	"errors"
+	"os"
 	"testing"
 
 	"github.com/zalando/go-keyring"
 )
 
+// TestMain puts this package on an in-memory keychain before a single test runs.
+// These tests write and delete secrets; against the real keychain that would be
+// the developer's own, so mocking is not a habit each test has to keep — it is
+// the only keychain the package's tests can reach.
+func TestMain(m *testing.M) {
+	keyring.MockInit()
+	os.Exit(m.Run())
+}
+
+// freshKeychain empties the in-memory keychain for this test, so what it asserts
+// about presence and absence can't be inherited from an earlier one.
+func freshKeychain(t *testing.T) {
+	t.Helper()
+	keyring.MockInit()
+}
+
 func TestStore_RoundTripAndNamespacing(t *testing.T) {
-	keyring.MockInit() // in-memory keychain; no real OS access in tests
+	freshKeychain(t)
 
 	s := New("ws1")
 
@@ -43,7 +60,7 @@ func TestStore_RoundTripAndNamespacing(t *testing.T) {
 func TestStore_HasAnswersWithoutHandingOverTheValue(t *testing.T) {
 	// A status report needs to say "there is a credential here" and no more —
 	// so presence is a question the caller can ask without holding the secret.
-	keyring.MockInit()
+	freshKeychain(t)
 
 	s := New("cloudflare")
 	if s.Has("acct", "api_token") {
