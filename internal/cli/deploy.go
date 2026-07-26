@@ -364,6 +364,16 @@ const cfSignupURL = "https://dash.cloudflare.com/sign-up"
 // to a different account. A CROFTY_-prefixed variable exists for crofty alone.
 const cfTokenEnv = "CROFTY_CLOUDFLARE_API_TOKEN"
 
+// canAsk reports whether crofty may put a question on the terminal. Everything
+// that would block on an answer checks it first: on a CI runner there is nobody
+// to answer, so a prompt only turns "here is what's missing" into a hang or a
+// bare EOF. It is a var so tests can drive both sides.
+var canAsk = func() bool { return term.IsTerminal(int(os.Stdin.Fd())) }
+
+// deployConfigRef names the file (and field) an author edits to pin an account,
+// for error messages that have to say where to go.
+const deployConfigRef = project.MarkerDir + "/" + project.ConfigFile
+
 // cfTokenStore keeps Cloudflare API tokens in the OS keychain, keyed by account
 // id so projects sharing an account share one token. These are crofty's own
 // tokens — wrangler's login is never used.
@@ -435,12 +445,16 @@ func connectCloudflare(proj *project.Project, cfg *project.Config, accountFlag s
 // lists, an interactive pick among several, or a prompt for the account id when
 // the token can't list any.
 //
-// A pinned account the token can NO LONGER reach is deliberately not a hard error:
-// the common case is a fresh token for a *different* Cloudflare account because
-// the user is moving the site. Forcing them to rerun with --account (a flag most
-// people never discover) is the wrong answer — instead we fall through to account
-// discovery and re-pin to whatever the token can actually use. ok is false only
-// when nothing was chosen.
+// A pinned account the token can NO LONGER reach is deliberately not a hard error
+// at a terminal: the common case is a fresh token for a *different* Cloudflare
+// account because the user is moving the site. Forcing them to rerun with
+// --account (a flag most people never discover) is the wrong answer — instead we
+// fall through to account discovery and re-pin to whatever the token can actually
+// use. ok is false only when nothing was chosen.
+//
+// With no terminal (CI) every one of those turns is a dead end instead: nobody
+// can confirm a move, so crofty stops and names what to set rather than guessing
+// a destination and publishing the site to the wrong account.
 func pickAccount(token string, cfg *project.Config, accountFlag string) (cfAccount, bool, error) {
 	// An explicit --account always wins.
 	if want := accountFlag; want != "" {
@@ -455,6 +469,9 @@ func pickAccount(token string, cfg *project.Config, accountFlag string) (cfAccou
 	if pinned != "" {
 		if err := cfVerifyPagesAccess(token, pinned); err == nil {
 			return cfAccount{id: pinned}, true, nil
+		}
+		if !canAsk() {
+			return cfAccount{}, false, fmt.Errorf("this token can't manage Pages on account %s (deploy.accountId in %s) — give it 'Cloudflare Pages: Edit' there, or pass --account <id> to publish to a different account", pinned, deployConfigRef)
 		}
 		// The token can't reach the pinned account — almost always a new token for
 		// a new account (moving the site). Don't dead-end; find one it can use.
@@ -473,7 +490,14 @@ func pickAccount(token string, cfg *project.Config, accountFlag string) (cfAccou
 		}
 		return a, true, nil
 	case err == nil && len(accts) > 1:
+		if !canAsk() {
+			return cfAccount{}, false, fmt.Errorf("this token reaches %d Cloudflare accounts and nothing says which — pass --account <id>, or set deploy.accountId in %s", len(accts), deployConfigRef)
+		}
 		return chooseAccount(accts, pinned)
+	}
+
+	if !canAsk() {
+		return cfAccount{}, false, fmt.Errorf("crofty can't tell which Cloudflare account to publish to — set deploy.accountId in %s, or pass --account <id>", deployConfigRef)
 	}
 
 	// The token can't list accounts (a Pages-only token often can't) — ask for
@@ -528,7 +552,7 @@ func parseMenuChoice(line string, max int) (int, bool) {
 // TTY prompt — never via a flag or stdin pipe, so the secret never passes through
 // an assistant's context (same rule as `targets add`).
 func promptCFToken() (string, error) {
-	if !term.IsTerminal(int(os.Stdin.Fd())) {
+	if !canAsk() {
 		return "", fmt.Errorf("crofty needs a Cloudflare API token to publish, and a token must be typed in a terminal — never through an assistant.\n"+
 			"  Run 'crofty deploy' yourself and paste the token when asked.\n"+
 			"  Create one: https://dash.cloudflare.com/profile/api-tokens\n"+

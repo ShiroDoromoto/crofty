@@ -21,6 +21,15 @@ func withCFServer(t *testing.T, h http.HandlerFunc) func() {
 	return func() { cfAPIBase = prev; srv.Close() }
 }
 
+// withTerminal fixes whether crofty believes it can ask the user something, so a
+// test can drive the interactive and the CI path from the same place.
+func withTerminal(t *testing.T, yes bool) {
+	t.Helper()
+	prev := canAsk
+	canAsk = func() bool { return yes }
+	t.Cleanup(func() { canAsk = prev })
+}
+
 func TestCFListAccounts(t *testing.T) {
 	defer withCFServer(t, func(w http.ResponseWriter, r *http.Request) {
 		if r.Header.Get("Authorization") != "Bearer good" {
@@ -63,7 +72,8 @@ func TestPickAccountKeepsReachablePin(t *testing.T) {
 
 func TestPickAccountStalePinFallsThrough(t *testing.T) {
 	// The token can't reach the pinned account but can list exactly one other —
-	// crofty must switch to it instead of dead-ending on --account.
+	// at a terminal crofty must switch to it instead of dead-ending on --account.
+	withTerminal(t, true)
 	defer withCFServer(t, func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case "/accounts/old/pages/projects":
@@ -155,6 +165,7 @@ func TestConnectCloudflareIgnoresTheGenericTokenName(t *testing.T) {
 	// CLOUDFLARE_API_TOKEN is usually set for some other tool; reading it would
 	// deploy to whichever account that tool belongs to.
 	keyring.MockInit()
+	withTerminal(t, false)
 	t.Setenv(cfTokenEnv, "")
 	t.Setenv("CLOUDFLARE_API_TOKEN", "generic-token")
 	defer withCFServer(t, func(w http.ResponseWriter, r *http.Request) {
@@ -197,6 +208,107 @@ func TestConnectCloudflareKeepsTheSavedTokenWhenNoEnvIsSet(t *testing.T) {
 	tok, acct, proceed, err := connectCloudflare(proj, cfg, "", false)
 	if err != nil || !proceed || tok != "keychain-token" || acct.id != "acct" {
 		t.Fatalf("got (%q, %q, %v, %v), want the saved token", tok, acct.id, proceed, err)
+	}
+}
+
+// cfAccountsList answers /accounts with the given body and refuses Pages access
+// on every account — the shape of a token that reaches nothing it is pointed at.
+func cfAccountsList(t *testing.T, body string) http.HandlerFunc {
+	t.Helper()
+	return func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/accounts" {
+			w.Write([]byte(body))
+			return
+		}
+		w.WriteHeader(http.StatusForbidden)
+		w.Write([]byte(`{"success":false,"errors":[{"message":"no access"}]}`))
+	}
+}
+
+func TestPickAccountStopsOnAStalePinWithoutATerminal(t *testing.T) {
+	// On CI nobody can confirm a move, so a pin the token can't reach must stop
+	// the deploy — never silently publish the site to some other account.
+	withTerminal(t, false)
+	defer withCFServer(t, cfAccountsList(t, `{"success":true,"result":[{"id":"new","name":"New Account"}]}`))()
+
+	cfg := &project.Config{}
+	cfg.Deploy.AccountID = "old"
+	_, ok, err := pickAccount("tok", cfg, "")
+	if ok || err == nil {
+		t.Fatalf("got (%v, %v), want a stop", ok, err)
+	}
+	if !strings.Contains(err.Error(), "old") || !strings.Contains(err.Error(), "--account") {
+		t.Fatalf("error %q must name the pinned account and the way out", err)
+	}
+}
+
+func TestPickAccountStopsOnSeveralAccountsWithoutATerminal(t *testing.T) {
+	withTerminal(t, false)
+	defer withCFServer(t, cfAccountsList(t, `{"success":true,"result":[{"id":"a1"},{"id":"a2"}]}`))()
+
+	_, ok, err := pickAccount("tok", &project.Config{}, "")
+	if ok || err == nil {
+		t.Fatalf("got (%v, %v), want a stop", ok, err)
+	}
+	if !strings.Contains(err.Error(), "--account") || !strings.Contains(err.Error(), "deploy.accountId") {
+		t.Fatalf("error %q must name both ways to say which account", err)
+	}
+}
+
+func TestPickAccountStopsOnAnUnknownAccountWithoutATerminal(t *testing.T) {
+	// A Pages-only token can't list accounts. At a terminal crofty asks for the
+	// id; on CI it says which setting supplies it.
+	withTerminal(t, false)
+	defer withCFServer(t, cfAccountsList(t, `{"success":false,"errors":[{"message":"not allowed"}]}`))()
+
+	_, ok, err := pickAccount("tok", &project.Config{}, "")
+	if ok || err == nil {
+		t.Fatalf("got (%v, %v), want a stop", ok, err)
+	}
+	if !strings.Contains(err.Error(), "deploy.accountId") {
+		t.Fatalf("error %q must name the setting that answers it", err)
+	}
+}
+
+func TestPickAccountResolvesWithoutATerminalWhenItIsUnambiguous(t *testing.T) {
+	// The two cases CI can settle on its own: a pin the token reaches, and a
+	// token that reaches exactly one account.
+	withTerminal(t, false)
+	defer withCFServer(t, func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/accounts" {
+			w.Write([]byte(`{"success":true,"result":[{"id":"sole","name":"Sole"}]}`))
+			return
+		}
+		w.Write([]byte(`{"success":true,"result":[]}`))
+	})()
+
+	cfg := &project.Config{}
+	cfg.Deploy.AccountID = "pinned"
+	got, ok, err := pickAccount("tok", cfg, "")
+	if err != nil || !ok || got.id != "pinned" {
+		t.Fatalf("pinned: got (%+v, %v, %v)", got, ok, err)
+	}
+
+	got, ok, err = pickAccount("tok", &project.Config{}, "")
+	if err != nil || !ok || got.id != "sole" {
+		t.Fatalf("sole account: got (%+v, %v, %v)", got, ok, err)
+	}
+}
+
+func TestPickAccountExplicitFlagWinsWithoutATerminal(t *testing.T) {
+	withTerminal(t, false)
+	defer withCFServer(t, func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/accounts" {
+			t.Error("listed accounts even though --account named one")
+		}
+		w.Write([]byte(`{"success":true,"result":[]}`))
+	})()
+
+	cfg := &project.Config{}
+	cfg.Deploy.AccountID = "old"
+	got, ok, err := pickAccount("tok", cfg, "chosen")
+	if err != nil || !ok || got.id != "chosen" {
+		t.Fatalf("got (%+v, %v, %v), want chosen", got, ok, err)
 	}
 }
 
