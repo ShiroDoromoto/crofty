@@ -102,7 +102,15 @@ part of a release is rejected by `wharfy verify`.
 Running it by hand needs a macOS host with `makensis` and `gh` — and is only for
 when CI is down, because a laptop build carries no provenance at all.
 
-## Known limitation
+## Uninstalling (Windows)
 
-The NSIS uninstaller removes the files but not the PATH entry (a stale entry to a
-deleted dir — harmless; Windows ignores missing PATH dirs).
+The NSIS installer registers crofty under
+`HKCU\Software\Microsoft\Windows\CurrentVersion\Uninstall\crofty`, so it appears
+in "Apps & features" and can be removed from there — the route that matters for
+someone who installed by double-clicking and would never find
+`%LOCALAPPDATA%\crofty\bin\uninstall.exe` on their own. Uninstalling takes the
+files, that registry key and the PATH entry back out.
+
+macOS has no equivalent: the `.pkg` leaves the body in
+`~/Library/Application Support/crofty` and a link at `/usr/local/bin/crofty`,
+and removing them is a manual `rm`.

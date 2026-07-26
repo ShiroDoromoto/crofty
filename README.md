@@ -36,6 +36,9 @@ unsigned. Nothing you have to do here needs a terminal:
 - **Windows** — SmartScreen says "Windows protected your PC". Press **More
   info**, then **Run anyway**.
 
+On Windows, crofty is listed afterwards in **Settings → Apps → Installed apps**,
+so removing it is a click too.
+
 Linux has no click installer. Take the archive below.
 
 ### The archive, on any OS
