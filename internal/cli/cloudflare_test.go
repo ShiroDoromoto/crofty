@@ -178,6 +178,9 @@ func TestConnectCloudflareLetsReauthOutrankTheEnvironment(t *testing.T) {
 	if err == nil || !strings.Contains(err.Error(), "terminal") {
 		t.Fatalf("got %v, want the prompt to be required", err)
 	}
+	if strings.Contains(err.Error(), cfTokenEnv) {
+		t.Fatalf("error %q offers the variable as a way out of a run that exists to save one", err)
+	}
 }
 
 func TestConnectCloudflareIgnoresTheGenericTokenName(t *testing.T) {
@@ -196,6 +199,9 @@ func TestConnectCloudflareIgnoresTheGenericTokenName(t *testing.T) {
 	_, _, _, err := connectCloudflare(proj, cfg, "", false)
 	if err == nil || !strings.Contains(err.Error(), "terminal") {
 		t.Fatalf("got %v, want the no-token-in-a-non-terminal error", err)
+	}
+	if !strings.Contains(err.Error(), cfTokenEnv) {
+		t.Fatalf("error %q must name the variable a run with no terminal sets", err)
 	}
 }
 

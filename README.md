@@ -168,6 +168,29 @@ are settings you (or your AI) edit directly in `hugo.yaml` / `data/profile.yml`
 — it shows where, and never rewrites them for you. The build output is a plain
 Hugo project, so you can take it and run `hugo` yourself without this tool.
 
+### Publishing from CI
+
+A runner has no terminal to type a secret into and no keychain to keep one, so
+crofty takes the credential from an environment variable its secret store
+injects — one name per credential, and only crofty's own names:
+
+```sh
+crofty build
+CROFTY_CLOUDFLARE_API_TOKEN=$SECRET crofty deploy --skip-build
+```
+
+`CROFTY_SFTP_PASSWORD`, `CROFTY_SFTP_KEY_PASSPHRASE` and `CROFTY_FTPS_PASSWORD`
+do the same for the other providers. There is no `--token` flag and nothing is
+read from stdin: a secret must not land in your shell history, in `ps`, or in an
+assistant's context. A credential from the environment is used for that run
+alone — never written to the keychain, and `.crofty/config.json` is left as it
+is. crofty prints which variable it came from.
+
+Cloudflare also has to know the account. Deploy once from your own terminal so
+`deploy.accountId` is pinned in `.crofty/config.json` (that file ships with your
+site), or pass `--account <id>`. With no terminal crofty never guesses: it stops
+and names what to set.
+
 ## More than a blog
 
 The sample project starts as a blog (`content/posts/`), but a crofty site is a

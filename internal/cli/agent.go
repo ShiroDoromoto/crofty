@@ -208,7 +208,8 @@ func agentBrief() brief {
 		},
 		Notes: []string{
 			"The author installs crofty and runs `crofty init`; from there you (the AI) drive it. The interface is neutral state + next-step output, not a GUI.",
-			"A Cloudflare API token must be typed in a terminal by the human — crofty reads it from a hidden TTY prompt, never stdin, so it never passes through you. To publish, tell the author to run `crofty deploy` and paste the token when asked.",
+			"A credential never passes through you. crofty reads secrets from a hidden TTY prompt — never a flag, never stdin — so where there is a terminal, tell the author to run `crofty deploy` and type it when asked. Where there is none (CI), the runner's secret store supplies it as an environment variable crofty reads by name: CROFTY_CLOUDFLARE_API_TOKEN, CROFTY_SFTP_PASSWORD, CROFTY_SFTP_KEY_PASSPHRASE, CROFTY_FTPS_PASSWORD — one per credential, and crofty's own names only (a generic CLOUDFLARE_API_TOKEN is deliberately not read). You may write the variable's NAME into a workflow file; you never handle its value. Such a credential is used for that run alone: never saved to the keychain, and `.crofty/config.json` is not rewritten. `crofty connect` and `crofty deploy --reauth` ignore those variables on purpose — they exist to save what the author types.",
+			"A deploy with no terminal never guesses which Cloudflare account to publish to: it stops non-zero and names what to set. Pin it first — the author deploys once from their own terminal, which writes `deploy.accountId` into `.crofty/config.json` (a file that ships with the site), or the run passes `--account <id>`.",
 			"crofty owns the files it writes (content stubs, render hooks, assets/css/custom.css) but never rewrites hugo.yaml — for config changes it prints the exact lines for the author to paste.",
 			"\"Frozen theme\" means the layout is a guardrail (it can't be broken), not that the design is fixed — the look is the author's. Offer it, leading with the safe options: presets (`crofty theme set`) → tokens (`crofty theme tokens`) → a full eject (`crofty theme eject --full`) for anyone who wants to own the CSS. crofty stays a CLI, not a GUI theme editor.",
 			"crofty builds a full site, not just a blog — see \"Site pages\" for fixed pages (about/contact/legal) and collections (products/gallery/discography), and how to wire them into the nav. Contact and commerce stay external embeds.",
@@ -355,7 +356,7 @@ func agentDetails() map[string]agentCmd {
 				{"--yes", "SFTP only: trust an unknown server host key on first use without the y/N prompt (pass this when no human is at the keyboard to answer it)"},
 				{"--static-only", "publish the static site alone, leaving behind everything that answers requests (functions/, _worker.js) — including a _worker.js crofty could have carried, so whatever serves those routes now stops working"},
 			},
-			Examples: []string{"crofty deploy", "crofty deploy --reauth", "crofty deploy --yes"},
+			Examples: []string{"crofty deploy", "crofty deploy --reauth", "crofty deploy --yes", "CROFTY_CLOUDFLARE_API_TOKEN=$SECRET crofty deploy --skip-build   # a run with no terminal"},
 		},
 		"credit": {
 			Sub: []agentCmd{

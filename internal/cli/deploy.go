@@ -40,6 +40,10 @@ func runDeploy(args []string) error {
 		fmt.Println("  crofty deploy --yes           # SFTP: trust an unknown host key on first use (no y/N prompt)")
 		fmt.Println("  crofty deploy --account <id>  # Cloudflare: pick the account when a token reaches several")
 		fmt.Println("  crofty deploy --static-only   # deploy anyway when this project has Pages Functions")
+		fmt.Println("\nNo terminal (CI)? The runner's secret store supplies the credential:")
+		fmt.Println("  CROFTY_CLOUDFLARE_API_TOKEN=$SECRET crofty deploy --skip-build")
+		fmt.Println("  (sftp/ftps: CROFTY_SFTP_PASSWORD, CROFTY_SFTP_KEY_PASSPHRASE, CROFTY_FTPS_PASSWORD)")
+		fmt.Println("  It is used for that run only — never saved, and nothing is read from stdin.")
 	}
 	if _, err := parseArgs(fs, args); err != nil {
 		return err
@@ -424,7 +428,8 @@ func connectCloudflare(proj *project.Project, cfg *project.Config, accountFlag s
 	}
 
 	// Get a token (interactive, TTY-only — a secret never comes through an agent).
-	tok, e := promptCFToken()
+	// On a reauth run the variable is not an answer, so don't offer it as one.
+	tok, e := promptCFToken(!reauth)
 	if e != nil {
 		return "", cfAccount{}, false, e
 	}
@@ -554,14 +559,20 @@ func parseMenuChoice(line string, max int) (int, bool) {
 
 // promptCFToken guides the user to a Pages: Edit token and reads it from a hidden
 // TTY prompt — never via a flag or stdin pipe, so the secret never passes through
-// an assistant's context (same rule as `targets add`).
-func promptCFToken() (string, error) {
+// an assistant's context (same rule as `targets add`). envHint says whether a run
+// with no terminal could have used the environment variable instead; a reauth run
+// could not, since it is here to save what the author types.
+func promptCFToken(envHint bool) (string, error) {
 	if !canAsk() {
+		hint := ""
+		if envHint {
+			hint = fmt.Sprintf("\n  No terminal (CI)? Set %s from the runner's secret store.", cfTokenEnv)
+		}
 		return "", fmt.Errorf("crofty needs a Cloudflare API token to publish, and a token must be typed in a terminal — never through an assistant.\n"+
-			"  Run 'crofty deploy' yourself and paste the token when asked.\n"+
+			"  Run 'crofty deploy' yourself and paste the token when asked.%s\n"+
 			"  Create one: https://dash.cloudflare.com/profile/api-tokens\n"+
 			"    → Create Token → Custom token → Permissions: Account · Cloudflare Pages · Edit\n"+
-			"  No Cloudflare account yet? Free sign-up: %s", cfSignupURL)
+			"  No Cloudflare account yet? Free sign-up: %s", hint, cfSignupURL)
 	}
 	fmt.Println("To publish, crofty needs a Cloudflare API token. It's kept in your keychain")
 	fmt.Println("and used only to deploy your site — crofty has no server of its own.")
