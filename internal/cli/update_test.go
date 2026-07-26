@@ -69,6 +69,10 @@ func TestUpgradeHintFor(t *testing.T) {
 		// strand the bundled Hugo at the version it was installed at.
 		{"/usr/local/bin/crofty", "darwin", false, []string{"install.sh", "sudo"}},
 		{"/usr/local/bin/crofty", "darwin", true, []string{"crofty.pkg"}},
+		// Since D-339 the .pkg body lives in the user's home, and that is the path
+		// crofty resolves to; a .pkg user must be sent back to the .pkg from there
+		// too, never to install.sh.
+		{"/Users/me/Library/Application Support/crofty/bin/crofty", "darwin", true, []string{"crofty.pkg"}},
 		// %LOCALAPPDATA%\crofty\bin holds both the click installer's copy and
 		// install.ps1's, so the hint names the installer, which fixes either.
 		{`C:\Users\me\AppData\Local\crofty\bin\crofty.exe`, "windows", false, []string{"crofty-setup.exe"}},

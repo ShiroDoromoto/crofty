@@ -75,10 +75,11 @@ func resolve(override, exe, goos string) (string, error) {
 }
 
 // Bundled reports whether a click installer's copy of Hugo sits with the crofty
-// binary reached from exe. It is exported because that copy is also the only
-// thing that distinguishes the two macOS install routes: both answer to a crofty
-// on /usr/local/bin — the .pkg through an entry link, install.sh with the binary
-// itself — but only the .pkg leaves a Hugo behind.
+// binary reached from exe. It is exported because that copy is also what tells
+// the two macOS install routes apart when they share a directory: a .pkg from
+// before D-339 kept its body on /usr/local/bin, exactly where install.sh puts
+// its own binary, and only the .pkg leaves a Hugo behind. (A current .pkg body
+// lives in the user's home, so its path already says which route it is.)
 func Bundled(exe, goos string) bool {
 	if exe == "" {
 		return false

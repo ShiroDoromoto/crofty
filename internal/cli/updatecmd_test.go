@@ -47,7 +47,14 @@ func TestClassifyInstall(t *testing.T) {
 		{"/home/me/.local/bin/crofty", "linux", false, routeScriptUser},
 		{"/usr/local/bin/crofty", "linux", false, routeScriptSystem},
 		{"/usr/local/bin/crofty", "darwin", false, routeScriptSystem}, // install.sh, no bundled Hugo
-		{"/usr/local/bin/crofty", "darwin", true, routePkgDarwin},     // .pkg body: Hugo alongside
+		{"/usr/local/bin/crofty", "darwin", true, routePkgDarwin},     // pre-D-339 .pkg: body still in /usr/local
+		// Where the .pkg actually leaves its body since D-339: the user's home,
+		// reached by resolving the /usr/local entry link. Classifying this by path
+		// is what makes `crofty update` work for the .pkg at all — judging it by the
+		// entry link's /usr/local prefix is the bug this case exists to catch. The
+		// bundled Hugo must not be needed to reach the route, so both are here.
+		{"/Users/me/Library/Application Support/crofty/bin/crofty", "darwin", true, routePkgDarwin},
+		{"/Users/me/Library/Application Support/crofty/bin/crofty", "darwin", false, routePkgDarwin},
 		{`C:\Users\me\AppData\Local\crofty\bin\crofty.exe`, "windows", false, routeWindowsClick},
 	}
 	for _, c := range cases {

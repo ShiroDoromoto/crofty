@@ -157,8 +157,8 @@ func upgradeHint() string {
 // lives. It is the one classification both the upgrade nudge and `crofty update`
 // stand on: the nudge turns a route into the sentence a human reads, and update
 // turns the same route into a decision — self-fetch and swap, or hand back the
-// nudge because this route can't (a dead channel, a root-owned install, Windows
-// until 3b lands, or an install crofty doesn't recognize).
+// nudge because this route can't (a dead channel, a root-owned install, or an
+// install crofty doesn't recognize).
 type installRoute int
 
 const (
@@ -171,6 +171,12 @@ const (
 	routeScriptSystem                     // install.sh, system-wide (PREFIX=/usr/local, root-owned)
 	routePkgDarwin                        // macOS .pkg body (user-writable, bundled Hugo alongside)
 )
+
+// pkgDarwinBodyDir is where the macOS .pkg leaves its body: a tree of crofty's
+// own under the installing user's home, holding bin/crofty beside
+// libexec/crofty/hugo (see packaging/macos/scripts/postinstall). It is written
+// lower-case because classifyInstall matches against a lower-cased path.
+const pkgDarwinBodyDir = "/library/application support/crofty/"
 
 // selfUpdates reports whether `crofty update` can update this route in place —
 // the routes with a user-writable body crofty can fetch and swap without root.
@@ -191,8 +197,15 @@ func (r installRoute) selfUpdates() bool {
 // the filesystem, whether a click installer's Hugo sits next to the binary,
 // arrives as an argument rather than being looked up here.
 //
-// The order matters: the macOS routes both answer to /usr/local, and only the
-// bundled Hugo tells the .pkg body apart from a system-wide install.sh.
+// The path it is given is the resolved body, not the entry link that launched
+// crofty (resolveSelfPath / hugobin follow the link first), so the macOS .pkg is
+// recognized by where its body lives — a tree of crofty's own in the user's
+// home — and never by the /usr/local entry link pointing at it.
+//
+// The order matters where two routes share a prefix: on /usr/local a darwin
+// crofty is the .pkg's body only if the bundled Hugo is beside it, which is how
+// a .pkg from before D-339 moved the body into the home is still told apart from
+// a system-wide install.sh.
 func classifyInstall(exe, goos string, bundledHugo bool) installRoute {
 	low := strings.ToLower(exe)
 	switch {
@@ -202,6 +215,12 @@ func classifyInstall(exe, goos string, bundledHugo bool) installRoute {
 		return routeScoop
 	case strings.Contains(low, `\appdata\local\`):
 		return routeWindowsClick
+	case goos == "darwin" && strings.Contains(low, pkgDarwinBodyDir):
+		// The .pkg body (D-339). Nothing but the .pkg puts a crofty there, so the
+		// path alone settles it — deliberately without asking whether the bundled
+		// Hugo is present, so a body whose Hugo went missing still knows how to
+		// update itself instead of falling through to "update by hand".
+		return routePkgDarwin
 	case strings.Contains(low, "/.local/"):
 		return routeScriptUser
 	case strings.HasPrefix(low, "/usr/local/"):
