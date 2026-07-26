@@ -17,23 +17,24 @@ updates:
     commit-message:
       prefix: chore(deps)
     groups:
-      # Stdlib-adjacent and utility deps, patch+minor only. These are the
-      # candidates for *gated* auto-merge once branch protection requires the CI
-      # checks. Credential / network / crypto deps (golang.org/x/crypto,
-      # golang.org/x/net, go-keyring, ftpserverlib, jlaffaye/ftp, pkg/sftp) are
-      # deliberately NOT listed here, so each lands as its own PR for manual
-      # review. Major bumps are excluded too (groups carry patch+minor only),
-      # so every major also arrives as a standalone PR to review by hand.
-      low-risk:
+      # Every gomod dependency, patch+minor, in one PR — auto-merged behind the
+      # CI gate (dependabot-auto-merge.yml).
+      #
+      # There used to be a narrower `low-risk` group here that held the
+      # credential / network / crypto deps back for a human to read one by one.
+      # With a single maintainer that reading did not happen: a jlaffaye/ftp
+      # patch sat for a month while CI had gone green seven minutes after the PR
+      # opened. A gate nobody passes through is not review, it is rot (D-404).
+      #
+      # What keeps this safe is the *distribution* gate, not the merge gate:
+      # promote.yml is manual dispatch only, so a bump that lands here reaches
+      # no user until a release is made on purpose. Majors are still read by
+      # hand — groups carry patch+minor only, so each major arrives as its own
+      # PR, ungrouped.
+      go-patch-minor:
         applies-to: version-updates
         patterns:
-          - golang.org/x/sys
-          - golang.org/x/text
-          - golang.org/x/term
-          - gopkg.in/yaml.v3
-          - github.com/spf13/afero
-          - lukechampine.com/blake3
-          - github.com/klauspost/cpuid/*
+          - "*"
         update-types:
           - minor
           - patch
