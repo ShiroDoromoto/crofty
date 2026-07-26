@@ -1,5 +1,14 @@
-# Non-public design docs and scratch
-/doc/wip/
+# Non-public design docs and scratch. This repo is public, and both spellings
+# are ignored on purpose: notes have been written to docs/ while only doc/wip/
+# was ignored, which left `git add -A` one typo away from publishing them.
+# Neither directory holds anything tracked, so guessing the name wrong now fails
+# safe. To publish a file from here later, unignore the directory and then the
+# file — an ignored directory is never descended into, so an exception inside it
+# would not be seen:
+#   /docs/*
+#   !/docs/the-one-to-track.md
+/doc/
+/docs/
 /.prompt/
 /.idea/
 
