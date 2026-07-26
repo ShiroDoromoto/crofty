@@ -139,7 +139,7 @@ func connectFTPS(proj *project.Project, cfg *project.Config, reauth bool) (Deplo
 		port = 21
 	}
 
-	pw, err := resolveSecret(ftpsSecretStore(), sc.host+":"+sc.user, "password",
+	pw, err := resolveSecret(ftpsSecretStore(), sc.host+":"+sc.user, "password", ftpsPasswordEnv,
 		fmt.Sprintf("Password for %s@%s", sc.user, sc.host), reauth)
 	if err != nil {
 		return nil, err

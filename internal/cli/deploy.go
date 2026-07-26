@@ -397,9 +397,13 @@ func connectCloudflare(proj *project.Project, cfg *project.Config, accountFlag s
 	// run: it comes from a runner's secret store, so it is not ours to keep. It
 	// is never written to the keychain, and the config file is left untouched so
 	// a CI checkout stays clean. Say where it came from — a credential must not
-	// change under the user in silence. --reauth does not apply: it replaces a
-	// saved credential, and this one was never saved.
-	if tok := strings.TrimSpace(os.Getenv(cfTokenEnv)); tok != "" {
+	// change under the user in silence.
+	//
+	// reauth is the one thing that outranks it: `crofty connect` and
+	// `crofty deploy --reauth` exist to put a credential *into* the keychain, and
+	// a variable that is merely set in the shell must not quietly answer for the
+	// one the user came here to type.
+	if tok := strings.TrimSpace(os.Getenv(cfTokenEnv)); tok != "" && !reauth {
 		fmt.Printf("Cloudflare token: $%s\n", cfTokenEnv)
 		chosen, ok, e := pickAccount(tok, cfg, accountFlag)
 		if e != nil || !ok {

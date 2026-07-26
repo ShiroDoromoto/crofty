@@ -1,9 +1,10 @@
 package cli
 
 // Shared helpers for the plain-server deploy backends (SFTP, FTPS): scanning the
-// built dist/ into an upload list, prompting for credentials on a TTY (never
-// through an assistant), and the warnings both backends share — chiefly that a
-// plain static host can't run Cloudflare's edge files.
+// built dist/ into an upload list, resolving credentials (a runner's environment,
+// the keychain, or a TTY prompt — never through an assistant), and the warnings
+// both backends share — chiefly that a plain static host can't run Cloudflare's
+// edge files.
 
 import (
 	"fmt"
@@ -12,6 +13,8 @@ import (
 	"strings"
 
 	"golang.org/x/term"
+
+	"github.com/ShiroDoromoto/crofty/internal/secret"
 )
 
 // serverFile is one file to upload: its slash-relative path under dist and its
@@ -138,12 +141,68 @@ type deployServerConfig struct {
 	keyPath string // SFTP only; "" means password auth
 }
 
+// The environment variables the plain-server backends read a secret from: one
+// name per credential, so a runner can grant exactly the one it means to. As
+// with the Cloudflare token, only CROFTY_-prefixed names are read — a generic
+// SFTP_PASSWORD may well belong to some other tool, and honouring it would send
+// this site's files at someone else's server with someone else's credential.
+const (
+	sftpPasswordEnv   = "CROFTY_SFTP_PASSWORD"
+	sftpPassphraseEnv = "CROFTY_SFTP_KEY_PASSPHRASE"
+	ftpsPasswordEnv   = "CROFTY_FTPS_PASSWORD"
+)
+
+// resolveSecret returns the credential to use, in the order a run can trust it:
+// the environment variable named by envName, then the keychain, then a hidden
+// prompt (whose answer is saved) when there is a terminal to ask.
+//
+// A secret from the environment is the credential for this run and nothing more.
+// It comes from a runner's secret store, so crofty uses it and forgets it: it is
+// never written to the keychain. Saying which variable it came from keeps a
+// credential from changing under the user in silence.
+//
+// reauth outranks it: `crofty connect` and `crofty deploy --reauth` exist to put
+// a credential *into* the keychain, so a variable that happens to be set in the
+// shell must not answer for the one the user came here to type — the run would
+// report a saved credential that was never saved.
+func resolveSecret(store *secret.Store, target, field, envName, label string, reauth bool) (string, error) {
+	if v := strings.TrimSpace(os.Getenv(envName)); v != "" && !reauth {
+		fmt.Printf("%s: $%s\n", label, envName)
+		return v, nil
+	}
+	if !reauth {
+		if v, err := store.Get(target, field); err == nil && v != "" {
+			return v, nil
+		}
+	}
+	// On a reauth run the variable is not an answer, so don't offer it as one.
+	promptEnv := envName
+	if reauth {
+		promptEnv = ""
+	}
+	v, err := promptSecretTTY(label, promptEnv)
+	if err != nil {
+		return "", err
+	}
+	if err := store.Set(target, field, v); err != nil {
+		return "", err
+	}
+	return v, nil
+}
+
 // promptSecretTTY reads a secret (password / passphrase) from a hidden terminal
 // prompt. Like the Cloudflare token flow, a secret is never accepted through a
-// flag or pipe, so it can't pass through an assistant's context.
-func promptSecretTTY(label string) (string, error) {
-	if !term.IsTerminal(int(os.Stdin.Fd())) {
-		return "", fmt.Errorf("%s must be typed in a terminal, never through an assistant — run 'crofty deploy' (or 'crofty connect') yourself", label)
+// flag or pipe, so it can't pass through an assistant's context. With no
+// terminal there is nobody to type it, so crofty stops and names the variable a
+// non-interactive run supplies it through — unless envName is empty, which means
+// the caller wants this secret typed and a variable would not do.
+func promptSecretTTY(label, envName string) (string, error) {
+	if !canAsk() {
+		msg := fmt.Sprintf("%s must be typed in a terminal, never through an assistant — run 'crofty deploy' (or 'crofty connect') yourself", label)
+		if envName != "" {
+			msg += fmt.Sprintf(", or set %s for a run with no terminal", envName)
+		}
+		return "", fmt.Errorf("%s", msg)
 	}
 	for attempt := 0; attempt < 3; attempt++ {
 		fmt.Printf("%s: ", label)

@@ -165,7 +165,7 @@ func sftpAuthMethod(sc deployServerConfig, reauth bool) (ssh.AuthMethod, error) 
 			return nil, fmt.Errorf("parsing SSH key %s: %w", sc.keyPath, err)
 		}
 		// Encrypted key: resolve its passphrase from keychain or prompt.
-		pass, perr := resolveSecret(store, target, "key_passphrase", "Passphrase for "+sc.keyPath, reauth)
+		pass, perr := resolveSecret(store, target, "key_passphrase", sftpPassphraseEnv, "Passphrase for "+sc.keyPath, reauth)
 		if perr != nil {
 			return nil, perr
 		}
@@ -176,29 +176,11 @@ func sftpAuthMethod(sc deployServerConfig, reauth bool) (ssh.AuthMethod, error) 
 		return ssh.PublicKeys(signer), nil
 	}
 
-	pw, err := resolveSecret(store, target, "password", fmt.Sprintf("Password for %s@%s", sc.user, sc.host), reauth)
+	pw, err := resolveSecret(store, target, "password", sftpPasswordEnv, fmt.Sprintf("Password for %s@%s", sc.user, sc.host), reauth)
 	if err != nil {
 		return nil, err
 	}
 	return ssh.Password(pw), nil
-}
-
-// resolveSecret returns a stored secret, or prompts for it (and saves it) when
-// missing or when reauth is set.
-func resolveSecret(store *secret.Store, target, field, label string, reauth bool) (string, error) {
-	if !reauth {
-		if v, err := store.Get(target, field); err == nil && v != "" {
-			return v, nil
-		}
-	}
-	v, err := promptSecretTTY(label)
-	if err != nil {
-		return "", err
-	}
-	if err := store.Set(target, field, v); err != nil {
-		return "", err
-	}
-	return v, nil
 }
 
 // sftpKnownHostsPath is crofty's own trust-on-first-use store of server host

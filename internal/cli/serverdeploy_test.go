@@ -7,6 +7,10 @@ import (
 	"sort"
 	"strings"
 	"testing"
+
+	"github.com/zalando/go-keyring"
+
+	"github.com/ShiroDoromoto/crofty/internal/secret"
 )
 
 // writeTree writes a map of slash-relative paths → content into a fresh temp dir
@@ -201,5 +205,87 @@ func TestRequireServerConfig(t *testing.T) {
 
 	if err := requireServerConfig(&deployServerConfig{host: "h", user: "u", path: "/p"}, "cfg.json"); err != nil {
 		t.Errorf("complete config should pass, got %v", err)
+	}
+}
+
+func TestResolveSecretPrefersTheEnvironmentAndKeepsNothing(t *testing.T) {
+	keyring.MockInit()
+	store := secret.New("sftp")
+	if err := store.Set("host:user", "password", "keychain-pw"); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv(sftpPasswordEnv, "  env-pw\n")
+
+	got, err := resolveSecret(store, "host:user", "password", sftpPasswordEnv, "Password for user@host", false)
+	if err != nil || got != "env-pw" {
+		t.Fatalf("got (%q, %v), want the environment's password", got, err)
+	}
+	if kept, err := store.Get("host:user", "password"); err != nil || kept != "keychain-pw" {
+		t.Fatalf("keychain holds %q (%v) — an env secret must not be stored", kept, err)
+	}
+}
+
+func TestResolveSecretFallsBackToTheKeychain(t *testing.T) {
+	// Without the variable, the keychain path is exactly what it was.
+	keyring.MockInit()
+	store := secret.New("ftps")
+	if err := store.Set("host:user", "password", "keychain-pw"); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv(ftpsPasswordEnv, "")
+
+	got, err := resolveSecret(store, "host:user", "password", ftpsPasswordEnv, "Password for user@host", false)
+	if err != nil || got != "keychain-pw" {
+		t.Fatalf("got (%q, %v), want the saved password", got, err)
+	}
+}
+
+func TestResolveSecretIgnoresAGenericVariableName(t *testing.T) {
+	// SFTP_PASSWORD is somebody else's variable; reading it would send this
+	// site's files with a credential crofty was never given.
+	keyring.MockInit()
+	withTerminal(t, false)
+	t.Setenv(sftpPasswordEnv, "")
+	t.Setenv("SFTP_PASSWORD", "generic-pw")
+
+	got, err := resolveSecret(secret.New("sftp"), "host:user", "password", sftpPasswordEnv, "Password for user@host", false)
+	if got != "" || err == nil {
+		t.Fatalf("got (%q, %v), want a stop", got, err)
+	}
+	if !strings.Contains(err.Error(), sftpPasswordEnv) {
+		t.Fatalf("error %q must name the variable a run with no terminal sets", err)
+	}
+}
+
+func TestResolveSecretLetsReauthOutrankTheEnvironment(t *testing.T) {
+	// `crofty connect` (and --reauth) exist to save a credential. If a variable
+	// answered for it, the run would report a keychain entry it never wrote.
+	keyring.MockInit()
+	withTerminal(t, false)
+	t.Setenv(sftpPasswordEnv, "env-pw")
+
+	got, err := resolveSecret(secret.New("sftp"), "host:user", "password", sftpPasswordEnv, "Password for user@host", true)
+	if got != "" || err == nil {
+		t.Fatalf("got (%q, %v), want the prompt to be required", got, err)
+	}
+	if strings.Contains(err.Error(), sftpPasswordEnv) {
+		t.Fatalf("error %q offers the variable as a way out of a run that exists to save one", err)
+	}
+}
+
+func TestResolveSecretNamesEveryCredentialSeparately(t *testing.T) {
+	// One variable per credential: a runner grants the passphrase without also
+	// handing over the password, and vice versa.
+	keyring.MockInit()
+	withTerminal(t, false)
+	t.Setenv(sftpPasswordEnv, "")
+	t.Setenv(sftpPassphraseEnv, "env-passphrase")
+
+	got, err := resolveSecret(secret.New("sftp"), "host:user", "key_passphrase", sftpPassphraseEnv, "Passphrase for /k", false)
+	if err != nil || got != "env-passphrase" {
+		t.Fatalf("passphrase: got (%q, %v)", got, err)
+	}
+	if _, err := resolveSecret(secret.New("sftp"), "host:user", "password", sftpPasswordEnv, "Password for user@host", false); err == nil {
+		t.Fatal("the passphrase variable must not stand in for the password")
 	}
 }

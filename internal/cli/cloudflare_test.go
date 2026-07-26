@@ -161,6 +161,25 @@ func TestConnectCloudflareTakesTheTokenFromTheEnvironment(t *testing.T) {
 	}
 }
 
+func TestConnectCloudflareLetsReauthOutrankTheEnvironment(t *testing.T) {
+	// `crofty connect` passes reauth to save a token. A variable that is merely
+	// set must not answer for it, or the run reports a keychain entry it never
+	// wrote.
+	keyring.MockInit()
+	withTerminal(t, false)
+	t.Setenv(cfTokenEnv, "env-token")
+	defer withCFServer(t, func(w http.ResponseWriter, r *http.Request) {
+		t.Errorf("used the environment's token for a --reauth run (%q)", r.Header.Get("Authorization"))
+		w.WriteHeader(http.StatusForbidden)
+	})()
+
+	proj, cfg := pinnedTo(t, "acct")
+	_, _, _, err := connectCloudflare(proj, cfg, "", true)
+	if err == nil || !strings.Contains(err.Error(), "terminal") {
+		t.Fatalf("got %v, want the prompt to be required", err)
+	}
+}
+
 func TestConnectCloudflareIgnoresTheGenericTokenName(t *testing.T) {
 	// CLOUDFLARE_API_TOKEN is usually set for some other tool; reading it would
 	// deploy to whichever account that tool belongs to.
