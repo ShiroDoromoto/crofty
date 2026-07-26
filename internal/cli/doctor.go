@@ -16,6 +16,9 @@ func runDoctor(args []string) error {
 		fmt.Println("crofty doctor — check the built site against the crofty output contract")
 		fmt.Println("\nUsage:")
 		fmt.Println("  crofty doctor         # checks ./dist (run 'crofty build' first)")
+		fmt.Println("\nIt also reports whether a deploy would get through here with no terminal")
+		fmt.Println("to answer prompts (the CI case), and whether 'crofty update' can update")
+		fmt.Println("this install. Neither changes the exit code — the output contract gates.")
 		fmt.Println("\nFlags:")
 		fs.PrintDefaults()
 	}
@@ -32,15 +35,18 @@ func runDoctor(args []string) error {
 		return err
 	}
 
+	cfg, cfgErr := proj.LoadConfig()
+	deployReady := checkDeployReady(cfg, cfgErr)
 	health := checkSelfUpdate()
 	if *asJSON {
 		enc := json.NewEncoder(os.Stdout)
 		enc.SetIndent("", "  ")
-		if err := enc.Encode(doctorReport{Contract: report, SelfUpdate: health}); err != nil {
+		if err := enc.Encode(doctorReport{Contract: report, Deploy: deployReady, SelfUpdate: health}); err != nil {
 			return err
 		}
 	} else {
 		renderContract(report)
+		renderDeployReadiness(deployReady)
 		renderSelfUpdate(health)
 	}
 	if report.HasError() {
@@ -50,12 +56,50 @@ func runDoctor(args []string) error {
 }
 
 // doctorReport is the JSON shape of `crofty doctor --json`: the output contract
-// report (the build/deploy gate) plus whether `crofty update` will work from this
-// install. The install health is advisory — it never changes doctor's exit code,
-// which gates on the contract alone.
+// report (the build/deploy gate), whether a deploy would get through here with
+// no terminal, and whether `crofty update` will work from this install. Both of
+// the latter are advisory — they never change doctor's exit code, which gates on
+// the contract alone.
 type doctorReport struct {
 	Contract   contract.Report  `json:"contract"`
+	Deploy     deployReadiness  `json:"deploy"`
 	SelfUpdate selfUpdateHealth `json:"selfUpdate"`
+}
+
+// renderDeployReadiness prints whether a run with no terminal could publish this
+// site, and what to set when it couldn't. Like the install advisory it never
+// gates: a site that is fine to deploy by hand should not fail doctor because a
+// CI runner would need one more variable.
+func renderDeployReadiness(r deployReadiness) {
+	fmt.Println()
+	if r.Ready {
+		fmt.Printf("✓ deploy (%s): a run with no terminal has what it needs — %s\n", r.Provider, credentialSource(r))
+	} else {
+		fmt.Printf("⚠ deploy (%s): a run with no terminal would stop here:\n", r.Provider)
+		for _, m := range r.Missing {
+			fmt.Printf("  · %s\n", m.What)
+			fmt.Printf("      ↳ %s\n", m.Fix)
+		}
+	}
+	if r.Note != "" {
+		fmt.Printf("  (%s)\n", r.Note)
+	}
+	fmt.Println("  Checked: that the pieces are there. Whether the credential still works")
+	fmt.Println("           takes the network, so deploy is where that shows.")
+}
+
+// credentialSource says, in one phrase, where the credential for a run with no
+// terminal comes from — the variable's name when it is one, never its value.
+func credentialSource(r deployReadiness) string {
+	switch r.Credential {
+	case credentialFromEnv:
+		return "credential from $" + r.EnvVar
+	case credentialFromKeychain:
+		return "credential from your keychain"
+	case credentialFromSSHKey:
+		return "an SSH key that needs no passphrase"
+	}
+	return "no credential needed"
 }
 
 // renderSelfUpdate prints the one-line install-health advisory: which route this

@@ -14,6 +14,7 @@ import (
 
 	"golang.org/x/term"
 
+	"github.com/ShiroDoromoto/crofty/internal/project"
 	"github.com/ShiroDoromoto/crofty/internal/secret"
 )
 
@@ -110,9 +111,10 @@ func warnEdgeFiles(progress func(string)) {
 	progress("  a plain SFTP/FTPS host serves static files only, so those won't take effect.")
 }
 
-// requireServerConfig checks the non-secret fields SFTP/FTPS need are set,
-// returning a single actionable error naming what's missing and how to set it.
-func requireServerConfig(cfg *deployServerConfig, configPath string) error {
+// missingServerFields lists the non-secret connection fields SFTP/FTPS need and
+// this config hasn't got. Both the deploy itself and the readiness report ask
+// this, so neither can come to a different answer than the other.
+func missingServerFields(cfg *deployServerConfig) []string {
 	var missing []string
 	if cfg.host == "" {
 		missing = append(missing, "host")
@@ -123,13 +125,42 @@ func requireServerConfig(cfg *deployServerConfig, configPath string) error {
 	if cfg.path == "" {
 		missing = append(missing, "path (remote web root)")
 	}
+	return missing
+}
+
+// serverConfigSetup is how an author fills in what missingServerFields reports —
+// worded once, so the error a deploy stops with and the readiness report doctor
+// prints can't teach two different fixes.
+const serverConfigSetup = "Set it with 'crofty connect' (interactive), or re-run 'crofty init' with --host --user --path (and --port/--key as needed)"
+
+// requireServerConfig checks the non-secret fields SFTP/FTPS need are set,
+// returning a single actionable error naming what's missing and how to set it.
+func requireServerConfig(cfg *deployServerConfig, configPath string) error {
+	missing := missingServerFields(cfg)
 	if len(missing) == 0 {
 		return nil
 	}
-	return fmt.Errorf("deploy config is missing %s in %s\n"+
-		"  Set it with 'crofty connect' (interactive) or re-run 'crofty init' with\n"+
-		"  --host --user --path (and --port/--key as needed).",
-		strings.Join(missing, ", "), configPath)
+	return fmt.Errorf("deploy config is missing %s in %s\n  %s.",
+		strings.Join(missing, ", "), configPath, serverConfigSetup)
+}
+
+// serverConfigFrom pulls the connection info a plain-server deploy needs out of
+// the project config. keyPath is SFTP's alone; FTPS has no key auth and ignores
+// it.
+func serverConfigFrom(cfg *project.Config) deployServerConfig {
+	return deployServerConfig{
+		host:    cfg.Deploy.Host,
+		port:    cfg.Deploy.Port,
+		user:    cfg.Deploy.User,
+		path:    cfg.Deploy.Path,
+		keyPath: cfg.Deploy.KeyPath,
+	}
+}
+
+// serverSecretTarget is the keychain key a host's credentials live under —
+// host:user, so several sites on one server share nothing by accident.
+func serverSecretTarget(cfg *deployServerConfig) string {
+	return cfg.host + ":" + cfg.user
 }
 
 // deployServerConfig is the resolved, non-secret connection info SFTP/FTPS share.

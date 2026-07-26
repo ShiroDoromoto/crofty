@@ -127,10 +127,7 @@ func joinRemote(base, rel string) string {
 // connectFTPS resolves the FTPS destination from config + secrets, prompting on
 // a TTY for the password when missing. reauth forces a fresh password prompt.
 func connectFTPS(proj *project.Project, cfg *project.Config, reauth bool) (Deployer, error) {
-	sc := deployServerConfig{
-		host: cfg.Deploy.Host, port: cfg.Deploy.Port,
-		user: cfg.Deploy.User, path: cfg.Deploy.Path,
-	}
+	sc := serverConfigFrom(cfg)
 	if err := requireServerConfig(&sc, proj.ConfigPath()); err != nil {
 		return nil, err
 	}
@@ -139,7 +136,7 @@ func connectFTPS(proj *project.Project, cfg *project.Config, reauth bool) (Deplo
 		port = 21
 	}
 
-	pw, err := resolveSecret(ftpsSecretStore(), sc.host+":"+sc.user, "password", ftpsPasswordEnv,
+	pw, err := resolveSecret(ftpsSecretStore(), serverSecretTarget(&sc), "password", ftpsPasswordEnv,
 		fmt.Sprintf("Password for %s@%s", sc.user, sc.host), reauth)
 	if err != nil {
 		return nil, err

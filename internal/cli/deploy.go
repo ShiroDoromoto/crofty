@@ -58,10 +58,7 @@ func runDeploy(args []string) error {
 	if err != nil {
 		return fmt.Errorf("reading deploy config: %w", err)
 	}
-	provider := cfg.Deploy.Provider
-	if provider == "" {
-		provider = "cloudflare" // backwards-compatible default for early configs
-	}
+	provider := deployProvider(cfg)
 	if !isSupportedProvider(provider) {
 		return fmt.Errorf("deploy provider %q is not supported (use one of: %s)", provider, strings.Join(supportedProviders(), ", "))
 	}

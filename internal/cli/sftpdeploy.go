@@ -114,10 +114,7 @@ func sftpPutFile(client *sftp.Client, localPath, remotePath string) error {
 // autoAccept pins an unknown server host key without the interactive TOFU prompt
 // (the --yes path, for agent-driven deploys with no human to answer y/N).
 func connectSFTP(proj *project.Project, cfg *project.Config, reauth, autoAccept bool) (Deployer, error) {
-	sc := deployServerConfig{
-		host: cfg.Deploy.Host, port: cfg.Deploy.Port,
-		user: cfg.Deploy.User, path: cfg.Deploy.Path, keyPath: cfg.Deploy.KeyPath,
-	}
+	sc := serverConfigFrom(cfg)
 	if err := requireServerConfig(&sc, proj.ConfigPath()); err != nil {
 		return nil, err
 	}
@@ -149,20 +146,16 @@ func connectSFTP(proj *project.Project, cfg *project.Config, reauth, autoAccept 
 // the key is encrypted) when keyPath is set, otherwise a password. Secrets come
 // from the keychain, or a hidden prompt (then saved) on first use or --reauth.
 func sftpAuthMethod(sc deployServerConfig, reauth bool) (ssh.AuthMethod, error) {
-	target := sc.host + ":" + sc.user
+	target := serverSecretTarget(&sc)
 	store := sftpSecretStore()
 
 	if sc.keyPath != "" {
-		keyBytes, err := os.ReadFile(sc.keyPath)
+		signer, keyBytes, encrypted, err := sshKeyAt(sc.keyPath)
 		if err != nil {
-			return nil, fmt.Errorf("reading SSH key %s: %w", sc.keyPath, err)
+			return nil, err
 		}
-		signer, err := ssh.ParsePrivateKey(keyBytes)
-		if err == nil {
+		if !encrypted {
 			return ssh.PublicKeys(signer), nil
-		}
-		if _, needPass := err.(*ssh.PassphraseMissingError); !needPass {
-			return nil, fmt.Errorf("parsing SSH key %s: %w", sc.keyPath, err)
 		}
 		// Encrypted key: resolve its passphrase from keychain or prompt.
 		pass, perr := resolveSecret(store, target, "key_passphrase", sftpPassphraseEnv, "Passphrase for "+sc.keyPath, reauth)
@@ -181,6 +174,30 @@ func sftpAuthMethod(sc deployServerConfig, reauth bool) (ssh.AuthMethod, error) 
 		return nil, err
 	}
 	return ssh.Password(pw), nil
+}
+
+// sshKeyAt reads the private key at keyPath and says what it takes to use it. A
+// key that needs no passphrase comes back as a signer ready to authenticate with;
+// an encrypted one comes back as encrypted=true plus its bytes, for the caller to
+// unlock once it has the passphrase. Only the failures worth showing are errors:
+// a file that can't be read, and content that is not a private key at all.
+//
+// The split exists because two callers ask different questions of the same file:
+// the deploy wants to authenticate, while the readiness report only wants to know
+// whether a passphrase has to come from somewhere.
+func sshKeyAt(keyPath string) (signer ssh.Signer, keyBytes []byte, encrypted bool, err error) {
+	keyBytes, err = os.ReadFile(keyPath)
+	if err != nil {
+		return nil, nil, false, fmt.Errorf("reading SSH key %s: %w", keyPath, err)
+	}
+	signer, err = ssh.ParsePrivateKey(keyBytes)
+	if err == nil {
+		return signer, keyBytes, false, nil
+	}
+	if _, needPass := err.(*ssh.PassphraseMissingError); needPass {
+		return nil, keyBytes, true, nil
+	}
+	return nil, nil, false, fmt.Errorf("parsing SSH key %s: %w", keyPath, err)
 }
 
 // sftpKnownHostsPath is crofty's own trust-on-first-use store of server host

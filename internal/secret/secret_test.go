@@ -39,3 +39,23 @@ func TestStore_RoundTripAndNamespacing(t *testing.T) {
 		t.Errorf("expected ErrNotFound after delete, got %v", err)
 	}
 }
+
+func TestStore_HasAnswersWithoutHandingOverTheValue(t *testing.T) {
+	// A status report needs to say "there is a credential here" and no more —
+	// so presence is a question the caller can ask without holding the secret.
+	keyring.MockInit()
+
+	s := New("cloudflare")
+	if s.Has("acct", "api_token") {
+		t.Error("nothing is stored yet, so Has must be false")
+	}
+	if err := s.Set("acct", "api_token", "a-token"); err != nil {
+		t.Fatal(err)
+	}
+	if !s.Has("acct", "api_token") {
+		t.Error("a stored secret must read as present")
+	}
+	if New("sftp").Has("acct", "api_token") {
+		t.Error("presence leaked across workspaces")
+	}
+}

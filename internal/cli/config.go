@@ -53,10 +53,7 @@ func runConfig(args []string) error {
 		PagesFunctions:  projectFunctions(proj.Root),
 	}
 	if deploy != nil {
-		state.Provider = deploy.Deploy.Provider
-		if state.Provider == "" {
-			state.Provider = "cloudflare"
-		}
+		state.Provider = deployProvider(deploy)
 		state.Project = deploy.Deploy.Project
 		state.Host = deploy.Deploy.Host
 		state.RemotePath = deploy.Deploy.Path

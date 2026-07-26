@@ -191,6 +191,13 @@ Cloudflare also has to know the account. Deploy once from your own terminal so
 site), or pass `--account <id>`. With no terminal crofty never guesses: it stops
 and names what to set.
 
+You don't have to learn that by deploying. `crofty doctor` says whether a run
+with no terminal could publish from where it is standing — where the credential
+would come from (which variable, or the keychain), and what is missing with the
+fix for each, `--json` included. It looks at presence, never at a value: no
+secret is printed and nothing goes to the network, so it can tell you a token is
+there but not that it still works.
+
 ## More than a blog
 
 The sample project starts as a blog (`content/posts/`), but a crofty site is a
@@ -223,7 +230,7 @@ crofty connect    # save the Cloudflare API token used to deploy
 crofty deploy     # build the current site and publish it to Cloudflare Pages
 crofty analytics  # read your traffic (GA4) and search performance (Search Console)
 crofty validate   # check content against the crofty spec (v0)
-crofty doctor     # check the built site against the output contract
+crofty doctor     # check the built site, and whether a deploy would get through
 crofty share      # print a ready-to-post fragment (text + link) for any SNS
 crofty theme      # bring the theme onto disk to customize (eject tokens or full)
 crofty reset      # remove saved credentials (keychain) and state

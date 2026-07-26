@@ -42,7 +42,7 @@ func commands() []command {
 		{"deploy", "Build the current site and deploy it (Cloudflare Pages, SFTP, or FTPS)", runDeploy},
 		{"reset", "Remove saved credentials (keychain) and state", runReset},
 		{"validate", "Check content against the crofty spec (v0)", runValidate},
-		{"doctor", "Check the built site against the output contract", runDoctor},
+		{"doctor", "Check the built site, and whether a deploy would get through from here", runDoctor},
 		{"share", "Print a ready-to-post fragment (text + link) for any SNS", runShare},
 		{"credit", "Show or set the optional, removable \"Made with crofty\" footer line", runCredit},
 		{"theme", "Bring the theme onto disk to customize (eject tokens or full)", runTheme},

@@ -39,6 +39,14 @@ func (s *Store) Get(target, field string) (string, error) {
 	return v, err
 }
 
+// Has reports whether a secret exists for target/field. The value stays inside
+// this package: a report that only needs to say "there is a credential here"
+// should not be handed the credential to say it with.
+func (s *Store) Has(target, field string) bool {
+	v, err := s.Get(target, field)
+	return err == nil && v != ""
+}
+
 // Set stores (or replaces) a secret.
 func (s *Store) Set(target, field, value string) error {
 	return keyring.Set(service, s.account(target, field), value)
