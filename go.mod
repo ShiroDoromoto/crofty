@@ -4,7 +4,7 @@ go 1.26
 
 require (
 	github.com/fclairamb/ftpserverlib v0.32.1
-	github.com/jlaffaye/ftp v0.2.1
+	github.com/jlaffaye/ftp v0.2.2
 	github.com/pkg/sftp v1.13.11
 	github.com/spf13/afero v1.15.0
 	github.com/zalando/go-keyring v0.2.8
