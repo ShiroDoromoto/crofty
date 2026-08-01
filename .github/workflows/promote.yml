@@ -28,7 +28,7 @@ jobs:
   promote:
     runs-on: ubuntu-latest   # nothing is built, so the cheap runner is the right one
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           ref: v${{ inputs.version }}   # pin the version by checking out its tag
           fetch-depth: 0
@@ -36,7 +36,7 @@ jobs:
       # publish reuses the artifacts the release already carries, so nothing is
       # compiled here — but wharfy's Go path shells out to goreleaser and it must
       # be on PATH regardless.
-      - uses: goreleaser/goreleaser-action@v6
+      - uses: goreleaser/goreleaser-action@v7
         with:
           install-only: true
 
