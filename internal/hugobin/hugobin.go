@@ -32,10 +32,30 @@ import (
 // everything else — the way out when crofty picks the wrong one.
 const EnvOverride = "CROFTY_HUGO"
 
-const missing = "hugo not found.\n" +
-	"crofty wraps Hugo to build your site. Install the extended build\n" +
-	"(https://gohugo.io/installation/), then run the command again.\n" +
-	"If you already have one somewhere crofty can't see, name it: " + EnvOverride + "=/path/to/hugo"
+// missingMessage is what crofty says when no Hugo turned up anywhere. It parts
+// on the OS because the way out does. On Windows the answer is `crofty update`:
+// it swaps this crofty for the body that carries Hugo, without admin — and on a
+// Windows machine with an ARM chip it is the only answer, since Hugo publishes
+// no extended build for that arch (D-561), so "install the extended build"
+// cannot be followed there. macOS and Linux get an extended Hugo for either
+// arch, so installing one stays the plain answer and the message is unchanged.
+//
+// A crofty that cannot self-update is not sent astray by the pointer: a source
+// build and an install crofty doesn't recognize are both refused by `crofty
+// update`, which prints the way forward for the install it actually is.
+func missingMessage(goos string) string {
+	msg := "hugo not found.\ncrofty wraps Hugo to build your site. "
+	if goos == "windows" {
+		msg += "Run 'crofty update' — it\n" +
+			"replaces this crofty with the one that carries Hugo (no admin needed).\n" +
+			"Or install the extended build yourself (https://gohugo.io/installation/),\n" +
+			"though Hugo publishes none for Windows on ARM.\n"
+	} else {
+		msg += "Install the extended build\n" +
+			"(https://gohugo.io/installation/), then run the command again.\n"
+	}
+	return msg + "If you already have one somewhere crofty can't see, name it: " + EnvOverride + "=/path/to/hugo"
+}
 
 // Resolve returns the Hugo executable crofty should run, looking in three
 // places in turn:
@@ -71,7 +91,7 @@ func resolve(override, exe, goos string) (string, error) {
 	if bin, err := exec.LookPath("hugo"); err == nil {
 		return bin, nil
 	}
-	return "", errors.New(missing)
+	return "", errors.New(missingMessage(goos))
 }
 
 // Bundled reports whether a click installer's copy of Hugo sits with the crofty

@@ -98,6 +98,11 @@ fails the build is worse than none. Install
 `crofty preview` will tell you if it's missing. To point crofty at a particular
 one, set `CROFTY_HUGO=/path/to/hugo`.
 
+On Windows you don't have to: `crofty update` replaces a crofty installed by
+script with the same body the installer drops, Hugo included. That is the way in
+on a Windows machine with an ARM chip, where installing one yourself is not an
+option — Hugo publishes no extended build for that architecture.
+
 ### Updating
 
 Once crofty is installed, it updates itself:

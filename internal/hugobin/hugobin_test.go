@@ -207,6 +207,20 @@ func TestResolveReportsMissing(t *testing.T) {
 			t.Errorf("error %q does not mention %q", err, want)
 		}
 	}
+	// Windows is the one place where installing an extended Hugo may not be
+	// possible at all (none is published for ARM, D-561) and where crofty can hand
+	// one over instead, so that route is named there and only there. Whoever ran
+	// the click installer never reads this — their Hugo is bundled, which
+	// TestResolveFindsBundled covers on windows too.
+	if strings.Contains(err.Error(), "crofty update") {
+		t.Errorf("error %q sends a macOS author to 'crofty update', which brings no Hugo there", err)
+	}
+	winErr := missingMessage("windows")
+	for _, want := range []string{"crofty update", EnvOverride} {
+		if !strings.Contains(winErr, want) {
+			t.Errorf("the windows message %q does not mention %q", winErr, want)
+		}
+	}
 }
 
 // A directory named hugo is not a Hugo.
