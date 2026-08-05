@@ -93,7 +93,9 @@ packaging/release-installers.sh X.Y.Z [outdir]   # from repo root, after `wharfy
 It builds a universal `.pkg` (arm64+amd64, ad-hoc signed) and the amd64 `.exe`,
 each with its Hugo, plus the `crofty update` payloads (the same bodies, as a
 tar.gz / zip with a sha256 checksums file), then attaches them all to the release
-with `--clobber`. Rare win/arm64 users fall back to the install script. The
+with `--clobber`. That one `.exe` is the Windows route for arm64 machines too —
+they run it emulated, since Hugo has no extended windows/arm64 build to bundle
+(D-561), and `crofty update` fetches the same amd64 body there. The
 `.pkg` runs about 47 MB and the `.exe` about 28 MB — Hugo is most of that.
 Passing `outdir` keeps the files after the upload, which is how CI attests their
 build provenance: wharfy never sees these assets, and provenance covering only

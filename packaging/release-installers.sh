@@ -41,8 +41,9 @@ codesign --force --sign - "$OUT/crofty"   # ad-hoc (certificate-free) so it runs
 HUGO_MAC="$("$HERE/hugo.sh" darwin-universal "$OUT")"
 "$HERE/macos/build-pkg.sh" "$VERSION" "$OUT/crofty" "$HUGO_MAC" "$OUT/crofty.pkg"
 
-# --- Windows: amd64 NSIS installer -> %LOCALAPPDATA%\crofty\bin (covers the vast
-#     majority; rare win/arm64 users use the script) ---
+# --- Windows: amd64 NSIS installer -> %LOCALAPPDATA%\crofty\bin. One build is
+#     the route for every Windows machine, arm64 ones included — they run it
+#     emulated, since Hugo has no extended windows/arm64 build to bundle (D-561) ---
 WIN_AMD="$(ls -d "$DIST"/crofty_windows_amd64*/crofty.exe 2>/dev/null | head -1)"
 : "${WIN_AMD:?windows amd64 binary not found in $DIST — run 'wharfy build' first}"
 HUGO_WIN="$("$HERE/hugo.sh" windows-amd64 "$OUT")"

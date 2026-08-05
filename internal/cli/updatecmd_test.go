@@ -102,6 +102,19 @@ func TestManifestPlatformKey(t *testing.T) {
 	}
 }
 
+// A Windows arm64 machine is meant to update to the amd64 body, the same one an
+// amd64 machine gets (D-561) — Hugo has no extended windows/arm64 build, so a
+// native crofty would buy nothing and cost a second payload. That is what update
+// already does; this test is what makes it the intent, so that "the arch isn't
+// checked" reads as the decision it is rather than as a bug worth fixing.
+func TestWindowsBodyAssetIgnoresArch(t *testing.T) {
+	for _, goarch := range []string{"amd64", "arm64"} {
+		if got := windowsBodyAsset(goarch); got != "crofty-body-windows-amd64.zip" {
+			t.Errorf("windowsBodyAsset(%q) = %q; want the amd64 body", goarch, got)
+		}
+	}
+}
+
 func TestVerifyChecksum(t *testing.T) {
 	data := []byte("the update payload")
 	sum := sha256.Sum256(data)

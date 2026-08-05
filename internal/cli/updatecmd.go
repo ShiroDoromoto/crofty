@@ -52,9 +52,9 @@ const (
 
 	// The .pkg / .exe bodies and their shared checksums have fixed names, so
 	// /latest/download reaches them without first learning the version.
-	updateBodyDarwinURL    = releaseDownloadBase + "/latest/download/crofty-body-darwin-universal.tar.gz"
-	updateBodyWindowsURL   = releaseDownloadBase + "/latest/download/crofty-body-windows-amd64.zip"
-	updateBodyChecksumsURL = releaseDownloadBase + "/latest/download/crofty-body-checksums.txt"
+	updateBodyBase         = releaseDownloadBase + "/latest/download/"
+	updateBodyDarwinURL    = updateBodyBase + updateBodyDarwinAsset
+	updateBodyChecksumsURL = updateBodyBase + "crofty-body-checksums.txt"
 	updateBodyDarwinAsset  = "crofty-body-darwin-universal.tar.gz"
 	updateBodyWindowsAsset = "crofty-body-windows-amd64.zip"
 
@@ -251,6 +251,18 @@ func swapDarwinBody(archive []byte, root string) error {
 	return nil
 }
 
+// windowsBodyAsset names the body to fetch on Windows. It takes the arch and
+// ignores it on purpose: every Windows machine gets the amd64 body, arm64 ones
+// included (D-561). Hugo publishes no extended windows/arm64 build, so an arm64
+// crofty would still drive an emulated Hugo — where all the work happens — while
+// costing a second installer and a second update payload for nothing. Taking
+// goarch is what keeps that a stated choice rather than a missing check; when
+// Hugo ships extended windows/arm64, this is where the choice is revisited.
+func windowsBodyAsset(goarch string) string {
+	_ = goarch // deliberately not consulted — see above
+	return updateBodyWindowsAsset
+}
+
 // updateWindowsBody updates a %LOCALAPPDATA%\crofty\bin install (the click
 // installer / install.ps1). The body is flat — crofty.exe beside hugo.exe — so
 // update swaps both. That directory is per-user, so no admin is needed; the extra
@@ -272,7 +284,8 @@ func updateWindowsBody(exe string) error {
 	}
 	fmt.Printf("Updating crofty %s → %s …\n", Version, m.Version)
 
-	archive, err := fetchBytes(updateBodyWindowsURL)
+	asset := windowsBodyAsset(runtime.GOARCH)
+	archive, err := fetchBytes(updateBodyBase + asset)
 	if err != nil {
 		return downloadRefusal("the update", err)
 	}
@@ -280,7 +293,7 @@ func updateWindowsBody(exe string) error {
 	if err != nil {
 		return downloadRefusal("the checksums", err)
 	}
-	if err := verifyChecksum(archive, updateBodyWindowsAsset, string(sums)); err != nil {
+	if err := verifyChecksum(archive, asset, string(sums)); err != nil {
 		return checksumRefusal(err)
 	}
 	if err := swapWindowsBody(archive, exe); err != nil {
