@@ -30,16 +30,16 @@ jobs:
     # the binaries wharfy just built — so build and installers share one job.
     runs-on: macos-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0   # wharfy takes the version from the git tag; a shallow clone carries none
 
-      - uses: actions/setup-go@v5
+      - uses: actions/setup-go@v7
         with:
           go-version-file: go.mod
           cache: true
 
-      - uses: goreleaser/goreleaser-action@v6
+      - uses: goreleaser/goreleaser-action@v7
         with:
           install-only: true   # wharfy's Go build path shells out to it
 
@@ -72,7 +72,7 @@ jobs:
       # attest the exact bytes release-installers.sh just uploaded: the two click
       # installers, and the update payloads `crofty update` self-fetches (D-339,
       # the bodies plus their checksums file).
-      - uses: actions/attest-build-provenance@v2
+      - uses: actions/attest-build-provenance@v4
         with:
           subject-path: |
             dist/installers/crofty.pkg
